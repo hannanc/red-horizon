@@ -38,6 +38,11 @@ This file covers how the code works, the rules, and what to build next.
   `sailable()` is true. `canMove(u, x, y)` picks the right test, `findPath` and `freeTileNear` take one as an argument,
   and `bareOcc(i)` is what a tile reverts to when a building on it goes.
   The sea is a band along the west and north edges (`TerrainGen.seaVal` in `js/terrain.js`, folded into `lakeVal`).
+- **Height:** one plateau (`TerrainGen.PLATEAU`, `elevation(u, v)` 0..1, `CLIFF_H` iso px). The painter raycasts each
+  screen column to draw its raised top and rock faces. Cliff tiles are `BLOCKED` (set in `setupScenery`); the ramps
+  (`onRamp`) are open. `groundZ(x, y)` gives the height at a world point: draw anything standing on the ground with
+  `isoAt(x, y, z)` instead of `toIso`, and map the mouse with `pickWorld()`. Nothing is built on it (`canPlace`), and
+  `highGround()` adds a tile of range when shooting down.
 - **Teams:** `PLAYER = 0`, `ENEMY = 1` (the AI), `NEUTRAL = 2` (civilian town). `FACTION[team]` is the side
   (`'allied'` / `'soviet'`) and picks the sprite set; the player is Allied unless the setup screen says otherwise.
   Use `FACTION[...]` and `SIDE_NAME`, not hard-coded side names, in anything that depends on who plays what.
@@ -145,7 +150,7 @@ so code-only work can land first and the art can follow.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `world()` (water and tree layout, for seed tests), `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `world()` (water and tree layout, for seed tests), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
@@ -198,9 +203,9 @@ fallback drawing.
 6. **Done: Naval (code plus art).** Models `shipyard`, `lander`, `frigate`, `picket`, `sub`, `flakboat` written, not rendered yet. Needs a map with a real sea (terrain generation,
    plus water pathing for ships), a Shipyard, transports that carry vehicles,
    destroyers, subs and AA cruisers. This is the biggest item.
-7. **Polish:**
+7. **Done: Polish:**
    - Done: animated explosion sprites (model `explosion` written, not rendered yet)
-   - terrain height levels and cliffs
+   - Done: terrain height levels and cliffs (one plateau with ramps; a map generator could place more)
    - Done: a gun on the Soviet ore truck (model updated, not rendered yet), and teleport-to-refinery for the Allied hauler
    - Done: AI engineers that capture player buildings (`aiEngineers`)
    - Done: a skirmish setup screen (map seed, starting credits, pick a side)
