@@ -22,6 +22,7 @@ export function toWorld(ix, iy){ const a = ix - WPX; return {x: iy + a * 0.5, y:
 // height of the ground (iso px) at a world point: only the plateau is raised
 export function groundZ(x, y){
   const P = TerrainGen.PLATEAU, u = x / T, v = y / T;
+  if(!P) return 0;
   if(Math.abs(u - P.x) > P.r + 3 || Math.abs(v - P.y) > P.r + 3) return 0;
   return TerrainGen.elevation(u, v) * TerrainGen.CLIFF_H;
 }
@@ -57,7 +58,7 @@ export const doodads = [];                          // trees and rocks: {x, y, n
 export const flags = {shroudDirty: true, mmBaseDirty: true};
 
 // noise, roads and lakes live in js/terrain.js (shared with the paint workers)
-export const {hash2, vnoise, ROADS, TOWN, roadHits, lakeVal} = TerrainGen;
+export const {hash2, vnoise, roadHits, lakeVal} = TerrainGen;
 export const onRoad = (x, y) => roadHits(x + 0.5, y + 0.5).some(h => h.d < 1.2);
 
 
@@ -264,10 +265,11 @@ export function tileOf(e){ return {x: Math.floor(e.x / T), y: Math.floor(e.y / T
 export function clamp(v, a, b){ return v < a ? a : v > b ? b : v; }
 
 // skirmish setup: side, starting credits and map seed, remembered between games
-export const setup = {side: 'allied', credits: 8000, seed: 1};
+export const setup = {side: 'allied', credits: 8000, map: 'classic', seed: 1};
 try { Object.assign(setup, JSON.parse(localStorage.getItem('rh-setup') || '{}')); } catch(e){}
 if(!SIDE_NAME[setup.side]) setup.side = 'allied';
 if(![5000, 8000, 12000].includes(setup.credits)) setup.credits = 8000;
+if(!TerrainGen.MAPS[setup.map] && setup.map !== 'random') setup.map = 'classic';
 setup.seed = clamp(Math.floor(setup.seed) || 1, 1, 99999);
 
 

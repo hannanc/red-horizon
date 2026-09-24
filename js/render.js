@@ -155,7 +155,7 @@ export function feedWorker(w){
   if(id == null){ w.terminate(); return; }
   chunks[id] = 'pending';
   const px = CHUNK * TERRAIN_SCALE;
-  w.postMessage({id, ix0: (id % chunkCols) * CHUNK, iy0: Math.floor(id / chunkCols) * CHUNK, w: px, h: px, scale: TERRAIN_SCALE, seed: setup.seed});
+  w.postMessage({id, ix0: (id % chunkCols) * CHUNK, iy0: Math.floor(id / chunkCols) * CHUNK, w: px, h: px, scale: TERRAIN_SCALE, map: TerrainGen.map});
 }
 export function finishChunk(id, data){
   const px = CHUNK * TERRAIN_SCALE;

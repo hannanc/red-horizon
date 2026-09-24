@@ -15,7 +15,10 @@ http rather than opened from disk). The start screen sets up the skirmish:
 
 - **Side:** play the Allies or the Soviets; the AI takes the other side.
 - **Credits:** 5,000, 8,000 or 12,000 to start with (the AI's start scales with it).
-- **Map seed:** any number gives its own lakes, coastline and woods; 1 (Classic) is the original map.
+- **Map:** Classic, Twin Lakes (two lakes split the middle into three lanes), Highland Pass (a big central
+  plateau with rich ore on top) or Random.
+- **Seed:** picks the random map (bases in opposite corners, ore and lakes mirrored so neither side is
+  favoured) and the game's luck; the same seed replays the same game.
 - **Difficulty:** Easy, Normal or Hard sets the AI's income, how fast and how well it builds its base, its army size
   and how often and how hard it attacks. The AI starts from a Construction Hub, like you, and builds up from there.
 
