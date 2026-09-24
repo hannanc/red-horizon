@@ -25,7 +25,9 @@ Right-click gives orders.
 | Force-fire, or attack-move on open ground | Ctrl + right-click |
 | Deploy the Construction Vehicle | `D`, or click the selected vehicle again |
 | Capture an enemy building, or fully repair your own | Right-click it with an Engineer selected |
-| Board a transport / unload it | Right-click the transport with infantry selected / `D`, or click the selected transport again |
+| Board a transport / unload it | Right-click the transport with infantry selected / `D`, or click the selected transport again (a helicopter lands first) |
+| Bomb run with a Talon Jet | Right-click a ground target; the jet drops its bombs, flies back to a free Airfield pad and rearms |
+| Send jets home | Right-click an Airfield |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
@@ -36,14 +38,19 @@ Right-click gives orders.
 
 The minimap only works while you have a powered Radar.
 
+Aircraft fly straight over water, trees and buildings. Only rockets (Rocket
+Soldiers, AT Troopers, the Ranger IFV) and the halftrack's flak can hit them.
+
 ## Units
 
 Each side has its own roster.
 
 | | Allied | Soviet |
 | --- | --- | --- |
-| Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour) |
+| Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry), Skytrooper (jetpack; hovers over obstacles, needs an Airfield) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour) |
 | Vehicles | Warden Tank, Ranger IFV (carries 1; its weapon changes with the passenger, and an Engineer inside repairs nearby vehicles), Lancer Tank (beam that arcs to nearby enemies), Paladin Tank, Ore Hauler, Construction Vehicle | Bison Tank, Bulwark Halftrack (carries 5, flak gun), Siege Launcher (long-range missile artillery), Leech Drone (crawls into vehicles and eats them from within), Ironclad Tank, Ore Truck, Construction Vehicle |
+| Aircraft | Talon Jet (one bomb run, then rearms on an Airfield pad; two jets per Airfield), Shade Transport (helicopter for 5 infantry; the enemy can't see it in flight unless something is close) | Tempest Airship (very slow and tough, bombs what's below it, repairs itself) |
+| Structures | Airfield (builds jets and the helicopter, and rearms jets) | |
 
 ## Display
 

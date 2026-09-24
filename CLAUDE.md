@@ -40,15 +40,24 @@ This file covers how the code works, the rules, and what to build next.
   - `side: 'allied' | 'soviet'` makes a unit exclusive to one side (`available()`).
   - `TAB_ITEMS` sets the sidebar order.
   - `SOV_NAME` gives Soviet display names for shared units.
-- **Weapons:** `{dmg, rof, range (tiles), kind, vs: {inf, heavy, building}}`.
+- **Weapons:** `{dmg, rof, range (tiles), kind, vs: {inf, heavy, building, air}}`.
   - `vs` of 0 means the weapon can't hurt that armour class; targeting skips such targets.
+  - A missing `vs.air` means 0 (`vsMult`): only weapons that list `air` (rockets, flak, IFV missiles) can hit aircraft.
   - Always read a unit's weapon through `weaponOf(e)`, because the IFV swaps weapons with its passenger.
-  - Kinds are handled in `fireWeapon()`: `bullet`, `shell`, `rocket`, `flak` (projectiles), `beam` (with `chain`), `arc`, `snipe` (instant hit), `bite` (melee), `latch` (drone), and `missile` (lobbed, with `splash`).
+  - Kinds are handled in `fireWeapon()`: `bullet`, `shell`, `rocket`, `flak` (projectiles), `beam` (with `chain`), `arc`, `snipe` (instant hit), `bite` (melee), `latch` (drone), `missile` (lobbed, with `splash`) and `bomb` (dropped from altitude, with `splash`).
 - **Units:**
   - `spawnUnit` builds the unit object; `updateUnit` dispatches on its state.
   - Special cases go through their own update functions: `inside` (riding a transport), `latched` (a drone inside a vehicle), `order.type === 'board'`, harvester, engineer.
   - `onMap(u)` is false for riders and latched drones. Use it whenever you look for targets, selectable units or units to draw.
   - `u.fac` is the sprite faction. Captured buildings keep their original `b.fac` and only change `team`.
+  - Use `isInf(def)` for "is a foot soldier": it covers jetpack troops, whose armour is `air`.
+- **Aircraft** (`def.air`):
+  - `u.z` is the altitude in px (`def.alt` when flying). `orderMove` gives them a single straight waypoint and `followPath` ignores `occ`; ground and air units don't push each other.
+  - Drawn in their own pass after all ground entities: shadow at `toIso(x, y)`, sprite shifted up by `z`. `pickEntity`, `screenBox` and box-select account for `z`.
+  - Jets (`def.jet`, `updateJet`): parked on an Airfield pad (`u.pad = {b, i}`, `padPos`, `freePad`), one bomb run per `def.ammo`, then back to a pad to rearm for `def.rearm` seconds. With no pad they circle.
+  - The helicopter (`def.lands`, `updateHeli`) lands whenever it's idle. Infantry board it only on the ground; `unloadTransport` makes it land first.
+  - The airship has `selfRepair` (hp/s). The AI builds one every few minutes (`airshipDue`) outside its army cap.
+- **Stealth** (`def.stealth`): `stealthTick` sets `u.revealed` when an enemy is within about 2.5 tiles, the unit fired in the last 3 s, or (helicopter) it has landed. `hiddenFrom(u, team)` hides it from targeting, picking, drawing and the minimap.
 - **Orders:** the `order.type` values are `idle`, `move`, `attack`, `attackmove`, `capture` (engineer) and `board`.
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.
 - **AI** (`tickAI`): one production queue (`ai.prodQ`), attack waves on a timer, and `aiTransports()` to fill and unload halftracks.
@@ -84,11 +93,13 @@ so code-only work can land first and the art can follow.
   ```
   The tests are headless Chromium, run by Playwright against `tools/serve.py` on port 8399.
   - `tests/units.spec.js`: a scenario per unit ability.
+  - `tests/air.spec.js`: aircraft, the air armour class, jets and the Airfield, stealth.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `clear(tx, ty, w, h)`
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `deliver(key, team)` (as if a factory
+  finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
   Tests call `start()` then `pause(true)`, so the real-time clock is stopped and only `step()` moves the game.
@@ -100,7 +111,7 @@ so code-only work can land first and the art can follow.
 tasks also need new models rendered locally; do the code part first with the
 fallback drawing.
 
-1. **Aircraft (code plus art).**
+1. **Done: Aircraft (code plus art).**
    - An altitude layer: units with `air: true` ignore `occ` and path in straight lines, draw higher with a ground shadow, and sort last.
    - A new armour class `air`: most weapons get `vs.air = 0`; flak, rockets and the IFV missiles get `air > 0`.
    - An Airfield building where jets land and rearm (limited ammo per sortie).
