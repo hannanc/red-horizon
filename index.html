@@ -1132,12 +1132,13 @@ function fireWeapon(e, target){
   effects.push({type:'muzzle', x: e.x, y: e.y, z: zSrc, a: Math.atan2(target.y - e.y, target.x - e.x), t: 0, dur: 0.07});
 }
 
+// shooting down from the plateau reaches a tile further
+const highGround = (a, b) => groundZ(a.x, a.y) > TerrainGen.CLIFF_H * 0.9 && groundZ(b.x, b.y) < TerrainGen.CLIFF_H * 0.5 && !a.def.air ? 1 : 0;
+
 function combatStep(u, target, dt){
   const w = weaponFor(u, target);
   const pad = target.kind === 'building' ? Math.max(target.w, target.h) * T * 0.4 : 0;
-  // shooting down from the plateau reaches a tile further
-const highGround = (a, b) => groundZ(a.x, a.y) > TerrainGen.CLIFF_H * 0.9 && groundZ(b.x, b.y) < TerrainGen.CLIFF_H * 0.5 && !a.def.air ? 1 : 0;
-// hand-placed charges and bombs reach a building's walls, not just near its middle
+  // hand-placed charges and bombs reach a building's walls, not just near its middle
   const d = target.kind === 'building' && w.range <= 1 ? Math.hypot(u.x - clamp(u.x, target.tx * T, (target.tx + target.w) * T),
                                                                    u.y - clamp(u.y, target.ty * T, (target.ty + target.h) * T))
                                                         : dist(u, target) - pad;
