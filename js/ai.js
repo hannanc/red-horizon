@@ -4,6 +4,7 @@ import {ENEMY, FACTION, NEUTRAL, PLAYER, SIDE_NAME, T, UNIT_DEFS, buildings, dis
 import {orderMove} from './pathfinding.js';
 import {announce, sfx} from './ui.js';
 import {canBoard, canGarrison, deliverUnit, engineerCan, fooledBy, hiddenFrom, onFootprint, prodQ, unloadTransport} from './units.js';
+import {rand} from './rng.js';
 
 // ---------- enemy AI ----------
 // Difficulty scales the AI's economy (start credits, trickle income, ore payout) and aggression; the player's side is the same on every level.
@@ -71,9 +72,9 @@ export function tickAI(dt){
 
   if(!ai.prodKey){
     ai.prodKey = ai.prodQ[ai.prodI % ai.prodQ.length];
-    if(state.time > 240 * diff.tech && Math.random() < 0.25) ai.prodKey = 'htank';
-    if(state.time > 150 * diff.tech && Math.random() < 0.3) ai.prodKey = 'ltank';
-    if(FACTION[ENEMY] === 'soviet' && state.time > 200 * diff.tech && Math.random() < 0.12 &&
+    if(state.time > 240 * diff.tech && rand() < 0.25) ai.prodKey = 'htank';
+    if(state.time > 150 * diff.tech && rand() < 0.3) ai.prodKey = 'ltank';
+    if(FACTION[ENEMY] === 'soviet' && state.time > 200 * diff.tech && rand() < 0.12 &&
        units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'psion').length < 2) ai.prodKey = 'psion';
     // now and then an engineer to steal one of the player's buildings
     if(state.time > 180 * diff.tech && state.time > ai.engT && !units.some(u => u.team === ENEMY && !u.dead && u.def.engineer)){
@@ -196,7 +197,7 @@ export function aiInfantry(){
       if(!u.deployed && near(2.5)) u.deployed = true;
       else if(u.deployed && !near(4)) u.deployed = false;
     }
-    if(u.role !== 'attacker' || !canGarrison(u.def) || (u.order.type !== 'attack' && u.order.type !== 'attackmove') || Math.random() > 0.3) continue;
+    if(u.role !== 'attacker' || !canGarrison(u.def) || (u.order.type !== 'attack' && u.order.type !== 'attackmove') || rand() > 0.3) continue;
     const b = buildings.find(b => !b.dead && b.def.garrison && (b.team === NEUTRAL || b.team === ENEMY) && b.cargo.length < 3 &&
                                   dist(u, b) < 5 * T && units.some(v => onMap(v) && v.team === PLAYER && dist(v, b) < 8 * T));
     if(b){ u.order = {type:'board', target: b}; u.repathT = 0; }
@@ -231,7 +232,7 @@ export function aiRepairs(dt){
     if(!onMap(u) || u.team !== ENEMY || u.def.armor !== 'heavy' || u.def.air || u.def.naval || u.def.harvester || u.role === 'attacker') continue;
     if(u.order.type === 'idle' && u.hp < u.maxHp * 0.6 && !onFootprint(u, depot)){
       u.order = {type: 'move'};
-      orderMove(u, depot.x + (Math.random() - 0.5) * T, depot.y + (Math.random() - 0.5) * T);
+      orderMove(u, depot.x + (rand() - 0.5) * T, depot.y + (rand() - 0.5) * T);
     }
   }
 }

@@ -1,7 +1,7 @@
 # Red Horizon: notes for Claude
 
 A classic 2.5D isometric RTS in the browser. There is no build step: plain HTML,
-JS and pre-rendered sprite sheets. The README covers controls and the unit list.
+JS (ES modules) and pre-rendered sprite sheets. The README covers controls and the unit list.
 This file covers how the code works, the rules, and what to build next.
 
 ## Rules
@@ -13,21 +13,41 @@ This file covers how the code works, the rules, and what to build next.
   commit messages. "Allied" and "Soviet" are fine because they are historical terms.
 - The original game is only a reference for *feel*: gameplay, the isometric look
   and sidebar UX. Don't copy its assets or text.
-- Keep the style of the surrounding code: one big `index.html` script with plain
-  functions, terse comments, and no frameworks or build tools.
+- Keep the style of the surrounding code: plain functions in the ES modules under `js/`,
+  terse comments, and no frameworks or build tools.
+- Anything the simulation decides at random uses `rand()` from `js/rng.js`, never `Math.random()`,
+  so a seed replays the same game. Drawing and sound may use `Math.random()`.
 
 ## Layout
 
 | Path | What |
 | --- | --- |
-| `index.html` | The whole game: HUD markup, CSS, and one `<script>` with all the logic (about 3000 lines) |
+| `index.html` | HUD markup and CSS; loads `js/terrain.js`, `js/sprites.js` (classic scripts) and `js/main.js` (module) |
+| `js/data.js` | Constants, `BUILD_DEFS` / `UNIT_DEFS`, world state (map layers, `units`, `buildings`, `effects`, `state`, `selection`, `setup`) and small helpers (`dist`, `clamp`, `isoAt`, `groundZ`, `weaponOf`, ...) |
+| `js/rng.js` | `rand()`, the seedable random numbers the simulation uses (`seedRandom`, `randState`) |
+| `js/pathfinding.js` | A* (`findPath`), `freeTileNear`, `orderMove` |
+| `js/combat.js` | `weaponFor` / `canHurt`, damage and death, `fireWeapon`, `combatStep`, projectiles, splash |
+| `js/units.js` | Building placement, `spawnUnit`, production, harvesters, `updateUnit` and every unit behaviour (aircraft, transports, engineers, garrisons, specialists, depot) |
+| `js/ai.js` | `DIFFICULTY`, the `ai` state and `tickAI` with its helpers |
+| `js/render.js` | Canvas, zoom and camera size, terrain chunks and workers, sprite and fallback drawing, effects, `draw()`, the minimap |
+| `js/ui.js` | Sound and speech, announcer, sidebar, mouse and keyboard input (`initUI`), `issueCommand`, sell/repair, the HUD |
+| `js/main.js` | Map setup, `tick()` and the fixed-step `loop()`, `newWorld()`, the start screen, `window.__RH` |
 | `js/sprites.js` | `Sprites`: loads `assets/sprites/manifest.json`, tints team colour, and has draw, facing and bbox helpers |
 | `js/terrain.js`, `js/terrain-worker.js` | Procedural ground painting (noise, roads, lakes), run in a worker pool |
 | `tools/serve.py` | No-cache dev server: `python3 tools/serve.py 8347`, then open http://localhost:8347 |
 | `tools/sprites/` | Blender pipeline: `rh_lib.py` (scene, camera, shapes), `rh_models.py` (models), `build_sprites.py` (what to render) |
 | `assets/sprites`, `assets/cameos` | Rendered sheets and sidebar pictures, committed to git |
 
-## How the game works (`index.html`)
+## How the game works (`js/`)
+
+- **Modules:** each file exports its top-level functions and constants and imports what it uses; the import
+  graph has cycles, which is fine for functions. Top-level code in a module may only touch its own and
+  `data.js`'s bindings (listeners that need the canvas are registered in `initUI()`, called by `main.js`).
+  A module can't assign another module's `let`, so shared mutable state lives in objects (`state`, `flags`, `ai`,
+  `setup`), in arrays changed in place (`selection` via `setSelection`), or behind a function (`newId()`).
+- **Time:** `loop()` runs `tick(STEP)` in fixed steps of `STEP = 1/30` s from an accumulator and redraws every frame.
+  `__RH.step(seconds)` runs `round(seconds / STEP)` steps. `newWorld()` reseeds `rand()` from the map seed, so a
+  seed plus the same inputs gives the same game.
 
 - **World:** 64x64 tiles, `T = 32` world px per tile. Logic runs on the square
   grid. `toIso` / `toWorld` convert to 2:1 isometric screen space.
@@ -122,7 +142,7 @@ This file covers how the code works, the rules, and what to build next.
    ```bash
    /Applications/Blender.app/Contents/MacOS/Blender -b --factory-startup -P tools/sprites/build_sprites.py -- --only <key>
    ```
-4. **Game:** add a `UNIT_DEFS` entry, add it to `TAB_ITEMS`, and add it to `ai.prodQ` if the AI should build it.
+4. **Game:** add a `UNIT_DEFS` entry (`js/data.js`), add it to `TAB_ITEMS` (`js/ui.js`), and to `AI_QUEUE` (`js/ai.js`) if the AI should build it.
 5. **Docs:** update the README unit table and the in-game help if it adds a control.
 
 Without step 3 the unit still works but uses the procedural fallback drawing,
@@ -148,6 +168,7 @@ so code-only work can land first and the art can follow.
   - `tests/setup.spec.js`: the skirmish setup screen (side, credits, seed).
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
+  - `tests/determinism.spec.js`: the same seed replays the same game.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
   `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `world()` (water and tree layout, for seed tests), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
@@ -155,7 +176,9 @@ so code-only work can land first and the art can follow.
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
   Tests call `start()` then `pause(true)`, so the real-time clock is stopped and only `step()` moves the game.
-- **Syntax only:** extract the main `<script>` and run `node --check` on it.
+- **Syntax only:** `node --check --experimental-default-type=module js/<file>.js`.
+- `tests/determinism.spec.js` plays four simulated minutes twice with one seed and compares every unit and building.
+- The game uses ES modules, so it must be served over http (`tools/serve.py`); opening `index.html` from disk won't work.
 
 ## Next tasks (recommended order)
 
