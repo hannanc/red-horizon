@@ -54,7 +54,8 @@ const aiHQ = () => buildings.find(b => !b.dead && b.team === ENEMY && b.def.key 
 function playerHome(){
   const b = buildings.find(b => !b.dead && b.team === PLAYER && b.def.key === 'conyard') ||
             buildings.find(b => !b.dead && b.team === PLAYER && !b.def.garrison);
-  return b ? {x: b.x, y: b.y} : {x: 9.5 * T, y: 51.5 * T};
+  const s = TerrainGen.map.bases[0];
+  return b ? {x: b.x, y: b.y} : {x: (s.x + 0.5) * T, y: (s.y + 0.5) * T};
 }
 
 // The structure the AI wants next: its plan in order, with power first whenever the

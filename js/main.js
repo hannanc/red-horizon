@@ -1,7 +1,7 @@
 // Red Horizon: Map setup, the main loop, world (re)building, the start screen and the window.__RH test handle.
 import {AI_QUEUE, DIFFICULTY, ai, diff, setDifficulty, tickAI} from './ai.js';
 import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js';
-import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, ROADS, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, TOWN, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf, settings, saveSettings} from './data.js';
+import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf, settings, saveSettings} from './data.js';
 import {orderMove, findPath} from './pathfinding.js';
 import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers, setZoom} from './render.js';
 import {initUI, announce, audio, buildSidebar, clockEl, drawHUD, groups, sfx, speak, tickCamera} from './ui.js';
@@ -65,12 +65,14 @@ export function setupScenery(){
       const nb = [E[idx(x + 1, y)], E[idx(x - 1, y)], E[idx(x, y + 1)], E[idx(x, y - 1)]];
       if((E[i] > 0 && E[i] < 0.999) || (E[i] >= 0.999 && nb.some(e => e < 0.999))) occ[i] = BLOCKED;
     }
-  // tree clumps and rocks, kept clear of bases, ore fields, the plateau and the map edge
-  const keepClear = [[9, 51, 11], [53, 9, 11], [14, 47, 6], [49, 16, 6], [32, 32, 7], [50, 50, 5], [13, 13, 5],
-                     [TOWN.x, TOWN.y, 8], [P.x, P.y, P.r + 3]];
+  // tree clumps and rocks, kept clear of bases, ore fields, the town, the plateau and the map edge
+  const map = TerrainGen.map, [home, hub] = map.bases;
+  const keepClear = [[home.x, home.y, 11], [hub.x + 1, hub.y + 1, 11], ...map.ore.map(([x, y, r]) => [x, y, r + 2])];
+  if(map.town) keepClear.push([map.town.x, map.town.y, 8]);
+  if(P) keepClear.push([P.x, P.y, P.r + 3]);
   const clear = (x, y) => x > 1 && y > 1 && x < MW - 2 && y < MH - 2 && occ[idx(x, y)] === 0 && !onRoad(x, y) &&
     keepClear.every(([cx, cy, r]) => Math.hypot(x - cx, y - cy) > r);
-  let s = 777 + (setup.seed - 1) * 7919;   // the map seed moves the trees and rocks too
+  let s = map.trees;                       // each map has its own woods
   const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const trees = Sprites.get('tree'), rocks = Sprites.get('rock');
   if(!trees) return;
@@ -96,14 +98,15 @@ export function setupScenery(){
 
 // a small neutral town around the crossroads
 export function setupTown(){
-  const lots = [[19, 36], [16, 36], [25, 36], [28, 36], [19, 42], [16, 42], [25, 42], [28, 42], [19, 45], [25, 33]];
-  lots.forEach(([x, y], i) => {
+  const map = TerrainGen.map;
+  (map.town ? map.town.lots : []).forEach(([x, y], i) => {
+    if(!inMap(x, y) || !inMap(x + 1, y + 1)) return;
     for(let yy = y; yy < y + 2; yy++) for(let xx = x; xx < x + 2; xx++) if(occ[idx(xx, yy)] !== 0) return;
     const b = placeBuilding('civ', x, y, NEUTRAL, true);
     b.variant = (i * 5 + 1) % 6;
   });
   if(!Sprites.get('lamp')) return;
-  for(const R of ROADS)
+  for(const R of map.roads)
     for(let a = R.from + 2; a < R.to - 1; a += 4){
       const x = R.axis === 'x' ? a : R.c + 1.3, y = R.axis === 'x' ? R.c + 1.3 : a;
       doodads.push({kind: 'doodad', name: 'lamp', frame: 0, tx: Math.floor(x), ty: Math.floor(y), x: x * T, y: y * T});
@@ -111,28 +114,28 @@ export function setupTown(){
 }
 
 export function setupMap(){
+  const map = TerrainGen.map;
   setupScenery();
   setupTown();
-  seedOre(14, 47, 4, 500);
-  seedOre(49, 16, 4, 500);
-  seedOre(32, 32, 5, 650);
-  seedOre(50, 50, 3, 450);
-  seedOre(13, 13, 3, 450);
+  for(const [x, y, r, amount] of map.ore) seedOre(x, y, r, amount);
 
-  const mcv = spawnUnit('mcv', 9.5 * T, 51.5 * T, PLAYER);
-  mcv.face = -Math.PI / 4;
+  // the player: a construction vehicle and a few units at the first base, facing the middle of the map
+  const b0 = map.bases[0], sx = Math.sign(32 - b0.x), sy = Math.sign(32 - b0.y);
+  const mcv = spawnUnit('mcv', (b0.x + 0.5) * T, (b0.y + 0.5) * T, PLAYER);
+  mcv.face = Math.atan2(sy, sx);
   setSelection([mcv]);
-  for(const [x, y] of [[11.5, 48.5], [12.2, 49.2], [12.9, 49.9]]) spawnUnit('rifle', x * T, y * T, PLAYER);
-  spawnUnit('ltank', 13 * T, 52 * T, PLAYER);
-  revealAround(9.5 * T, 51.5 * T, 11);
+  for(const [ox, oy] of [[2.5, 2.5], [3.2, 1.8], [3.9, 1.1]]) spawnUnit('rifle', (b0.x + ox * sx) * T, (b0.y + oy * sy) * T, PLAYER);
+  spawnUnit('ltank', (b0.x + 4 * sx) * T, (b0.y - sy) * T, PLAYER);
+  revealAround((b0.x + 0.5) * T, (b0.y + 0.5) * T, 11);
 
   // the AI starts like the player, from a construction hub and a few units, and builds its own base (aiBase)
-  placeBuilding('conyard', 52, 8, ENEMY, true);
-  spawnUnit('rifle', 51 * T, 15 * T, ENEMY);
-  spawnUnit('rifle', 52 * T, 16 * T, ENEMY);
-  spawnUnit('ltank', 55 * T, 16.5 * T, ENEMY);
+  const b1 = map.bases[1], ex = Math.sign(32 - b1.x), ey = Math.sign(32 - b1.y);
+  placeBuilding('conyard', b1.x, b1.y, ENEMY, true);
+  spawnUnit('rifle', (b1.x + ex) * T, (b1.y + 7 * ey) * T, ENEMY);
+  spawnUnit('rifle', b1.x * T, (b1.y + 8 * ey) * T, ENEMY);
+  spawnUnit('ltank', (b1.x - 3 * ex) * T, (b1.y + 8.5 * ey) * T, ENEMY);
 
-  const home = toIso(9.5 * T, 51.5 * T);
+  const home = toIso((b0.x + 0.5) * T, (b0.y + 0.5) * T);
   state.camX = clamp(home.x - VW / 2, 0, Math.max(0, IW - VW));
   state.camY = clamp(home.y - VH / 2, 0, Math.max(0, IH - VH));
 }
@@ -237,12 +240,14 @@ document.querySelectorAll('#diffRow button').forEach(b => b.addEventListener('cl
   showDifficulty();
 }));
 showDifficulty();
-// skirmish setup: side, starting credits and map seed, remembered like the difficulty
+// skirmish setup: side, starting credits, map and seed, remembered like the difficulty
 export function saveSetup(){ try { localStorage.setItem('rh-setup', JSON.stringify(setup)); } catch(e){} showSetup(); }
 export function showSetup(){
   document.querySelectorAll('[data-side]').forEach(b => b.classList.toggle('on', b.dataset.side === setup.side));
   document.querySelectorAll('[data-credits]').forEach(b => b.classList.toggle('on', +b.dataset.credits === setup.credits));
+  document.querySelectorAll('[data-map]').forEach(b => b.classList.toggle('on', b.dataset.map === setup.map));
   document.getElementById('seedIn').value = setup.seed;
+  document.getElementById('seedNote').textContent = setup.map === 'random' ? 'picks the random map and the game\'s luck' : 'the game\'s luck';
   document.getElementById('sideMe').textContent = SIDE_NAME[setup.side];
   document.getElementById('sideThem').textContent = SIDE_NAME[setup.side === 'allied' ? 'soviet' : 'allied'];
 }
@@ -250,7 +255,7 @@ document.querySelectorAll('[data-side]').forEach(b => b.addEventListener('click'
 document.querySelectorAll('[data-credits]').forEach(b => b.addEventListener('click', () => { setup.credits = +b.dataset.credits; saveSetup(); }));
 document.getElementById('seedIn').addEventListener('change', e => { setup.seed = clamp(Math.floor(+e.target.value) || 1, 1, 99999); saveSetup(); });
 document.getElementById('seedRnd').addEventListener('click', () => { setup.seed = 2 + Math.floor(Math.random() * 99990); saveSetup(); });
-document.getElementById('seedClassic').addEventListener('click', () => { setup.seed = 1; saveSetup(); });
+document.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { setup.map = b.dataset.map; saveSetup(); }));
 
 // money and AI timers for a new game on the chosen difficulty
 function beginGame(){
@@ -341,9 +346,10 @@ export function newWorld(){
   state.placing = null; state.mode = null; state.blackout.fill(0);
   flags.shroudDirty = true; flags.mmBaseDirty = true;
   FACTION[PLAYER] = setup.side; FACTION[ENEMY] = setup.side === 'allied' ? 'soviet' : 'allied';
+  document.body.classList.toggle('soviet', setup.side === 'soviet');   // the sidebar takes the side's colours
   Object.assign(ai, {prodQ: AI_QUEUE[FACTION[ENEMY]], prodI: 0, prodProgress: 0, prodKey: null, picked: false, bKey: null, bProg: 0, bThink: 0, bSkip: {},
                      airT: 0, navT: 0, navI: 0, engT: 0, repT: 0});
-  TerrainGen.setSeed(setup.seed);
+  TerrainGen.setMap(TerrainGen.makeMap(setup.map, setup.seed));
   paintLow();
   setupMap();
   startTerrainWorkers(state.camX + VW / 2, state.camY + VH / 2);
@@ -373,7 +379,7 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
-  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised, sailable, passable, unload: t => unloadTransport(t), reveal: (tx, ty, r) => revealAround(tx * T, ty * T, r), faction: FACTION, plateau: TerrainGen.PLATEAU, onRamp: TerrainGen.onRamp, groundZ,
+  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised, sailable, passable, unload: t => unloadTransport(t), reveal: (tx, ty, r) => revealAround(tx * T, ty * T, r), faction: FACTION, get plateau(){ return TerrainGen.PLATEAU; }, get map(){ return TerrainGen.map; }, onRamp: TerrainGen.onRamp, groundZ,
   world: () => ({water: Array.from(water).join(''), trees: doodads.filter(d => d.name !== 'lamp').map(d => d.tx + ',' + d.ty).join(';')}),
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },

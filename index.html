@@ -146,6 +146,9 @@
   .optRow{font:bold 14px "Trebuchet MS",sans-serif;color:#d3dcea;margin-bottom:8px;}
   .optRow button{margin:0 0 0 6px;padding:5px 14px;font-size:13px;}
   .optRow button.on{background:linear-gradient(#e0b640,#8a6a14);border-color:#ffe38a #4a3808 #4a3808 #ffe38a;}
+  #seedNote{font-weight:normal;font-size:12px;color:#aebbd0;margin-left:6px;}
+  /* sidebar metal when playing the Soviet side */
+  body.soviet{--m-hi:#b89a8a; --m-mid:#7a5a4e; --m-lo:#3e2b26; --m-deep:#1e1412;}
   #seedIn{width:84px;margin-left:6px;padding:5px 6px;font:bold 13px "Courier New",monospace;background:#141b25;color:#ffd24a;
     border:2px solid;border-color:#0b0f15 #7e93ab #7e93ab #0b0f15;}
   #diffNote{font-weight:normal;font-size:13px;color:#aebbd0;margin-top:6px;}
@@ -212,7 +215,7 @@
 <div id="help">
   <div class="panelBox">
     <h1>RED HORIZON</h1>
-    <p>A classic isometric real-time strategy skirmish. You command the <b style="color:#6ea3ff" id="sideMe">Allied</b> base in the west. The <b style="color:#ff6e6e" id="sideThem">Soviet</b> AI holds the east and <i>will</i> come for you.</p>
+    <p>A classic isometric real-time strategy skirmish. You command the <b style="color:#6ea3ff" id="sideMe">Allied</b> base. The <b style="color:#ff6e6e" id="sideThem">Soviet</b> AI holds the opposite corner and <i>will</i> come for you.</p>
     <div id="setupBox">
       <div class="optRow">Side:
         <button data-side="allied">ALLIED</button><button data-side="soviet">SOVIET</button>
@@ -220,9 +223,12 @@
       <div class="optRow">Credits:
         <button data-credits="5000">5,000</button><button data-credits="8000">8,000</button><button data-credits="12000">12,000</button>
       </div>
-      <div class="optRow">Map seed:
-        <input id="seedIn" type="number" min="1" max="99999" step="1"><button id="seedRnd" title="Random map">🎲</button>
-        <button id="seedClassic" title="The classic map">CLASSIC</button>
+      <div class="optRow">Map:
+        <button data-map="classic">CLASSIC</button><button data-map="twinlakes">TWIN LAKES</button><button data-map="highland">HIGHLAND PASS</button><button data-map="random">RANDOM</button>
+      </div>
+      <div class="optRow">Seed:
+        <input id="seedIn" type="number" min="1" max="99999" step="1"><button id="seedRnd" title="New seed">🎲</button>
+        <span id="seedNote"></span>
       </div>
       <div id="diffRow" class="optRow">Difficulty:
         <button data-diff="easy">EASY</button><button data-diff="normal">NORMAL</button><button data-diff="hard">HARD</button>

@@ -66,10 +66,15 @@ This file covers how the code works, the rules, and what to build next.
 - **Teams:** `PLAYER = 0`, `ENEMY = 1` (the AI), `NEUTRAL = 2` (civilian town). `FACTION[team]` is the side
   (`'allied'` / `'soviet'`) and picks the sprite set; the player is Allied unless the setup screen says otherwise.
   Use `FACTION[...]` and `SIDE_NAME`, not hard-coded side names, in anything that depends on who plays what.
-- **Skirmish setup** (`setup = {side, credits, seed}`, saved in localStorage): `newWorld()` clears every world array,
-  sets `FACTION`, the AI's queue (`AI_QUEUE`, `AI_SHIPS`), reseeds the terrain (`TerrainGen.setSeed`, also sent to the
-  paint workers) and runs `setupMap()`. It runs at load, and again at start if the settings changed. Seed 1 is the
-  classic map; the seed moves lakes (`LAKE_SITES`), shifts every noise field and reseeds tree placement.
+- **Skirmish setup** (`setup = {side, credits, map, seed}`, saved in localStorage): `newWorld()` clears every world
+  array, sets `FACTION`, the AI's queue (`AI_QUEUE`, `AI_SHIPS`), makes the map current and runs `setupMap()`. It runs
+  at load, and again at start if the settings changed. Playing Soviet also turns the sidebar red (`body.soviet`).
+- **Maps** (`js/terrain.js`): a map object lists `bases` (player vehicle, enemy hub), `ore` fields, `sea` edges,
+  `lakes`, `roads`, a `town` with its lots, an optional `plateau` with `ramps`, and seeds for noise and trees.
+  `TerrainGen.MAPS` holds the handmade ones (classic, twinlakes, highland); `randomMap(seed)` builds one with bases in
+  opposite corners and everything mirrored through the centre. `makeMap(id, seed)` picks; `setMap(map)` makes it
+  current, in the game and in each paint worker (the map rides along with every chunk request). Everything in the
+  game reads the current map through `TerrainGen.map` (setupMap, scenery, the AI's idea of where the player lives).
 - **Definitions:**
   - `BUILD_DEFS` and `UNIT_DEFS` hold stats, cost, build time, sidebar tab, prerequisites and weapon.
   - `side: 'allied' | 'soviet'` makes a unit exclusive to one side (`available()`).
@@ -182,7 +187,8 @@ so code-only work can land first and the art can follow.
   - `tests/veiltank.spec.js`: the stealth tank.
   - `tests/naval.spec.js`: the sea, the Dockyard and ships.
   - `tests/polish.spec.js`: ore truck gun, hauler jump, AI engineers.
-  - `tests/setup.spec.js`: the skirmish setup screen (side, credits, seed).
+  - `tests/setup.spec.js`: the skirmish setup screen (side, credits, map, seed).
+  - `tests/soviet.spec.js`: a whole game as the Soviets against the Allied AI.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - `tests/determinism.spec.js`: the same seed replays the same game.
@@ -191,7 +197,7 @@ so code-only work can land first and the art can follow.
     and an idle defended base falls later on Easy than Normal than Hard.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `world()` (water and tree layout, for seed tests), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
