@@ -58,6 +58,13 @@ This file covers how the code works, the rules, and what to build next.
   - Jets (`def.jet`, `updateJet`): parked on an Airfield pad (`u.pad = {b, i}`, `padPos`, `freePad`), one bomb run per `def.ammo`, then back to a pad to rearm for `def.rearm` seconds. With no pad they circle.
   - The helicopter (`def.lands`, `updateHeli`) lands whenever it's idle. Infantry board it only on the ground; `unloadTransport` makes it land first.
   - The airship has `selfRepair` (hp/s). The AI builds one every few minutes (`airshipDue`) outside its army cap.
+- **Garrisons**: town buildings (`def.garrison`, capacity 5) have a `cargo` array like transports, so `canBoard`,
+  `updateBoarding` (`atDoor`), `unloadTransport` and the `D` key work on both (`capacity(t)`). A garrisoned building takes
+  its occupants' team and `garrisonFire()` shoots each occupant's weapon from it; emptied or destroyed, it goes back to
+  `NEUTRAL` and survivors walk out. Garrisons don't count for placement range, the win check, engineers or sell/repair.
+  The AI (`aiInfantry`) garrisons empty buildings near a fight.
+- **Sandbags**: units with `def.deploy` (the rifleman) toggle `u.deployed` with `D`: `weaponOf` returns `def.deployWeapon`,
+  `applyDamage` halves damage, they don't chase targets, and any move or board order undeploys them. AI troopers at home dig in.
 - **Service Depot** (`def.flat`): drawn before everything else so vehicles sit on it. `serviceDepot()` repairs the most
   damaged stopped vehicle on its footprint (`onFootprint`) for credits and kills drones latched inside parked vehicles.
   The enemy base starts with one, and `aiRepairs()` sends damaged idle AI vehicles to it.
@@ -99,11 +106,12 @@ so code-only work can land first and the art can follow.
   - `tests/units.spec.js`: a scenario per unit ability.
   - `tests/air.spec.js`: aircraft, the air armour class, jets and the Airfield, stealth.
   - `tests/depot.spec.js`: the Service Depot.
+  - `tests/garrison.spec.js`: garrisons and sandbags.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
@@ -141,7 +149,7 @@ fallback drawing.
 2. **Done: Repair Depot (code plus art).** Model `depot` is written but not rendered yet.
    - A building that repairs vehicles parked on it, for credits.
    - It also ejects latched drones, which gives the drone a counter.
-3. **Garrisoning (code).** Infantry enter civilian buildings (reuse the `cargo`
+3. **Done: Garrisoning (code).** Infantry enter civilian buildings (reuse the `cargo`
    and `inside` mechanics) and fire out of them. Rifle-type infantry can deploy
    behind sandbags for more range and armour.
 4. **Special infantry (code plus art):**

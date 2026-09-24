@@ -195,7 +195,7 @@
 </div>
 
 <div id="announcer"></div>
-<div id="tip">Left: select / drag &nbsp;•&nbsp; Right: move / attack / rally &nbsp;•&nbsp; Ctrl: force-fire &nbsp;•&nbsp; D deploy &nbsp;•&nbsp; K repair &nbsp;•&nbsp; L sell &nbsp;•&nbsp; Ctrl+1-9 groups &nbsp;•&nbsp; Wheel / +- zoom &nbsp;•&nbsp; Arrows / edge: scroll</div>
+<div id="tip">Left: select / drag &nbsp;•&nbsp; Right: move / attack / rally &nbsp;•&nbsp; Ctrl: force-fire &nbsp;•&nbsp; D deploy / unload / dig in &nbsp;•&nbsp; K repair &nbsp;•&nbsp; L sell &nbsp;•&nbsp; Ctrl+1-9 groups &nbsp;•&nbsp; Wheel / +- zoom &nbsp;•&nbsp; Arrows / edge: scroll</div>
 
 <div id="help">
   <div class="panelBox">
@@ -209,6 +209,7 @@
       <li><b>Army:</b> Barracks trains infantry, the Vehicle Factory builds tanks. Select with left-click / drag, command with right-click.</li>
       <li><b>Transports:</b> Right-click a friendly IFV or Halftrack with infantry selected to board. Click the transport again (or press <b>D</b>) to unload.</li>
       <li><b>Engineers:</b> Right-click an enemy structure to capture it, or one of yours to repair it fully. The engineer is used up.</li>
+      <li><b>Town:</b> Right-click a civilian building with infantry to garrison it; they shoot out of it. Riflemen dig in behind sandbags with <b>D</b>.</li>
       <li><b>Repairs:</b> Right-click a <b>Service Depot</b> with vehicles selected to park them on it; it fixes them for credits and pulls out a latched drone.</li>
       <li><b>Aircraft:</b> Jets make one bomb run on a right-clicked target, then fly back to the <b>Airfield</b> to rearm (right-click the Airfield to send them home). Only rockets and flak can hit aircraft.</li>
       <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
@@ -320,7 +321,7 @@ const BUILD_DEFS = {
   barracks: {name:'Barracks',          cost:500,  power:-10,  w:2, h:2, hp:700,  time:9,  tab:'structure', prereq:['power'], z:26},
   factory : {name:'Vehicle Factory',   cost:2000, power:-25,  w:3, h:3, hp:1100, time:18, tab:'structure', prereq:['refinery'], z:36},
   radar   : {name:'Radar',             cost:1000, power:-50,  w:2, h:2, hp:1000, time:12, tab:'structure', prereq:['refinery'], z:44, anim:true},
-  civ     : {name:'Civilian Building', cost:0,    power:0,    w:2, h:2, hp:700,  time:0,  tab:null, z:30},
+  civ     : {name:'Civilian Building', cost:0,    power:0,    w:2, h:2, hp:700,  time:0,  tab:null, z:30, garrison:5},
   pillbox : {name:'Pillbox',           cost:600,  power:-10,  w:1, h:1, hp:450,  time:8,  tab:'defense',   prereq:['barracks'], z:12,
              weapon:{dmg:11, rof:0.35, range:5.6, kind:'bullet', vs:{inf:1.6, heavy:0.35, building:0.4}}},
   beamtower:{name:'Beam Tower',        cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:'defense',   prereq:['barracks'], z:66,
@@ -337,6 +338,7 @@ for(const k in BUILD_DEFS){ BUILD_DEFS[k].key = k; BUILD_DEFS[k].armor = 'buildi
 
 const UNIT_DEFS = {
   rifle  : {name:'Rifleman',      cost:200,  hp:125, speed:58,  r:8,  armor:'inf',  time:4,  tab:'infantry', from:'barracks',
+            deploy:true,   // D: dig in behind sandbags (deployWeapon, half damage taken)
             weapon:{dmg:9,  rof:0.55, range:4.6, kind:'bullet', vs:{inf:1.5, heavy:0.45, building:0.35}}},
   rocket : {name:'Rocket Soldier', cost:350,  hp:100, speed:52,  r:8,  armor:'inf',  time:6,  tab:'infantry', from:'barracks',
             weapon:{dmg:34, rof:1.9,  range:5.6, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.6, air:1.2}}},
@@ -385,6 +387,7 @@ const UNIT_DEFS = {
             weapon:{dmg:12, rof:0.45, range:4.4, kind:'bullet', vs:{inf:1.5, heavy:0.4, building:0.3}}},
 };
 for(const k in UNIT_DEFS) UNIT_DEFS[k].key = k;
+UNIT_DEFS.rifle.deployWeapon = {...UNIT_DEFS.rifle.weapon, range: 6, rof: 0.45};
 const available = (def, team) => !def.side || def.side === FACTION[team];
 
 // The IFV swaps its missile pod for its passenger's speciality. An engineer inside
@@ -400,6 +403,7 @@ function weaponOf(e){
     const k = e.cargo[0].def.key;
     if(k in IFV_WEAPONS) return IFV_WEAPONS[k];
   }
+  if(e.deployed && e.def.deployWeapon) return e.def.deployWeapon;
   return e.def.weapon || null;
 }
 // unit-specific voice lines (null: no speech, just a sound)
@@ -459,6 +463,7 @@ function placeBuilding(key, tx, ty, team, instant){
     hp: def.hp, maxHp: def.hp,
     cool: 0, scanT: Math.random() * 0.4, target: null,
     buildUp: instant ? 1 : 0, dead: false, flash: 0, fac: FACTION[team],
+    cargo: def.garrison ? [] : null, variant: 0,
   };
   buildings.push(b);
   for(let y = ty; y < ty + def.h; y++)
@@ -481,7 +486,7 @@ function canPlace(key, tx, ty, team){
   }
   const cxp = (tx + def.w / 2) * T, cyp = (ty + def.h / 2) * T;
   for(const b of buildings)
-    if(!b.dead && b.team === team && Math.hypot(b.x - cxp, b.y - cyp) < 9 * T) return true;
+    if(!b.dead && b.team === team && !b.def.garrison && Math.hypot(b.x - cxp, b.y - cyp) < 9 * T) return true;
   return false;
 }
 
@@ -592,7 +597,7 @@ function applyDamage(target, dmg, vs, attacker){
   const mult = vsMult(vs, target.def.armor);
   const vet = attacker && attacker.vet || 0;           // veterans hit harder
   const armor = 1 - (target.vet || 0) * 0.12;          // ...and take less damage
-  target.hp -= dmg * mult * (1 + vet * 0.25) * armor;
+  target.hp -= dmg * mult * (1 + vet * 0.25) * armor * (target.deployed ? 0.5 : 1);   // sandbags halve it
   target.flash = 0.12;
   if(target.team === PLAYER) underAttackAlert(target);
   if(target.kind === 'unit' && weaponOf(target) && target.order.type === 'idle' && attacker && onMap(attacker)
@@ -616,7 +621,9 @@ function gainXp(u, victim){
 
 function kill(e){
   e.dead = true;
-  if(e.cargo) for(const p of e.cargo) p.dead = true;   // nobody gets out of a burning transport
+  if(e.cargo && e.kind === 'building'){                // a garrison bails out of a falling building, hurt
+    for(const p of unloadTransport(e)) p.hp = Math.max(1, p.hp * 0.5);
+  } else if(e.cargo) for(const p of e.cargo) p.dead = true;   // nobody gets out of a burning transport
   sfx('explosion');
   const dieSprite = e.kind === 'unit' ? uName(e) + '_die' : null;
   if(e.kind === 'unit' && isInf(e.def) && Sprites.has(dieSprite)){
@@ -989,6 +996,7 @@ function combatStep(u, target, dt){
       aimed = Math.abs(angDiff(u.face, a)) < 0.12;
     }
     if(u.cool <= 0 && aimed) fireWeapon(u, target);
+  } else if(u.deployed){ u.order = {type:'idle'}; u.path = null;   // dug in: doesn't chase
   } else {
     u.repathT -= dt;
     if(!u.path || u.pathI >= u.path.length || u.repathT <= 0){
@@ -1009,6 +1017,7 @@ function updateUnit(u, dt){
   if(u.def.jet){ updateJet(u, dt); return; }
   if(u.def.lands){ updateHeli(u, dt); return; }
   if(u.def.air) u.z = approach(u.z, u.def.alt, 40 * dt);
+  if(u.deployed && (u.order.type === 'move' || u.order.type === 'attackmove' || u.order.type === 'board')) u.deployed = false;
   if(u.order.type === 'board'){ updateBoarding(u, dt); applySeparation(u, dt); return; }
   if(u.def.harvester){ updateHarvester(u, dt); applySeparation(u, dt); return; }
   if(u.def.engineer){ updateEngineer(u, dt); applySeparation(u, dt); return; }
@@ -1037,7 +1046,7 @@ function updateUnit(u, dt){
   } else {
     if(u.scanT <= 0){
       u.scanT = 0.45;
-      const t = findEnemyInRange(u, u.def.scan || w.range + 2.2);
+      const t = findEnemyInRange(u, u.deployed ? w.range : u.def.scan || w.range + 2.2);
       if(t) u.order = {type:'attack', target: t, auto: true};
     }
   }
@@ -1144,17 +1153,28 @@ function updateHeli(u, dt){
 }
 
 // ---------- transports ----------
+// infantry board friendly transports, or garrison a town building that is empty or already theirs
+const capacity = t => t.def.transport || t.def.garrison || 0;
+const canGarrison = def => def.armor === 'inf' && !!def.weapon && def.weapon.kind !== 'bite';
 function canBoard(u, t){
-  return !!t && !t.dead && t.kind === 'unit' && t.def.transport && t.team === u.team && t !== u &&
-    u.def.armor === 'inf' && t.cargo.length < t.def.transport;
+  if(!t || t.dead || t === u || u.def.armor !== 'inf' || !t.cargo || t.cargo.length >= capacity(t)) return false;
+  if(t.kind === 'building') return (t.team === NEUTRAL || t.team === u.team) && canGarrison(u.def) && t.buildUp >= 1;
+  return t.team === u.team && !!t.def.transport;
+}
+// a building's edge (or a unit's centre) is close enough to step in
+function atDoor(u, t){
+  if(t.kind !== 'building') return dist(u, t) < T * 0.9;
+  const ex = clamp(u.x, t.tx * T, (t.tx + t.w) * T), ey = clamp(u.y, t.ty * T, (t.ty + t.h) * T);
+  return Math.hypot(u.x - ex, u.y - ey) < T * 0.8;
 }
 function updateBoarding(u, dt){
   const t = u.order.target;
   if(!canBoard(u, t)){ u.order = {type:'idle'}; u.path = null; return; }
-  if(dist(u, t) < T * 0.9){
+  if(atDoor(u, t)){
     if(t.def.lands && t.z > 4){ u.path = null; return; }   // wait for it to touch down
-    u.inside = t; u.order = {type:'idle'}; u.path = null;
+    u.inside = t; u.order = {type:'idle'}; u.path = null; u.deployed = false;
     t.cargo.push(u);
+    if(t.kind === 'building'){ t.team = u.team; t.target = null; }   // the town building flies our flag
     if(u.team === PLAYER){ selection = selection.filter(s => s !== u); sfx('click'); }
     return;
   }
@@ -1180,7 +1200,23 @@ function unloadTransport(t, now){
   });
   t.order = {type:'idle'}; t.path = null;
   if(t.team === PLAYER) sfx('click');
+  if(t.kind === 'building'){ t.team = NEUTRAL; t.target = null; selection = selection.filter(s => s !== t); }
   return out;
+}
+
+// Garrisoned town building: every occupant fires its own weapon from it, with a
+// little extra range for the height.
+function garrisonFire(b){
+  for(const u of b.cargo){
+    const w = weaponOf(u);
+    if(!w || u.cool > 0) continue;
+    const reach = w.range + 1 + b.w * 0.4;
+    let t = u.gTarget;
+    if(!t || !onMap(t) || t.team === b.team || hiddenFrom(t, b.team) || dist(b, t) > reach * T) t = null;
+    if(!t && u.scanT <= 0){ u.scanT = 0.4; t = findEnemyInRange(u, reach); }
+    u.gTarget = t;
+    if(t) fireWeapon(u, t);
+  }
 }
 // an IFV carrying an engineer patches up the nearest damaged friendly vehicle
 function ifvRepair(u, dt){
@@ -1201,7 +1237,7 @@ function ifvRepair(u, dt){
 
 // ---------- engineers ----------
 function engineerCan(b, team){
-  return !!b && b.kind === 'building' && !b.dead && b.buildUp >= 1 &&
+  return !!b && b.kind === 'building' && !b.dead && b.buildUp >= 1 && !b.def.garrison &&
     ((b.team !== team && b.team !== NEUTRAL) || (b.team === team && b.hp < b.maxHp));
 }
 function updateEngineer(u, dt){
@@ -1272,6 +1308,7 @@ function updateBuilding(b, dt){
     }
   }
   if(b.def.flat && b.buildUp >= 1) serviceDepot(b, dt);
+  if(b.cargo && b.cargo.length) garrisonFire(b);
   if(!b.def.weapon) return;
   const p = powerOf(b.team);
   if(p.used > p.prod) return;
@@ -1440,7 +1477,7 @@ function tickAI(dt){
       const target = nearestPlayerTarget(squad[0]);
       if(target){
         for(const u of squad){
-          u.role = 'attacker';
+          u.role = 'attacker'; u.deployed = false;
           const t = canHurt(u, target) ? target : nearestPlayerTarget(u);
           if(t) u.order = {type:'attack', target: t};
           else { u.order = {type:'attackmove', x: target.x, y: target.y}; orderMove(u, target.x, target.y); }
@@ -1510,11 +1547,25 @@ function aiTransports(){
   }
 }
 
+// Troopers at home dig in behind sandbags; attacking infantry near the fighting
+// occupy empty town buildings on the way.
+function aiInfantry(){
+  for(const u of units){
+    if(!onMap(u) || u.team !== ENEMY || u.def.armor !== 'inf') continue;
+    if(u.def.deploy && u.role !== 'attacker' && u.order.type === 'idle') u.deployed = true;
+    if(u.role !== 'attacker' || !canGarrison(u.def) || (u.order.type !== 'attack' && u.order.type !== 'attackmove') || Math.random() > 0.3) continue;
+    const b = buildings.find(b => !b.dead && b.def.garrison && (b.team === NEUTRAL || b.team === ENEMY) && b.cargo.length < 3 &&
+                                  dist(u, b) < 5 * T && units.some(v => onMap(v) && v.team === PLAYER && dist(v, b) < 8 * T));
+    if(b){ u.order = {type:'board', target: b}; u.repathT = 0; }
+  }
+}
+
 // damaged vehicles at home drive onto the depot until they are fixed
 function aiRepairs(dt){
   ai.repT = (ai.repT || 0) - dt;
   if(ai.repT > 0) return;
   ai.repT = 2;
+  aiInfantry();
   const depot = buildings.find(b => !b.dead && b.team === ENEMY && b.def.flat);
   if(!depot) return;
   for(const u of units){
@@ -1852,7 +1903,7 @@ window.addEventListener('mouseup', e => {
     const e2 = pickEntity(mouse.wx, mouse.wy);
     if(e2 && e2.def.mcv && e2.team === PLAYER && selection.length === 1 && selection[0] === e2){
       deployMcv(e2);
-    } else if(e2 && e2.def.transport && e2.team === PLAYER && selection.length === 1 && selection[0] === e2 && e2.cargo.length){
+    } else if(e2 && e2.cargo && e2.team === PLAYER && selection.length === 1 && selection[0] === e2 && e2.cargo.length){
       unloadTransport(e2);
     } else if(e2 && e2.team === PLAYER){
       if(!selection.includes(e2)) ack('select', e2);
@@ -1888,6 +1939,9 @@ function issueCommand(ev){
   const sel = selection.filter(s => !s.dead && s.team === PLAYER);
   let selUnits = sel.filter(s => s.kind === 'unit');
   if(!selUnits.length){
+    // a selected garrison: right-click it again to empty it
+    const g = sel.find(s => s.kind === 'building' && s.cargo && s.cargo.length);
+    if(g && pickEntity(mouse.wx, mouse.wy) === g){ unloadTransport(g); return; }
     // rally point for selected production buildings
     const fac = sel.filter(s => s.kind === 'building' && PRODUCERS.has(s.def.key));
     if(fac.length){
@@ -1900,8 +1954,8 @@ function issueCommand(ev){
   const target = pickEntity(mouse.wx, mouse.wy);
   if(target && target.def.mcv && selUnits.length === 1 && selUnits[0] === target){ deployMcv(target); return; }
   // infantry climb into a friendly transport
-  if(target && target.def.transport && target.team === PLAYER && !selUnits.includes(target)){
-    const riders = selUnits.filter(u => canBoard(u, target)).slice(0, target.def.transport - target.cargo.length);
+  if(target && target.cargo && !selUnits.includes(target)){
+    const riders = selUnits.filter(u => canBoard(u, target)).slice(0, capacity(target) - target.cargo.length);
     if(riders.length){
       for(const u of riders){ u.order = {type:'board', target}; u.path = null; u.repathT = 0; }
       effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4});
@@ -1911,7 +1965,7 @@ function issueCommand(ev){
       if(!selUnits.length) return;
     }
   }
-  if(target && target.def.transport && selUnits.length === 1 && selUnits[0] === target && target.cargo.length){ unloadTransport(target); return; }
+  if(target && target.cargo && selUnits.length === 1 && selUnits[0] === target && target.cargo.length){ unloadTransport(target); return; }
   // vehicles drive onto a friendly depot, spread over its tiles, centre first
   if(target && target.kind === 'building' && target.def.flat && target.team === PLAYER){
     const veh = selUnits.filter(u => u.def.armor === 'heavy' && !u.def.air);
@@ -2050,7 +2104,7 @@ sellBtn.addEventListener('click', () => { sfx('click'); setMode(state.mode === '
 
 function modeTarget(){
   const b = pickEntity(mouse.wx, mouse.wy);
-  return b && b.kind === 'building' && b.team === PLAYER && b.buildUp >= 1 ? b : null;
+  return b && b.kind === 'building' && b.team === PLAYER && b.buildUp >= 1 && !b.def.garrison ? b : null;
 }
 
 function applyMode(){
@@ -2110,7 +2164,12 @@ window.addEventListener('keydown', e => {
   if(e.key.toLowerCase() === 'd'){
     const m = selection.find(u => !u.dead && u.kind === 'unit' && u.def.mcv);
     if(m) deployMcv(m);
-    for(const t of selection) if(!t.dead && t.kind === 'unit' && t.def.transport) unloadTransport(t);
+    for(const t of selection) if(!t.dead && t.cargo && t.team === PLAYER) unloadTransport(t);
+    // riflemen dig in behind sandbags, or climb out again
+    const diggers = selection.filter(u => !u.dead && u.kind === 'unit' && u.def.deploy);
+    const on = diggers.some(u => !u.deployed);
+    for(const u of diggers){ u.deployed = on; u.order = {type:'idle'}; u.path = null; }
+    if(diggers.length) sfx('click');
   }
   if(e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey){
     for(const u of selection) if(u.kind === 'unit'){ u.order = {type:'idle'}; u.path = null; }
@@ -2624,6 +2683,16 @@ function infantryFrame(u, e){
   return f;
 }
 
+// a ring of sandbags round a dug-in rifleman
+function drawSandbags(p){
+  for(let i = 0; i < 9; i++){
+    const a = i / 9 * Math.PI * 2 + 0.3;
+    const x = p.x + Math.cos(a) * 11, y = p.y + Math.sin(a) * 5.5;
+    cx.fillStyle = '#8c7f5c'; cx.beginPath(); cx.ellipse(x, y - 1, 4.2, 2.6, 0, 0, 7); cx.fill();
+    cx.strokeStyle = 'rgba(0,0,0,0.3)'; cx.lineWidth = 0.8; cx.stroke();
+  }
+}
+
 // shadow of an aircraft on the ground below it
 function drawAirShadow(u){
   const p = toIso(u.x, u.y);
@@ -2639,6 +2708,7 @@ function drawUnitSprite(u){
   const inf = Sprites.get(name);
   const body = Sprites.get(name + '_body');
   const ghost = u.def.stealth && !u.revealed;         // our own stealth units show faintly
+  if(u.deployed) drawSandbags(p);
   if(inf || body){
     cx.save();
     if(u.flash > 0) cx.filter = 'brightness(1.9)';
@@ -2866,7 +2936,7 @@ function cursorType(){
   if(su.length){
     if(t && t.def.mcv && su.length === 1 && su[0] === t) return canDeploy(t) ? 'deploy' : 'nodeploy';
     if(t && t.def.transport && su.length === 1 && su[0] === t) return t.cargo.length ? 'deploy' : 'select';
-    if(t && t.def.transport && su.some(u => canBoard(u, t))) return 'enter';
+    if(t && t.cargo && su.some(u => canBoard(u, t))) return 'enter';
     if(t && t.kind === 'building' && t.def.flat && t.team === PLAYER && su.some(u => u.def.armor === 'heavy' && !u.def.air)) return 'enter';
     if(su.some(u => u.def.engineer) && engineerCan(t, PLAYER) && !keys['control'] && !keys['meta'])
       return t.team === PLAYER ? 'fix' : 'capture';
@@ -2876,6 +2946,7 @@ function cursorType(){
     if(!inMap(tx, ty) || (!passable(tx, ty) && explored[idx(tx, ty)] && !su.every(u => u.def.air))) return 'nomove';
     return 'move';
   }
+  if(t && t.cargo && t.cargo.length && t.team === PLAYER && sel.includes(t)) return 'deploy';
   if(t && t.team === PLAYER) return 'select';
   if(sel.some(b => b.kind === 'building' && PRODUCERS.has(b.def.key))) return 'rally';
   return 'arrow';
@@ -3257,11 +3328,18 @@ function draw(){
     if(e.kind === 'doodad') continue;
     const sel = selection.includes(e);
     const frac = clamp(e.hp / e.maxHp, 0, 1);
-    if(!sel && frac >= 1 && !e.vet) continue;
+    if(!sel && frac >= 1 && !e.vet && !(e.cargo && e.cargo.length && e.kind === 'building')) continue;
     const box = screenBox(e);
     if(e.kind === 'building'){
       if(sel) drawBrackets(box.x0 - 3, box.y0 - 3, box.x1 - box.x0 + 6, box.y1 - box.y0 + 6);
       drawHealthBar((box.x0 + box.x1) / 2, box.y0 - 10, Math.min(box.x1 - box.x0 - 10, 60), frac);
+      if(e.cargo && e.cargo.length){   // garrison: a pip per occupant in the owner's colour
+        const n = capacity(e), x0 = (box.x0 + box.x1) / 2 - n * 3;
+        for(let i = 0; i < n; i++){
+          cx.fillStyle = 'rgba(6,8,12,0.85)'; cx.fillRect(x0 + i * 6 - 0.5, box.y0 - 3.5, 5, 5);
+          cx.fillStyle = i < e.cargo.length ? TEAM_COLOR[e.team] : '#2a3140'; cx.fillRect(x0 + i * 6, box.y0 - 3, 4, 4);
+        }
+      }
       if(e.repairing && Math.floor(state.time * 3) % 2 === 0){
         cx.font = '18px sans-serif'; cx.textAlign = 'center';
         cx.fillText('🔧', (box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2);
@@ -3438,8 +3516,8 @@ function drawHUD(dt){
 let lowPowerWarned = false;
 function checkEnd(){
   if(state.over) return;
-  const pB = buildings.some(b => !b.dead && b.team === PLAYER) || units.some(u => !u.dead && u.team === PLAYER && u.def.mcv);
-  const eB = buildings.some(b => !b.dead && b.team === ENEMY);
+  const pB = buildings.some(b => !b.dead && b.team === PLAYER && !b.def.garrison) || units.some(u => !u.dead && u.team === PLAYER && u.def.mcv);
+  const eB = buildings.some(b => !b.dead && b.team === ENEMY && !b.def.garrison);
   if(!eB || !pB){
     state.over = true;
     const win = !eB;
@@ -3672,7 +3750,7 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
-  canPlace,
+  canPlace, canBoard, applyDamage,
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },
