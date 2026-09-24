@@ -4,6 +4,7 @@ import {orderMove} from './pathfinding.js';
 import {CHUNK, LOW_SCALE, TERRAIN_SCALE, chunkCols, chunks, lowC, paintScorch, scorches} from './render.js';
 import {announce, sfx, underAttackAlert} from './ui.js';
 import {followPath, fooledBy, hiddenFrom, mindControl, mindable, radPuddles, releaseMind, unloadTransport} from './units.js';
+import {rand} from './rng.js';
 
 // the weapon a unit uses on this particular target (the Striker blows up buildings with a charge)
 export const weaponFor = (e, t) => t && t.kind === 'building' && e.def.demolish ? e.def.demolish : weaponOf(e);
@@ -56,8 +57,8 @@ export function kill(e){
   } else if(e.kind === 'building'){
     // a building goes up in several staggered blasts
     for(let i = 0; i < e.w * e.h; i++){
-      const ox = (Math.random() - 0.5) * e.w * T * 0.8, oy = (Math.random() - 0.5) * e.h * T * 0.8;
-      effects.push({type:'delay', t: 0, dur: i * 0.12, then: {x: e.x + ox, y: e.y + oy, size: 22 + Math.random() * 16}});
+      const ox = (rand() - 0.5) * e.w * T * 0.8, oy = (rand() - 0.5) * e.h * T * 0.8;
+      effects.push({type:'delay', t: 0, dur: i * 0.12, then: {x: e.x + ox, y: e.y + oy, size: 22 + rand() * 16}});
     }
     boom(e.x, e.y, e.def.w * 16);
     scorch(e.x, e.y, e.w * T * 0.6);
@@ -78,10 +79,10 @@ export function kill(e){
 export function boom(x, y, size){
   effects.push({type:'boom', x, y, size, t: 0, dur: 0.7});
   for(let i = 0; i < 5; i++)
-    effects.push({type:'puff', x: x + (Math.random() - .5) * size * 0.8, y: y + (Math.random() - .5) * size * 0.8,
-                  z: 4 + Math.random() * size * 0.4, r: size * (0.35 + Math.random() * 0.3), t: -i * 0.04, dur: 1.2 + Math.random() * 0.6});
+    effects.push({type:'puff', x: x + (rand() - .5) * size * 0.8, y: y + (rand() - .5) * size * 0.8,
+                  z: 4 + rand() * size * 0.4, r: size * (0.35 + rand() * 0.3), t: -i * 0.04, dur: 1.2 + rand() * 0.6});
   for(let i = 0; i < 8; i++)
-    effects.push({type:'spark', x, y, vx:(Math.random()-.5)*200, vy:(Math.random()-.5)*200 - 40, t:0, dur:.5 + Math.random()*.4});
+    effects.push({type:'spark', x, y, vx:(rand()-.5)*200, vy:(rand()-.5)*200 - 40, t:0, dur:.5 + rand()*.4});
 }
 
 // burn mark painted permanently into the ground
@@ -270,7 +271,7 @@ export function updateProjectiles(dt){
       p.dead = true;
     } else {
       p.x += dx / d * step; p.y += dy / d * step;
-      if((p.kind === 'rocket' && Math.random() < 0.6) || p.kind === 'missile')
+      if((p.kind === 'rocket' && rand() < 0.6) || p.kind === 'missile')
         effects.push({type:'smoke', x: p.x, y: p.y, z: missileZ(p), t: 0, dur: p.kind === 'missile' ? 0.9 : 0.4});
     }
   }

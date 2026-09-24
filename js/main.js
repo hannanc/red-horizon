@@ -1,11 +1,12 @@
 // Red Horizon: Map setup, the main loop, world (re)building, the start screen and the window.__RH test handle.
 import {AI_QUEUE, DIFFICULTY, ai, diff, setDifficulty, tickAI} from './ai.js';
 import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js';
-import {BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, ROADS, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, TOWN, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf} from './data.js';
+import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, ROADS, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, TOWN, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf} from './data.js';
 import {orderMove} from './pathfinding.js';
 import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers} from './render.js';
 import {initUI, announce, audio, buildSidebar, clockEl, drawHUD, groups, sfx, speak, tickCamera} from './ui.js';
 import {canBoard, canPlace, deliverUnit, placeBuilding, powerOf, prodQ, radPuddles, radSources, revealAround, spawnUnit, tickProduction, tickRadiation, treeDisguised, unloadTransport, updateBuilding, updateUnit} from './units.js';
+import {rand, seedRandom} from './rng.js';
 
 initUI();
 
@@ -22,8 +23,8 @@ export function seedOre(cxT, cyT, radius, amount){
     for(let x = cxT - radius; x <= cxT + radius; x++){
       if(!inMap(x, y) || occ[idx(x, y)] !== 0) continue;
       const d = Math.hypot(x - cxT, y - cyT);
-      if(d <= radius && Math.random() > d / radius * 0.55)
-        ore[idx(x, y)] = amount * (0.6 + Math.random() * 0.8);
+      if(d <= radius && rand() > d / radius * 0.55)
+        ore[idx(x, y)] = amount * (0.6 + rand() * 0.8);
     }
 }
 
@@ -151,15 +152,21 @@ export function setupMap(){
 // ---------- main loop ----------
 export let lastFrame = performance.now();
 export let fogT = 0, endT = 0, mmT = 0;
+// The simulation advances in fixed steps of STEP seconds, however fast frames come;
+// the screen is redrawn every frame.
+export const STEP = 1 / 30;
+let simAcc = 0;
 export function loop(now){
-  const dt = Math.min(0.05, (now - lastFrame) / 1000);
+  const dt = Math.min(0.25, (now - lastFrame) / 1000);   // real time since the last frame (capped after a stall)
   lastFrame = now;
 
   if(state.started && !state.over && !state.paused){
     tickCamera(dt);
-    tick(dt);
-  } else if(state.started){
-    tickCamera(dt);
+    simAcc += dt;
+    while(simAcc >= STEP && !state.over){ tick(STEP); simAcc -= STEP; }
+  } else {
+    if(state.started) tickCamera(dt);
+    simAcc = 0;
   }
 
   draw();
@@ -193,8 +200,8 @@ export function tick(dt){
         e.acc += dt;
         while(e.acc > 0.14){
           e.acc -= 0.14;
-          spawned.push({puff: true, x: e.x + (Math.random() - .5) * 10, y: e.y + (Math.random() - .5) * 10,
-                        z: 6, r: 7 + Math.random() * 5, dur: 1.6 + Math.random() * 0.8, dark: true});
+          spawned.push({puff: true, x: e.x + (rand() - .5) * 10, y: e.y + (rand() - .5) * 10,
+                        z: 6, r: 7 + rand() * 5, dur: 1.6 + rand() * 0.8, dark: true});
         }
       }
     }
@@ -287,6 +294,8 @@ document.getElementById('voiceBtn').addEventListener('click', function(){
 // Build (or rebuild) the whole world from the skirmish setup: sides, terrain seed, map.
 export let worldSetup = '';
 export function newWorld(){
+  seedRandom(setup.seed * 2654435761);   // the same map seed replays the same game
+  resetIds();
   units.length = buildings.length = projectiles.length = effects.length = 0;
   radPuddles.length = doodads.length = scorches.length = 0;
   occ.fill(0); walk.fill(0); water.fill(0); ore.fill(0); explored.fill(0);
@@ -342,7 +351,8 @@ window.__RH = {
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },
   step(seconds){ // advance the simulation manually (testing / hidden-tab)
     if(!state.started || state.over) return;
-    for(let t = 0; t < seconds; t += 0.05) tick(0.05);
-    draw(); drawMinimap(); drawHUD(0.05);
+    const n = Math.max(1, Math.round(seconds / STEP));
+    for(let i = 0; i < n && !state.over; i++) tick(STEP);
+    draw(); drawMinimap(); drawHUD(STEP);
   },
 };

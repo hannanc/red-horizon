@@ -10,7 +10,8 @@ pre-rendered 3D sprites.
 python3 tools/serve.py 8347
 ```
 
-Then open http://localhost:8347. The start screen sets up the skirmish:
+Then open http://localhost:8347 (the game is plain ES modules, so it has to be served over
+http rather than opened from disk). The start screen sets up the skirmish:
 
 - **Side:** play the Allies or the Soviets; the AI takes the other side.
 - **Credits:** 5,000, 8,000 or 12,000 to start with (the AI's start scales with it).

@@ -4,6 +4,7 @@ import {applyDamage, combatStep, findEnemyInRange, fireWeapon, kill} from './com
 import {BUILD_DEFS, ENEMY, FACTION, HPX, MH, MW, NEUTRAL, PLAYER, T, UNIT_DEFS, WPX, angDiff, buildings, canMove, clamp, dispName, dist, effects, explored, flags, groundZ, hasTurret, idx, inMap, isInf, newId, occ, onMap, ore, passable, sailable, selection, setSelection, state, tileOf, turnToward, units, walk, weaponOf} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
 import {announce, groups, refreshSidebar, sfx} from './ui.js';
+import {rand} from './rng.js';
 
 // ---------- building ----------
 export function placeBuilding(key, tx, ty, team, instant){
@@ -13,7 +14,7 @@ export function placeBuilding(key, tx, ty, team, instant){
     tx, ty, w: def.w, h: def.h,
     x: (tx + def.w / 2) * T, y: (ty + def.h / 2) * T,
     hp: def.hp, maxHp: def.hp,
-    cool: 0, scanT: Math.random() * 0.4, target: null,
+    cool: 0, scanT: rand() * 0.4, target: null,
     buildUp: instant ? 1 : 0, dead: false, flash: 0, fac: FACTION[team],
     cargo: def.garrison ? [] : null, variant: 0,
   };
@@ -53,7 +54,7 @@ export function spawnUnit(key, px, py, team){
     face: team === PLAYER ? -Math.PI / 4 : Math.PI * 0.75,
     tface: team === PLAYER ? -Math.PI / 4 : Math.PI * 0.75,   // turret facing
     moving: false, walkPhase: 0, fireT: 9,
-    cool: 0, scanT: Math.random() * 0.4,
+    cool: 0, scanT: rand() * 0.4,
     order: {type:'idle'}, path: null, pathI: 0, repathT: 0,
     dead: false, flash: 0, role: 'defend', fac: def.side || FACTION[team],
     carry: 0, hState: 'seek', hTimer: 0, oreTile: null,
@@ -156,7 +157,7 @@ export function deliverUnit(key, team){
   if(src.def.key === 'factory') src.doorT = 0;
   u.order = {type: 'move'};
   if(src.rally) orderMove(u, src.rally.x, src.rally.y);
-  else if(!def.naval) orderMove(u, u.x + (Math.random() - .5) * 40, u.y + T * 1.5);
+  else if(!def.naval) orderMove(u, u.x + (rand() - .5) * 40, u.y + T * 1.5);
   return u;
 }
 
@@ -360,8 +361,8 @@ export function updateLatched(u, dt){
   if(h.dead){ u.dead = true; return; }
   u.x = h.x; u.y = h.y;
   applyDamage(h, u.def.drain * dt, null, u);
-  if(Math.random() < dt * 5)
-    effects.push({type:'spark', x: h.x, y: h.y, vx:(Math.random()-.5)*90, vy:(Math.random()-.5)*90 - 30, t:0, dur:.35});
+  if(rand() < dt * 5)
+    effects.push({type:'spark', x: h.x, y: h.y, vx:(rand()-.5)*90, vy:(rand()-.5)*90 - 30, t:0, dur:.35});
 }
 
 // ---------- aircraft ----------
@@ -598,7 +599,7 @@ export function unloadTransport(t, now){
     const a = i / out.length * Math.PI * 2 + 0.6;
     const spot = freeTileNear(Math.round(tt.x + Math.cos(a) * 1.2), Math.round(tt.y + Math.sin(a) * 1.2), 3) || freeTileNear(tt.x, tt.y, 3) || tt;
     u.inside = null;
-    u.x = spot.x * T + T / 2 + (Math.random() - 0.5) * 10; u.y = spot.y * T + T / 2 + (Math.random() - 0.5) * 10;
+    u.x = spot.x * T + T / 2 + (rand() - 0.5) * 10; u.y = spot.y * T + T / 2 + (rand() - 0.5) * 10;
     u.order = {type:'idle'}; u.path = null;
   });
   t.order = {type:'idle'}; t.path = null;
@@ -705,8 +706,8 @@ export function updateBuilding(b, dt){
     b.smokeAcc = (b.smokeAcc || 0) + dt * (b.hp < b.maxHp * 0.25 ? 9 : 4);
     while(b.smokeAcc > 1){
       b.smokeAcc -= 1;
-      effects.push({type:'puff', x: b.x + (Math.random() - .5) * b.w * T * 0.5, y: b.y + (Math.random() - .5) * b.h * T * 0.5,
-                    z: b.def.z * 0.8, r: 6 + Math.random() * 5, t: 0, dur: 1.8 + Math.random(), dark: true});
+      effects.push({type:'puff', x: b.x + (rand() - .5) * b.w * T * 0.5, y: b.y + (rand() - .5) * b.h * T * 0.5,
+                    z: b.def.z * 0.8, r: 6 + rand() * 5, t: 0, dur: 1.8 + rand(), dark: true});
     }
   }
   if(b.def.flat && b.buildUp >= 1) serviceDepot(b, dt);
