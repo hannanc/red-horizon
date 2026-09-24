@@ -5,84 +5,7 @@ import {freeTileNear, orderMove} from './pathfinding.js';
 import {CH, CW, VH, VW, ZOOM, cv, makeCameoIcon, mmC, radarOn, stepZoom} from './render.js';
 import {MAX_QUEUE, canBoard, canPlace, capacity, engineerCan, hiddenFrom, padCount, padTaken, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
 import {toggleMenu} from './main.js';
-
-// ---------- sound ----------
-export let AC = null;
-export function audio(){
-  if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
-  return AC;
-}
-export function sfx(type){
-  if(!state.sndOn || !state.started || settings.sfx < 0.01) return;
-  try{
-    const ac = audio(); const t0 = ac.currentTime;
-    const g = ac.createGain(); g.connect(ac.destination);
-    const vol = v => { g.gain.setValueAtTime(v * settings.sfx, t0); };
-    const decay = d => { g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); };
-    if(type === 'shoot'){
-      const o = ac.createOscillator(); o.type = 'square';
-      o.frequency.setValueAtTime(700, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.07);
-      vol(0.05); decay(0.08); o.connect(g); o.start(t0); o.stop(t0 + 0.09);
-    } else if(type === 'cannon' || type === 'rocket'){
-      const o = ac.createOscillator(); o.type = 'triangle';
-      o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(40, t0 + 0.18);
-      vol(0.12); decay(0.2); o.connect(g); o.start(t0); o.stop(t0 + 0.22);
-    } else if(type === 'explosion'){
-      const len = 0.45, buf = ac.createBuffer(1, ac.sampleRate * len, ac.sampleRate);
-      const d = buf.getChannelData(0);
-      for(let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
-      const s = ac.createBufferSource(); s.buffer = buf;
-      const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500;
-      s.connect(f); f.connect(g); vol(0.22); decay(len); s.start(t0);
-    } else if(type === 'zap'){
-      const o = ac.createOscillator(); o.type = 'sawtooth';
-      o.frequency.setValueAtTime(1900, t0); o.frequency.exponentialRampToValueAtTime(300, t0 + 0.15);
-      vol(0.06); decay(0.17); o.connect(g); o.start(t0); o.stop(t0 + 0.18);
-    } else if(type === 'ready'){
-      const o = ac.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(520, t0); o.frequency.setValueAtTime(780, t0 + 0.1);
-      vol(0.08); decay(0.25); o.connect(g); o.start(t0); o.stop(t0 + 0.26);
-    } else if(type === 'cash'){
-      const o = ac.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(900, t0); o.frequency.setValueAtTime(1200, t0 + 0.06);
-      vol(0.05); decay(0.15); o.connect(g); o.start(t0); o.stop(t0 + 0.16);
-    } else if(type === 'alert'){
-      const o = ac.createOscillator(); o.type = 'square';
-      o.frequency.setValueAtTime(300, t0); o.frequency.setValueAtTime(240, t0 + 0.15); o.frequency.setValueAtTime(300, t0 + 0.3);
-      vol(0.07); decay(0.5); o.connect(g); o.start(t0); o.stop(t0 + 0.5);
-    } else if(type === 'snipe'){
-      const o = ac.createOscillator(); o.type = 'square';
-      o.frequency.setValueAtTime(2400, t0); o.frequency.exponentialRampToValueAtTime(120, t0 + 0.12);
-      vol(0.09); decay(0.35); o.connect(g); o.start(t0); o.stop(t0 + 0.36);
-    } else if(type === 'bite' || type === 'bark'){
-      const o = ac.createOscillator(); o.type = 'sawtooth';
-      const f0 = type === 'bark' ? 520 : 300;
-      o.frequency.setValueAtTime(f0, t0); o.frequency.exponentialRampToValueAtTime(f0 * 0.45, t0 + 0.09);
-      if(type === 'bark'){ o.frequency.setValueAtTime(560, t0 + 0.14); o.frequency.exponentialRampToValueAtTime(240, t0 + 0.23); }
-      vol(0.07); decay(type === 'bark' ? 0.26 : 0.12); o.connect(g); o.start(t0); o.stop(t0 + 0.27);
-    } else if(type === 'chirp' || type === 'latch'){
-      const o = ac.createOscillator(); o.type = 'square';
-      for(let i = 0; i < 4; i++) o.frequency.setValueAtTime((i % 2 ? 1400 : 2100) * (type === 'latch' ? 0.5 : 1), t0 + i * 0.045);
-      vol(0.035); decay(0.2); o.connect(g); o.start(t0); o.stop(t0 + 0.2);
-    } else if(type === 'missile'){
-      const len = 0.9, buf = ac.createBuffer(1, ac.sampleRate * len, ac.sampleRate);
-      const d = buf.getChannelData(0);
-      for(let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.min(1, i / 2000) * (1 - i / d.length);
-      const src = ac.createBufferSource(); src.buffer = buf;
-      const f = ac.createBiquadFilter(); f.type = 'bandpass';
-      f.frequency.setValueAtTime(400, t0); f.frequency.exponentialRampToValueAtTime(1800, t0 + len);
-      src.connect(f); f.connect(g); vol(0.2); decay(len); src.start(t0);
-    } else if(type === 'bomb'){
-      const o = ac.createOscillator(); o.type = 'sine';
-      o.frequency.setValueAtTime(1500, t0); o.frequency.exponentialRampToValueAtTime(420, t0 + 0.6);
-      vol(0.05); decay(0.65); o.connect(g); o.start(t0); o.stop(t0 + 0.66);
-    } else if(type === 'click'){
-      const o = ac.createOscillator(); o.type = 'square';
-      o.frequency.setValueAtTime(1000, t0); vol(0.04); decay(0.05);
-      o.connect(g); o.start(t0); o.stop(t0 + 0.05);
-    }
-  }catch(e){/* audio unavailable */}
-}
+import {sfx} from './sound.js';
 
 export function speak(text){
   if(!state.voiceOn || !window.speechSynthesis) return;
@@ -170,7 +93,7 @@ export function onCameoClick(key, isUnit){
     announce(padCount(PLAYER) ? 'All landing pads are in use' : 'Requires: Airfield'); return;
   }
   if(!prereqOk(def)){ announce('Requires: ' + prereqLabel(def)); return; }
-  if(state.credits[PLAYER] < 20){ announce('Insufficient funds', false, 'Insufficient funds'); return; }
+  if(state.credits[PLAYER] < 20){ announce('Insufficient funds', false, 'Insufficient funds'); sfx('deny'); return; }
   q.push({key, isUnit, progress: 0, spent: 0, ready: false, hold: false});
   if(q.length === 1) announce(isUnit ? 'Training' : 'Building', false, isUnit ? 'Training' : 'Building');
   refreshSidebar();
@@ -377,7 +300,7 @@ export function canDeploy(u){
   return true;
 }
 export function deployMcv(u){
-  if(!canDeploy(u)){ if(u.team === PLAYER) announce('Cannot deploy here', false, 'Cannot deploy here'); return false; }
+  if(!canDeploy(u)){ if(u.team === PLAYER){ announce('Cannot deploy here', false, 'Cannot deploy here'); sfx('deny'); } return false; }
   const {tx, ty} = mcvFootprint(u);
   u.dead = true;
   const b = placeBuilding('conyard', tx, ty, u.team, false);
@@ -390,7 +313,7 @@ export function deployMcv(u){
       if(f){ v.order = {type:'move'}; orderMove(v, f.x * T + T / 2, f.y * T + T / 2); }
     }
   }
-  if(u.team === PLAYER){ setSelection([b]); sfx('ready'); }
+  if(u.team === PLAYER){ setSelection([b]); sfx('deploy'); }
   return true;
 }
 
@@ -465,14 +388,14 @@ export function tryPlace(){
     placeBuilding(key, tx, ty, PLAYER, false);
     prodQ[def.tab].shift();
     state.placing = null;
-    sfx('ready');
+    sfx('place');
     if(key === 'refinery'){
       const spot = freeTileNear(tx + 1, ty + def.h, 4);
       if(spot) spawnUnit('harv', spot.x * T + T/2, spot.y * T + T/2, PLAYER);
     }
     refreshSidebar();
   } else {
-    announce('Cannot deploy here');
+    announce('Cannot deploy here'); sfx('deny');
   }
 }
 

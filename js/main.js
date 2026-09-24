@@ -4,7 +4,8 @@ import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js
 import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf, settings, saveSettings} from './data.js';
 import {orderMove, findPath} from './pathfinding.js';
 import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers, setZoom} from './render.js';
-import {initUI, announce, audio, buildSidebar, clockEl, drawHUD, groups, sfx, speak, tickCamera} from './ui.js';
+import {initUI, announce, buildSidebar, clockEl, drawHUD, groups, speak, tickCamera} from './ui.js';
+import {audio, renderSfx, sfx, sfxLog} from './sound.js';
 import {canBoard, canPlace, deliverUnit, placeBuilding, powerOf, prodQ, radPuddles, radSources, revealAround, spawnUnit, tickProduction, tickRadiation, treeDisguised, unloadTransport, updateBuilding, updateUnit} from './units.js';
 import {rand, seedRandom} from './rng.js';
 import {SLOTS, readSlot, restore, slotInfo, snapshot, writeSlot} from './save.js';
@@ -46,7 +47,7 @@ export function checkEnd(){
       : `Your base has fallen on ${diff.name}. The red banner flies over the ruins.`;
     document.getElementById('endScreen').style.display = 'flex';
     speak(win ? 'Mission accomplished' : 'Command link lost');
-    sfx(win ? 'ready' : 'alert');
+    sfx(win ? 'win' : 'lose');
   }
 }
 
@@ -218,11 +219,11 @@ export function tick(dt){
       if(s.charge){
         const c = s.charge;
         applyDamage(c.target, c.dmg, c.vs, c.src.dead ? null : c.src);
-        boom(c.x, c.y, 34); scorch(c.x, c.y, 26); sfx('explosion');
+        boom(c.x, c.y, 34); scorch(c.x, c.y, 26); sfx('explosion', c, 1.2);
         continue;
       }
       if(s.puff) effects.push({type:'puff', x: s.x, y: s.y, z: s.z, r: s.r, t: 0, dur: s.dur, dark: s.dark});
-      else { boom(s.x, s.y, s.size); sfx('explosion'); }
+      else { boom(s.x, s.y, s.size); sfx('explosion', s); }
     }
     for(let i = effects.length - 1; i >= 0; i--) if(effects[i].t >= effects[i].dur) effects.splice(i, 1);
     for(let i = projectiles.length - 1; i >= 0; i--) if(projectiles[i].dead) projectiles.splice(i, 1);
@@ -236,7 +237,7 @@ export function tick(dt){
       for(const u of units) if(!u.dead && u.team === PLAYER) revealAround(u.x, u.y, 6);
       for(const b of buildings) if(!b.dead && b.team === PLAYER) revealAround(b.x, b.y, 7);
     }
-    if(state.lowPower && !lowPowerWarned){ lowPowerWarned = true; announce('Low power', true, 'Low power'); }
+    if(state.lowPower && !lowPowerWarned){ lowPowerWarned = true; announce('Low power', true, 'Low power'); sfx('powerdown'); }
     if(!state.lowPower) lowPowerWarned = false;
 
     endT -= dt;
@@ -475,6 +476,7 @@ window.__RH = {
   zoom: z => setZoom(z),
   // rebuild the world from other setup choices (before the game starts), e.g. rebuild({map: 'random', seed: 5})
   rebuild(opts){ Object.assign(setup, opts); newWorld(); },
+  sfxLog, renderSfx, sfx: (type, tx, ty, size) => sfx(type, tx == null ? null : {x: tx * T + T / 2, y: ty * T + T / 2}, size),
   settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
   pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },

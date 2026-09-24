@@ -3,7 +3,8 @@ import {diff} from './ai.js';
 import {applyDamage, combatStep, findEnemyInRange, fireWeapon, kill} from './combat.js';
 import {BUILD_DEFS, ENEMY, FACTION, HPX, MH, MW, NEUTRAL, PLAYER, T, UNIT_DEFS, WPX, angDiff, buildings, canMove, clamp, dispName, dist, effects, explored, flags, groundZ, hasTurret, idx, inMap, isInf, newId, occ, onMap, ore, passable, sailable, selection, setSelection, state, tileOf, turnToward, units, walk, weaponOf} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
-import {announce, groups, refreshSidebar, sfx} from './ui.js';
+import {announce, groups, refreshSidebar} from './ui.js';
+import {sfx} from './sound.js';
 import {rand} from './rng.js';
 
 // ---------- building ----------
@@ -129,7 +130,7 @@ export function tickProduction(dt){
       } else {
         s.ready = true;
         announce('Construction complete', false, 'Construction complete');
-        sfx('ready');
+        sfx('built');
       }
     }
   }
@@ -208,7 +209,7 @@ export function haulerJump(u, dt){
   u.x = spot.x * T + T / 2; u.y = spot.y * T + T / 2; u.path = null;
   effects.push({type:'blink', x: u.x, y: u.y, t: 0, dur: 0.4, arrive: true});
   u.hState = 'unload'; u.hTimer = 0;
-  if(u.team === PLAYER) sfx('zap');
+  if(u.team === PLAYER) sfx('blink', u);
 }
 
 export function updateHarvester(u, dt){
@@ -253,7 +254,7 @@ export function updateHarvester(u, dt){
     u.hTimer += dt;
     if(u.hTimer >= 1.2){
       state.credits[u.team] += Math.round(u.carry * (u.team === ENEMY ? diff.harvest : 1));
-      if(u.team === PLAYER) sfx('cash');
+      if(u.team === PLAYER) sfx('cash', u);
       u.carry = 0; u.hState = 'seek'; u.oreTile = null;
     }
   } else {
@@ -522,7 +523,7 @@ export function blinkStep(u, dt){
   u.x = x; u.y = y;
   u.pathI = u.path.length;
   effects.push({type:'blink', x, y, t: 0, dur: 0.4, arrive: true});
-  sfx('zap');
+  sfx('blink', u);
   if(u.team === PLAYER) revealAround(x, y, 6);
   return true;
 }
@@ -660,7 +661,7 @@ export function updateEngineer(u, dt){
 }
 export function engineerEnter(u, b){
   u.dead = true;
-  sfx('ready');
+  sfx('built');
   if(b.team === u.team){
     b.hp = b.maxHp; b.repairing = false;
     if(u.team === PLAYER) announce('Structure repaired', false, 'Structure repaired');
