@@ -209,6 +209,7 @@
       <li><b>Army:</b> Barracks trains infantry, the Vehicle Factory builds tanks. Select with left-click / drag, command with right-click.</li>
       <li><b>Transports:</b> Right-click a friendly IFV or Halftrack with infantry selected to board. Click the transport again (or press <b>D</b>) to unload.</li>
       <li><b>Engineers:</b> Right-click an enemy structure to capture it, or one of yours to repair it fully. The engineer is used up.</li>
+      <li><b>Repairs:</b> Right-click a <b>Service Depot</b> with vehicles selected to park them on it; it fixes them for credits and pulls out a latched drone.</li>
       <li><b>Aircraft:</b> Jets make one bomb run on a right-clicked target, then fly back to the <b>Airfield</b> to rearm (right-click the Airfield to send them home). Only rockets and flak can hit aircraft.</li>
       <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
     </ul>
@@ -281,11 +282,12 @@ resize();
 // ---------- map state ----------
 const ore      = new Float32Array(MW * MH);
 const occ      = new Int16Array(MW * MH);   // building id, 0 = free, BLOCKED = water / trees / rocks
+const walk     = new Uint8Array(MW * MH);   // 1 = occupied by a flat building units can drive over (depot)
 const explored = new Uint8Array(MW * MH);
 const BLOCKED = -1;
 const idx = (x, y) => y * MW + x;
 const inMap = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
-const passable = (x, y) => inMap(x, y) && occ[idx(x, y)] === 0;
+const passable = (x, y) => inMap(x, y) && (occ[idx(x, y)] === 0 || walk[idx(x, y)] === 1);
 const doodads = [];                          // trees and rocks: {x, y, name, frame}
 let shroudDirty = true;
 
@@ -325,6 +327,8 @@ const BUILD_DEFS = {
              weapon:{dmg:110, rof:3.2, range:7.6, kind:'beam', vs:{inf:1.2, heavy:1, building:0.8}}},
   arctower: {name:'Arc Tower',         cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:null, z:54, // enemy only
              weapon:{dmg:110, rof:3.2, range:7.2, kind:'arc', vs:{inf:1.4, heavy:1, building:0.8}}},
+  // vehicles drive onto it (flat: its tiles stay passable) to be repaired; it also pulls out latched drones
+  depot   : {name:'Service Depot',     cost:800,  power:-20,  w:3, h:3, hp:900,  time:12, tab:'structure', prereq:['factory'], z:12, flat:true},
   // jets land on its two pads to rearm; the helicopter is built here too
   airfield: {name:'Airfield',          cost:1200, power:-40,  w:3, h:3, hp:1000, time:15, tab:'structure', prereq:['radar'], z:30, side:'allied',
              pads: [[-0.62, 0.55], [0.55, -0.62]]},   // pad centres, tiles from the footprint centre
@@ -420,7 +424,7 @@ UNIT_DEFS.drone.voice = null;
 
 // enemy flavor names (same stats, soviet skin)
 const SOV_NAME = {rifle:'Trooper', rocket:'AT Trooper', ltank:'Bison Tank', htank:'Ironclad Tank', harv:'Ore Truck',
-                  radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant'};
+                  radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant', depot:'Repair Bay'};
 
 function dispName(def, team){ return team === ENEMY && SOV_NAME[def.key] ? SOV_NAME[def.key] : def.name; }
 
@@ -458,7 +462,7 @@ function placeBuilding(key, tx, ty, team, instant){
   };
   buildings.push(b);
   for(let y = ty; y < ty + def.h; y++)
-    for(let x = tx; x < tx + def.w; x++) occ[idx(x, y)] = b.id;
+    for(let x = tx; x < tx + def.w; x++){ occ[idx(x, y)] = b.id; if(def.flat) walk[idx(x, y)] = 1; }
   if(team === PLAYER) revealAround(b.x, b.y, 7);
   return b;
 }
@@ -634,7 +638,7 @@ function kill(e){
   if(e.kind === 'building'){
     for(let y = e.ty; y < e.ty + e.h; y++)
       for(let x = e.tx; x < e.tx + e.w; x++)
-        if(occ[idx(x, y)] === e.id) occ[idx(x, y)] = 0;
+        if(occ[idx(x, y)] === e.id){ occ[idx(x, y)] = 0; walk[idx(x, y)] = 0; }
     if(e.team === PLAYER) announce('Structure lost', true);
   }
 }
@@ -1267,6 +1271,7 @@ function updateBuilding(b, dt){
                     z: b.def.z * 0.8, r: 6 + Math.random() * 5, t: 0, dur: 1.8 + Math.random(), dark: true});
     }
   }
+  if(b.def.flat && b.buildUp >= 1) serviceDepot(b, dt);
   if(!b.def.weapon) return;
   const p = powerOf(b.team);
   if(p.used > p.prod) return;
@@ -1277,6 +1282,33 @@ function updateBuilding(b, dt){
   }
   if(b.target && b.cool <= 0 && dist(b, b.target) <= b.def.weapon.range * T)
     fireWeapon(b, b.target);
+}
+
+// Service depot: fixes the most damaged vehicle parked on it (for credits, at half
+// speed on low power) and pulls out any drone latched inside a parked vehicle.
+const onFootprint = (u, b) => u.x >= b.tx * T && u.x < (b.tx + b.w) * T && u.y >= b.ty * T && u.y < (b.ty + b.h) * T;
+function serviceDepot(b, dt){
+  b.svcT = (b.svcT || 0) - dt;
+  const parked = units.filter(u => onMap(u) && u.team === b.team && u.def.armor === 'heavy' && !u.moving && onFootprint(u, b));
+  for(const d of units){
+    if(!d.latched || !parked.includes(d.latched)) continue;
+    d.x = d.latched.x + T * 0.6; d.y = d.latched.y + T * 0.6;
+    d.latched = null;
+    kill(d);
+    if(b.team === PLAYER) announce('Drone removed', false, 'Drone removed');
+  }
+  const v = parked.filter(u => u.hp < u.maxHp).sort((a, c) => a.hp / a.maxHp - c.hp / c.maxHp)[0];
+  if(!v) return;
+  const p = powerOf(b.team);
+  const heal = Math.min(v.maxHp * 0.1 * dt * (p.used > p.prod ? 0.5 : 1), v.maxHp - v.hp);
+  const cost = v.def.cost * 0.4 * heal / v.maxHp;
+  if(state.credits[b.team] < cost) return;
+  state.credits[b.team] -= cost;
+  v.hp += heal;
+  if(b.svcT <= 0){
+    b.svcT = 0.4;
+    effects.push({type:'beam', x1: b.x - T, y1: b.y - T, z1: 30, x2: v.x, y2: v.y, t: 0, dur: 0.3, thin: true, heal: true});
+  }
 }
 
 function updateProjectiles(dt){
@@ -1433,6 +1465,7 @@ function tickAI(dt){
   }
 
   aiTransports();
+  aiRepairs(dt);
   for(const u of units){
     if(!onMap(u) || u.team !== ENEMY || u.role !== 'attacker' || u.holdT) continue;
     if(u.order.type === 'idle'){
@@ -1473,6 +1506,22 @@ function aiTransports(){
         }
         if(goal && canHurt(t, goal)) t.order = {type:'attack', target: goal};
       }
+    }
+  }
+}
+
+// damaged vehicles at home drive onto the depot until they are fixed
+function aiRepairs(dt){
+  ai.repT = (ai.repT || 0) - dt;
+  if(ai.repT > 0) return;
+  ai.repT = 2;
+  const depot = buildings.find(b => !b.dead && b.team === ENEMY && b.def.flat);
+  if(!depot) return;
+  for(const u of units){
+    if(!onMap(u) || u.team !== ENEMY || u.def.armor !== 'heavy' || u.def.air || u.def.harvester || u.role === 'attacker') continue;
+    if(u.order.type === 'idle' && u.hp < u.maxHp * 0.6 && !onFootprint(u, depot)){
+      u.order = {type: 'move'};
+      orderMove(u, depot.x + (Math.random() - 0.5) * T, depot.y + (Math.random() - 0.5) * T);
     }
   }
 }
@@ -1607,7 +1656,7 @@ let activeTab = 'structure';
 const cameoEls = {};
 
 const TAB_ITEMS = {
-  structure: ['power','refinery','barracks','factory','radar','airfield'],
+  structure: ['power','refinery','barracks','factory','radar','depot','airfield'],
   defense:   ['pillbox','beamtower'],
   infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','jetpack'],
   vehicle:   ['ltank','ifv','halftrack','beamtank','launcher','drone','htank','jet','heli','airship','harv','mcv'],
@@ -1863,6 +1912,21 @@ function issueCommand(ev){
     }
   }
   if(target && target.def.transport && selUnits.length === 1 && selUnits[0] === target && target.cargo.length){ unloadTransport(target); return; }
+  // vehicles drive onto a friendly depot, spread over its tiles, centre first
+  if(target && target.kind === 'building' && target.def.flat && target.team === PLAYER){
+    const veh = selUnits.filter(u => u.def.armor === 'heavy' && !u.def.air);
+    if(veh.length){
+      veh.forEach((u, i) => {
+        const k = [4, 1, 3, 5, 7, 0, 2, 6, 8][i % 9];
+        u.order = {type: 'move'};
+        orderMove(u, (target.tx + k % 3 + 0.5) * T, (target.ty + Math.floor(k / 3) + 0.5) * T);
+      });
+      effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4});
+      sfx('click'); ack('move', veh[0]);
+      selUnits = selUnits.filter(u => !veh.includes(u));
+      if(!selUnits.length) return;
+    }
+  }
   // jets sent back to base by right-clicking an airfield
   const jets = selUnits.filter(u => u.def.jet);
   if(jets.length && target && target.kind === 'building' && target.def.pads && target.team === PLAYER){
@@ -2001,7 +2065,7 @@ function sellBuilding(b){
   b.dead = true;
   for(let y = b.ty; y < b.ty + b.h; y++)
     for(let x = b.tx; x < b.tx + b.w; x++)
-      if(occ[idx(x, y)] === b.id) occ[idx(x, y)] = 0;
+      if(occ[idx(x, y)] === b.id){ occ[idx(x, y)] = 0; walk[idx(x, y)] = 0; }
   state.credits[b.team] += Math.floor(b.def.cost * 0.5 * b.hp / b.maxHp);
   const n = b.w * b.h >= 9 ? 3 : b.w * b.h >= 4 ? 2 : 1;
   for(let i = 0; i < n; i++){
@@ -2436,6 +2500,16 @@ function drawBuildingSprite(b){
     cylinder(ctr.x - 14, ctr.y - z + 2, 4.5, 24, '#5b626e');
     cx.strokeStyle = tc; cx.lineWidth = 2.5;
     cx.beginPath(); cx.moveTo(c.t.x, c.t.y - z); cx.lineTo(c.l.x, c.l.y - z); cx.stroke();
+  } else if(k === 'depot'){
+    isoBox(b.tx, b.ty, b.w, b.h, 3 * up, '#6d737c', '#5d636b');
+    const pc = toIso(wxc, wyc);
+    cx.fillStyle = '#454b53'; cx.beginPath(); cx.ellipse(pc.x, pc.y - 3, 34, 17, 0, 0, 7); cx.fill();
+    cx.strokeStyle = '#f5c542'; cx.lineWidth = 2; cx.beginPath(); cx.ellipse(pc.x, pc.y - 3, 28, 14, 0, 0, 7); cx.stroke();
+    cx.strokeStyle = tc; cx.beginPath(); cx.ellipse(pc.x, pc.y - 3, 16, 8, 0, 0, 7); cx.stroke();
+    // gantry along the back edge
+    const g1 = toIso(b.tx * T + 4, b.ty * T + 4), g2 = toIso((b.tx + b.w) * T - 4, b.ty * T + 4);
+    cx.strokeStyle = '#e9b83a'; cx.lineWidth = 3;
+    cx.beginPath(); cx.moveTo(g1.x, g1.y); cx.lineTo(g1.x, g1.y - 34 * up); cx.lineTo(g2.x, g2.y - 34 * up); cx.lineTo(g2.x, g2.y); cx.stroke();
   } else if(k === 'airfield'){
     isoBox(b.tx, b.ty, b.w, b.h, 5 * up, '#6d737c', '#565c64');
     for(const [ox, oy] of b.def.pads){
@@ -2793,12 +2867,13 @@ function cursorType(){
     if(t && t.def.mcv && su.length === 1 && su[0] === t) return canDeploy(t) ? 'deploy' : 'nodeploy';
     if(t && t.def.transport && su.length === 1 && su[0] === t) return t.cargo.length ? 'deploy' : 'select';
     if(t && t.def.transport && su.some(u => canBoard(u, t))) return 'enter';
+    if(t && t.kind === 'building' && t.def.flat && t.team === PLAYER && su.some(u => u.def.armor === 'heavy' && !u.def.air)) return 'enter';
     if(su.some(u => u.def.engineer) && engineerCan(t, PLAYER) && !keys['control'] && !keys['meta'])
       return t.team === PLAYER ? 'fix' : 'capture';
     if(t && t.team === ENEMY && su.some(u => canHurt(u, t))) return 'attack';
     if(t && t.team === PLAYER) return 'select';
     const tx = Math.floor(mouse.wx / T), ty = Math.floor(mouse.wy / T);
-    if(!inMap(tx, ty) || (occ[idx(tx, ty)] !== 0 && explored[idx(tx, ty)])) return 'nomove';
+    if(!inMap(tx, ty) || (!passable(tx, ty) && explored[idx(tx, ty)] && !su.every(u => u.def.air))) return 'nomove';
     return 'move';
   }
   if(t && t.team === PLAYER) return 'select';
@@ -3153,7 +3228,8 @@ function draw(){
   for(const u of units) if(onMap(u) && !u.def.air) renderables.push(u);
   for(const d of doodads)
     if(d.tx >= vb.x0 && d.tx <= vb.x1 && d.ty >= vb.y0 && d.ty <= vb.y1) renderables.push(d);
-  renderables.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  const depth = e => e.x + e.y - (e.def && e.def.flat ? 1e5 : 0);   // flat buildings lie under whatever drives on them
+  renderables.sort((a, b) => depth(a) - depth(b));
   for(const e of renderables){
     if(e.kind === 'building') drawBuildingSprite(e);
     else if(e.kind === 'unit') drawUnitSprite(e);
@@ -3454,6 +3530,7 @@ function setupMap(){
   placeBuilding('radar', 58, 12, ENEMY, true);     // keeps the factory yard open to the east
   placeBuilding('arctower', 50, 14, ENEMY, true);
   placeBuilding('arctower', 54, 15, ENEMY, true);
+  placeBuilding('depot', 57, 15, ENEMY, true);
   const eh = spawnUnit('harv', 53 * T, 16 * T, ENEMY);
   eh.hState = 'seek';
   spawnUnit('rifle', 51 * T, 15 * T, ENEMY);
@@ -3595,6 +3672,7 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
+  canPlace,
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },

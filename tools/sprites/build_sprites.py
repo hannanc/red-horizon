@@ -44,6 +44,7 @@ BUILDINGS = {  # key: (footprint, height in BU, builder, factions, frames, frame
     'beamtower': ((1, 1), 1.9, M.beam_tower, ('allied',), 1, None),
     'arctower':  ((1, 1), 1.55, M.arc_tower, ('soviet',), 1, None),
     'airfield':  ((3, 3), 1.3, M.airfield, ('allied',), 1, None),
+    'depot':     ((3, 3), 1.15, M.depot, FACTIONS, 1, None),
 }
 VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom, factions)
     'ltank':    (M.light_tank, (104, 72, 58, 44), 1.9, FACTIONS),
