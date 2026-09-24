@@ -1,0 +1,2870 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Red Horizon — a 2.5D real-time strategy game</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  :root{
+    --sidebar-w: 264px;
+    --topbar-h: 30px;
+    --panel:#1a2030; --panel2:#232b40; --edge:#3a4a6a;
+    --gold:#f5c542; --blue:#3b7dff; --red:#e04040; --green:#39d353;
+    /* sidebar metal (Allied steel-blue) */
+    --m-hi:#8fa2b8; --m-mid:#566a82; --m-lo:#2b3747; --m-deep:#141b25;
+  }
+  *{box-sizing:border-box; margin:0; padding:0; user-select:none; -webkit-user-select:none;}
+  html,body{width:100%;height:100%;overflow:hidden;background:#000;font-family:"Trebuchet MS",Verdana,sans-serif;}
+  #topbar{
+    position:fixed;top:0;left:0;right:0;height:var(--topbar-h);
+    background:linear-gradient(#4c5e74,#2a3646 55%,#1c2531);border-bottom:1px solid #0a0e14;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.18);
+    display:flex;align-items:center;gap:16px;padding:0 10px;color:#cfd8ec;z-index:10;
+    font-size:13px;letter-spacing:.5px;
+  }
+  #topbar .title{font-weight:bold;color:var(--gold);text-shadow:0 1px 0 #000, 0 0 6px rgba(245,197,66,.35);letter-spacing:2px;}
+  #clock{font-family:"Courier New",monospace;color:#b9c7da;}
+  @keyframes blink{50%{opacity:.4}}
+  #btns{margin-left:auto;display:flex;gap:6px;}
+  #btns button{
+    background:linear-gradient(#5d7088,#34425a);color:#e4ecf7;border:1px solid #11161f;border-radius:2px;
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.25);padding:2px 10px;cursor:pointer;font-size:12px;
+  }
+  #btns button:hover{filter:brightness(1.15);}
+  #game{position:fixed;top:calc(var(--topbar-h) * var(--ui, 1));left:0;cursor:none;background:#04070d;}
+  #topbar, #sidebar, #announcer, #tip, #help, #endScreen{zoom:var(--ui, 1);}
+
+  /* ---- command sidebar ---- */
+  #sidebar{
+    position:fixed;top:var(--topbar-h);right:0;bottom:0;width:var(--sidebar-w);
+    background:
+      repeating-linear-gradient(90deg, rgba(255,255,255,.025) 0 2px, transparent 2px 5px),
+      linear-gradient(90deg,var(--m-lo),var(--m-mid) 18%,var(--m-hi) 50%,var(--m-mid) 82%,var(--m-lo));
+    border-left:2px solid #0b0f15;box-shadow:inset 2px 0 0 rgba(255,255,255,.2);
+    display:flex;flex-direction:column;z-index:10;padding:6px 8px 8px;gap:6px;
+  }
+  .well{ /* recessed dark panel */
+    background:var(--m-deep);border:2px solid;border-color:#0b0f15 #7e93ab #7e93ab #0b0f15;
+    box-shadow:inset 0 0 8px rgba(0,0,0,.8);
+  }
+  #creditsBox{
+    height:28px;display:flex;align-items:center;justify-content:center;
+    font:bold 17px "Courier New",monospace;color:#ffd24a;letter-spacing:2px;
+    text-shadow:0 0 6px rgba(255,190,40,.55);
+  }
+  #radarFrame{position:relative;padding:3px;}
+  #minimap{display:block;width:100%;image-rendering:auto;cursor:pointer;background:#000;}
+  #radarFrame::before,#radarFrame::after{
+    content:"";position:absolute;width:7px;height:7px;border-radius:50%;top:-8px;
+    background:radial-gradient(circle at 35% 35%,#dfe7f1,#5b6c80 60%,#1c2531);
+  }
+  #radarFrame::before{left:-6px}
+  #radarFrame::after{right:-6px}
+  #cmdRow{display:flex;gap:6px;align-items:stretch;}
+  .sbBtn{
+    flex:1;height:30px;border:2px solid;border-color:#b4c4d6 #1a222d #1a222d #b4c4d6;
+    background:linear-gradient(#6f8399,#3d4d62);color:#f0f5fb;cursor:pointer;
+    font:bold 15px "Trebuchet MS",sans-serif;display:flex;align-items:center;justify-content:center;gap:4px;
+  }
+  .sbBtn:hover{filter:brightness(1.15);}
+  .sbBtn.on{border-color:#1a222d #b4c4d6 #b4c4d6 #1a222d;background:linear-gradient(#2c394a,#4a5c72);color:#ffd24a;}
+  #powerlbl{
+    flex:1.3;display:flex;align-items:center;justify-content:center;font:bold 12px "Courier New",monospace;color:#8ff09a;
+  }
+  #powerlbl.low{color:#ff5b5b;animation:blink 1s infinite;}
+  #tabs{display:flex;gap:4px;}
+  #tabs .tab{
+    flex:1;height:34px;cursor:pointer;display:flex;align-items:center;justify-content:center;
+    border:2px solid;border-color:#b4c4d6 #1a222d #1a222d #b4c4d6;
+    background:linear-gradient(#63768c,#34445a);
+  }
+  #tabs .tab svg{width:22px;height:22px;fill:#cfdbe9;filter:drop-shadow(0 1px 0 #000);}
+  #tabs .tab.active{border-color:#1a222d #b4c4d6 #b4c4d6 #1a222d;background:linear-gradient(#26313f,#3e4e63);}
+  #tabs .tab.active svg{fill:#ffd24a;}
+  #tabs .tab.alert svg{animation:blink .8s infinite;fill:#8ff09a;}
+  #prodArea{flex:1;display:flex;gap:6px;min-height:0;}
+  #powerCol{width:14px;position:relative;padding:2px;}
+  #powerBar{
+    position:absolute;left:2px;right:2px;bottom:2px;height:0%;transition:height .4s;
+    background:repeating-linear-gradient(0deg,#46e05a 0 4px,#1f6f2a 4px 6px);
+  }
+  #powerBar.low{background:repeating-linear-gradient(0deg,#ff5a3c 0 4px,#7a1d12 4px 6px);}
+  #powerDrain{position:absolute;left:0;right:0;height:2px;background:#fff;box-shadow:0 0 4px #fff;bottom:0;transition:bottom .4s;}
+  #buildGrid{flex:1;overflow-y:auto;padding:4px;display:grid;grid-template-columns:1fr 1fr;gap:4px;align-content:start;
+    scrollbar-width:thin;scrollbar-color:#566a82 #141b25;}
+  .cameo{
+    position:relative;aspect-ratio:4/3;cursor:pointer;overflow:hidden;
+    border:2px solid;border-color:#0b0f15 #6f839a #6f839a #0b0f15;background:#1d2733;color:#fff;
+  }
+  .cameo:hover{outline:1px solid #ffd24a;outline-offset:-1px;}
+  .cameo canvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;}
+  .cameo canvas.pic{background:radial-gradient(ellipse at 50% 30%,#7f95ad 0%,#435469 55%,#253140 100%);}
+  .cameo .nm{
+    position:absolute;left:0;right:0;bottom:0;padding:1px 2px;pointer-events:none;
+    font:bold 10px "Trebuchet MS",sans-serif;text-align:center;letter-spacing:.3px;
+    background:linear-gradient(transparent,rgba(0,0,0,.75));text-shadow:0 1px 1px #000;
+  }
+  .cameo .cost{display:none;}
+  .cameo.disabled{cursor:not-allowed;}
+  .cameo.disabled canvas{filter:grayscale(1) brightness(.45);}
+  .cameo .prog{ /* clock wipe: darkens the part still to be built */
+    position:absolute;inset:0;pointer-events:none;display:none;
+    background:conic-gradient(transparent 0 var(--p,0%), rgba(0,0,0,.62) var(--p,0%) 100%);
+  }
+  .cameo.building .prog{display:block;}
+  .cameo .ready{
+    position:absolute;inset:0;display:none;align-items:center;justify-content:center;
+    color:#fff;font:bold 13px "Trebuchet MS",sans-serif;letter-spacing:1px;text-shadow:0 0 4px #000,0 0 2px #000;
+    animation:blink 1s infinite;pointer-events:none;
+  }
+  .cameo.isReady .ready{display:flex;}
+  .cameo .cnt{position:absolute;top:2px;right:4px;font:bold 13px "Trebuchet MS",sans-serif;color:#fff;
+    text-shadow:0 0 3px #000,0 0 2px #000;pointer-events:none;}
+  #help, #endScreen{
+    position:fixed;inset:0;background:rgba(4,7,14,.88);z-index:50;display:flex;
+    align-items:center;justify-content:center;color:#dfe7f7;
+  }
+  .panelBox{
+    background:linear-gradient(180deg,#46576c,#2a3544 40%,#1b2430);
+    border:3px solid;border-color:#a9bbcf #10151c #10151c #a9bbcf;
+    padding:26px 32px;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,.7);
+  }
+  .panelBox h1{color:#ffd24a;margin-bottom:12px;font-size:26px;letter-spacing:3px;text-shadow:0 2px 0 #000;}
+  .panelBox p,.panelBox li{font-size:14px;line-height:1.55;color:#d3dcea;}
+  .panelBox ul{margin:10px 0 16px 20px;}
+  .panelBox b{color:#fff;}
+  .panelBox button{
+    margin-top:8px;border:2px solid;border-color:#b4c4d6 #1a222d #1a222d #b4c4d6;
+    background:linear-gradient(#6f8399,#3d4d62);color:#fff;padding:9px 26px;
+    font:bold 15px "Trebuchet MS",sans-serif;cursor:pointer;letter-spacing:2px;text-shadow:0 1px 0 #000;
+  }
+  .panelBox button:hover{filter:brightness(1.15);}
+  #endScreen{display:none;}
+  #announcer{
+    position:fixed;top:calc(var(--topbar-h) + 10px);left:12px;z-index:20;pointer-events:none;
+    display:flex;flex-direction:column;gap:6px;
+  }
+  .announceMsg{
+    background:rgba(10,14,24,.78);border:1px solid var(--edge);border-left:3px solid var(--gold);
+    color:#ffe9a8;padding:6px 12px;font-size:13px;border-radius:3px;letter-spacing:.5px;
+    animation:evain .2s ease-out;
+  }
+  @keyframes evain{from{transform:translateX(-16px);opacity:0}}
+  #tip{
+    position:fixed;bottom:8px;left:10px;color:#7c8db0;font-size:12px;z-index:9;pointer-events:none;
+    text-shadow:0 1px 2px #000;
+  }
+</style>
+</head>
+<body>
+<div id="topbar">
+  <span class="title">RED HORIZON</span>
+  <span id="clock">00:00</span>
+  <div id="btns">
+    <button id="sndBtn" title="Toggle sound effects">🔊 SFX</button>
+    <button id="voiceBtn" title="Toggle announcer and unit voices">🗣 Voice</button>
+    <button id="helpBtn">Options</button>
+  </div>
+</div>
+
+<canvas id="game"></canvas>
+
+<div id="sidebar">
+  <div id="creditsBox" class="well">$<span id="credits">0</span></div>
+  <div id="radarFrame" class="well"><canvas id="minimap" width="220" height="120"></canvas></div>
+  <div id="cmdRow">
+    <button id="repairBtn" class="sbBtn" title="Repair a structure (K)">🔧</button>
+    <button id="sellBtn" class="sbBtn" title="Sell a structure (L)">$</button>
+    <div id="powerlbl" class="well">⚡ 0</div>
+  </div>
+  <div id="tabs">
+    <div class="tab active" data-tab="structure" title="Structure"><svg viewBox="0 0 24 24"><path d="M3 21V10l9-6 9 6v11h-6v-6H9v6z"/></svg></div>
+    <div class="tab" data-tab="defense" title="Defense"><svg viewBox="0 0 24 24"><path d="M9 22V11H7V6l2-1V2h6v3l2 1v5h-2v11zM11 8h2v2h-2z"/></svg></div>
+    <div class="tab" data-tab="infantry" title="Infantry"><svg viewBox="0 0 24 24"><circle cx="12" cy="4.5" r="2.5"/><path d="M8 8h8l1 7h-2l-1 7h-4l-1-7H7z"/></svg></div>
+    <div class="tab" data-tab="vehicle" title="Vehicle"><svg viewBox="0 0 24 24"><path d="M2 16h20l-2 4H4zM4 11h13l2 4H3zM8 7h6v3H8zM14 8h8v1h-8z"/></svg></div>
+  </div>
+  <div id="prodArea">
+    <div id="powerCol" class="well" title="Power: output (bar) vs. drain (marker)"><div id="powerBar"></div><div id="powerDrain"></div></div>
+    <div id="buildGrid" class="well"></div>
+  </div>
+</div>
+
+<div id="announcer"></div>
+<div id="tip">Left: select / drag &nbsp;•&nbsp; Right: move / attack / rally &nbsp;•&nbsp; Ctrl: force-fire &nbsp;•&nbsp; D deploy &nbsp;•&nbsp; K repair &nbsp;•&nbsp; L sell &nbsp;•&nbsp; Ctrl+1-9 groups &nbsp;•&nbsp; Wheel / +- zoom &nbsp;•&nbsp; Arrows / edge: scroll</div>
+
+<div id="help">
+  <div class="panelBox">
+    <h1>RED HORIZON</h1>
+    <p>A classic isometric real-time strategy skirmish. You command the <b style="color:#6ea3ff">Allied</b> base in the west. The <b style="color:#ff6e6e">Soviet</b> AI holds the east and <i>will</i> come for you.</p>
+    <ul>
+      <li><b>Deploy:</b> Select your <b>Construction Vehicle</b> and press <b>D</b> (or click it again) to unfold your Construction Hub.</li>
+      <li><b>Economy:</b> Build an <b>Ore Refinery</b> — its Miner harvests golden ore and returns it for credits.</li>
+      <li><b>Power:</b> Keep power positive or production slows and defenses shut down.</li>
+      <li><b>Sidebar:</b> Click a picture to start building. Structures show <b>READY</b> — then click the map to place them (near your base).</li>
+      <li><b>Army:</b> Barracks trains infantry, the Vehicle Factory builds tanks. Select with left-click / drag, command with right-click.</li>
+      <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
+    </ul>
+    <button id="startBtn">COMMENCE OPERATION</button>
+  </div>
+</div>
+
+<div id="endScreen">
+  <div class="panelBox" style="text-align:center">
+    <h1 id="endTitle">VICTORY</h1>
+    <p id="endText"></p>
+    <button onclick="location.reload()">PLAY AGAIN</button>
+  </div>
+</div>
+
+<script src="js/terrain.js"></script>
+<script src="js/sprites.js"></script>
+<script>
+"use strict";
+/* =========================================================
+   RED HORIZON — a classic 2.5D real-time strategy game
+   Units and buildings are pre-rendered 3D sprites (see
+   tools/sprites); the procedural drawing below is only a
+   fallback for when the sprite sheets are unavailable.
+   ========================================================= */
+
+// ---------- constants ----------
+const T = 32;                 // world tile size (logic runs on a square grid)
+const MW = 64, MH = 64;       // map tiles
+const WPX = MW * T, HPX = MH * T;
+const IW = WPX * 2, IH = HPX; // iso-projected world size (diamond fits in IW x IH)
+// UI scale: on large monitors running at 100% (DPR 1) blow the sidebar up so it
+// stays readable on 4K; high-DPI screens already get crisp native-size UI.
+const UI = (window.devicePixelRatio || 1) < 1.5 ? (innerWidth >= 3000 ? 2 : innerWidth >= 2200 ? 1.5 : 1) : 1;
+document.documentElement.style.setProperty('--ui', UI);
+const SIDEBAR_W = 264 * UI, TOPBAR_H = 30 * UI;
+const PLAYER = 0, ENEMY = 1, NEUTRAL = 2;
+const TEAM_COLOR   = ['#3b7dff', '#e04040', '#c8c0a8'];
+const TEAM_COLOR_D = ['#234a99', '#8c2626'];
+const FACTION = ['allied', 'soviet', 'civ'];   // sprite set per team
+
+// world <-> iso screen projection (2:1 dimetric diamonds)
+function toIso(wx, wy){ return {x: wx - wy + WPX, y: (wx + wy) * 0.5}; }
+function toWorld(ix, iy){ const a = ix - WPX; return {x: iy + a * 0.5, y: iy - a * 0.5}; }
+
+// ---------- canvas ----------
+const cv = document.getElementById('game');
+let cx = cv.getContext('2d');   // swapped temporarily when rendering cameo icons
+const mainCx = cx;
+// CW/CH: canvas size in CSS px. VW/VH: visible world area in iso px (CSS px / ZOOM).
+let CW = 0, CH = 0, VW = 0, VH = 0, DPR = 1, ZOOM = 1;
+const ZOOMS = [0.5, 0.75, 1, 1.25, 1.5, 2, 2.5, 3];
+function resize(){
+  DPR = window.devicePixelRatio || 1;     // full native resolution, 4K included
+  CW = window.innerWidth - SIDEBAR_W;
+  CH = window.innerHeight - TOPBAR_H;
+  cv.style.width = CW + 'px'; cv.style.height = CH + 'px';
+  cv.width = Math.round(CW * DPR); cv.height = Math.round(CH * DPR);
+  VW = CW / ZOOM; VH = CH / ZOOM;
+}
+window.addEventListener('resize', resize); resize();
+// big monitor at 100% scaling (e.g. 4K at DPR 1): start zoomed in so units aren't tiny
+if(DPR < 1.5 && CW >= 2400) ZOOM = 2; else if(DPR < 1.5 && CW >= 1700) ZOOM = 1.5;
+resize();
+
+// ---------- map state ----------
+const ore      = new Float32Array(MW * MH);
+const occ      = new Int16Array(MW * MH);   // building id, 0 = free, BLOCKED = water / trees / rocks
+const explored = new Uint8Array(MW * MH);
+const BLOCKED = -1;
+const idx = (x, y) => y * MW + x;
+const inMap = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
+const passable = (x, y) => inMap(x, y) && occ[idx(x, y)] === 0;
+const doodads = [];                          // trees and rocks: {x, y, name, frame}
+let shroudDirty = true;
+
+// noise, roads and lakes live in js/terrain.js (shared with the paint workers)
+const {hash2, vnoise, ROADS, TOWN, roadHits, lakeVal} = TerrainGen;
+const onRoad = (x, y) => roadHits(x + 0.5, y + 0.5).some(h => h.d < 1.2);
+
+function seedOre(cxT, cyT, radius, amount){
+  for(let y = cyT - radius; y <= cyT + radius; y++)
+    for(let x = cxT - radius; x <= cxT + radius; x++){
+      if(!inMap(x, y) || occ[idx(x, y)] !== 0) continue;
+      const d = Math.hypot(x - cxT, y - cyT);
+      if(d <= radius && Math.random() > d / radius * 0.55)
+        ore[idx(x, y)] = amount * (0.6 + Math.random() * 0.8);
+    }
+}
+
+// ---------- entities ----------
+let nextId = 1;
+const buildings = [];
+const units = [];
+const projectiles = [];
+const effects = [];
+
+// armor: inf | heavy | building
+const BUILD_DEFS = {
+  conyard : {name:'Construction Hub',  cost:3000, power:0,    w:3, h:3, hp:1500, time:0,  tab:null, z:36},
+  power   : {name:'Power Plant',       cost:800,  power:100,  w:2, h:2, hp:600,  time:10, tab:'structure', prereq:[], z:34},
+  refinery: {name:'Ore Refinery',      cost:2000, power:-50,  w:3, h:3, hp:900,  time:18, tab:'structure', prereq:['power'], z:32},
+  barracks: {name:'Barracks',          cost:500,  power:-10,  w:2, h:2, hp:700,  time:9,  tab:'structure', prereq:['power'], z:26},
+  factory : {name:'Vehicle Factory',   cost:2000, power:-25,  w:3, h:3, hp:1100, time:18, tab:'structure', prereq:['refinery'], z:36},
+  radar   : {name:'Radar',             cost:1000, power:-50,  w:2, h:2, hp:1000, time:12, tab:'structure', prereq:['refinery'], z:44, anim:true},
+  civ     : {name:'Civilian Building', cost:0,    power:0,    w:2, h:2, hp:700,  time:0,  tab:null, z:30},
+  pillbox : {name:'Pillbox',           cost:600,  power:-10,  w:1, h:1, hp:450,  time:8,  tab:'defense',   prereq:['barracks'], z:12,
+             weapon:{dmg:11, rof:0.35, range:5.6, kind:'bullet', vs:{inf:1.6, heavy:0.35, building:0.4}}},
+  beamtower:{name:'Beam Tower',        cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:'defense',   prereq:['barracks'], z:66,
+             weapon:{dmg:110, rof:3.2, range:7.6, kind:'beam', vs:{inf:1.2, heavy:1, building:0.8}}},
+  arctower: {name:'Arc Tower',         cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:null, z:54, // enemy only
+             weapon:{dmg:110, rof:3.2, range:7.2, kind:'arc', vs:{inf:1.4, heavy:1, building:0.8}}},
+};
+for(const k in BUILD_DEFS){ BUILD_DEFS[k].key = k; BUILD_DEFS[k].armor = 'building'; }
+
+const UNIT_DEFS = {
+  rifle  : {name:'Rifleman',      cost:200,  hp:125, speed:58,  r:8,  armor:'inf',  time:4,  tab:'infantry', from:'barracks',
+            weapon:{dmg:9,  rof:0.55, range:4.6, kind:'bullet', vs:{inf:1.5, heavy:0.45, building:0.35}}},
+  rocket : {name:'Rocket Soldier', cost:350,  hp:100, speed:52,  r:8,  armor:'inf',  time:6,  tab:'infantry', from:'barracks',
+            weapon:{dmg:34, rof:1.9,  range:5.6, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.6}}},
+  ltank  : {name:'Warden Tank',   cost:700,  hp:320, speed:82,  r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory',
+            weapon:{dmg:42, rof:1.6,  range:5.2, kind:'shell', vs:{inf:0.8, heavy:1, building:1}}},
+  htank  : {name:'Paladin Tank',  cost:1750, hp:820, speed:52,  r:15, armor:'heavy',time:16, tab:'vehicle',  from:'factory', prereq:['radar'],
+            weapon:{dmg:105,rof:2.4,  range:5.8, kind:'shell', vs:{inf:0.9, heavy:1.25, building:1.15}}},
+  harv   : {name:'Ore Hauler',    cost:1400, hp:650, speed:64,  r:14, armor:'heavy',time:12, tab:'vehicle',  from:'factory', harvester:true},
+  mcv    : {name:'Construction Vehicle', cost:3000, hp:1000,speed:42,  r:17, armor:'heavy',time:25, tab:'vehicle',  from:'factory', prereq:['radar'], mcv:true},
+};
+for(const k in UNIT_DEFS) UNIT_DEFS[k].key = k;
+
+// enemy flavor names (same stats, soviet skin)
+const SOV_NAME = {rifle:'Trooper', rocket:'AT Trooper', ltank:'Bison Tank', htank:'Ironclad Tank', harv:'Ore Truck',
+                  radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant'};
+
+function dispName(def, team){ return team === ENEMY && SOV_NAME[def.key] ? SOV_NAME[def.key] : def.name; }
+
+// ---------- helpers ----------
+const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
+const angDiff = (a, b) => {
+  let d = (b - a) % (Math.PI * 2);
+  if(d > Math.PI) d -= Math.PI * 2; else if(d < -Math.PI) d += Math.PI * 2;
+  return d;
+};
+const turnToward = (a, b, max) => { const d = angDiff(a, b); return a + (d > max ? max : d < -max ? -max : d); };
+const hasTurret = def => def.armor !== 'inf' && !def.harvester && !def.mcv;
+function tileOf(e){ return {x: Math.floor(e.x / T), y: Math.floor(e.y / T)}; }
+function clamp(v, a, b){ return v < a ? a : v > b ? b : v; }
+
+// ---------- building ----------
+function placeBuilding(key, tx, ty, team, instant){
+  const def = BUILD_DEFS[key];
+  const b = {
+    id: nextId++, kind:'building', def, team,
+    tx, ty, w: def.w, h: def.h,
+    x: (tx + def.w / 2) * T, y: (ty + def.h / 2) * T,
+    hp: def.hp, maxHp: def.hp,
+    cool: 0, scanT: Math.random() * 0.4, target: null,
+    buildUp: instant ? 1 : 0, dead: false, flash: 0,
+  };
+  buildings.push(b);
+  for(let y = ty; y < ty + def.h; y++)
+    for(let x = tx; x < tx + def.w; x++) occ[idx(x, y)] = b.id;
+  if(team === PLAYER) revealAround(b.x, b.y, 7);
+  return b;
+}
+
+function canPlace(key, tx, ty, team){
+  const def = BUILD_DEFS[key];
+  for(let y = ty; y < ty + def.h; y++)
+    for(let x = tx; x < tx + def.w; x++){
+      if(!inMap(x, y) || occ[idx(x, y)] !== 0 || ore[idx(x, y)] > 0) return false;
+      if(team === PLAYER && !explored[idx(x, y)]) return false;
+    }
+  for(const u of units){
+    const t = tileOf(u);
+    if(t.x >= tx && t.x < tx + def.w && t.y >= ty && t.y < ty + def.h) return false;
+  }
+  const cxp = (tx + def.w / 2) * T, cyp = (ty + def.h / 2) * T;
+  for(const b of buildings)
+    if(!b.dead && b.team === team && Math.hypot(b.x - cxp, b.y - cyp) < 9 * T) return true;
+  return false;
+}
+
+// ---------- units ----------
+function spawnUnit(key, px, py, team){
+  const def = UNIT_DEFS[key];
+  const u = {
+    id: nextId++, kind:'unit', def, team,
+    x: px, y: py, hp: def.hp, maxHp: def.hp,
+    face: team === PLAYER ? -Math.PI / 4 : Math.PI * 0.75,
+    tface: team === PLAYER ? -Math.PI / 4 : Math.PI * 0.75,   // turret facing
+    moving: false, walkPhase: 0, fireT: 9,
+    cool: 0, scanT: Math.random() * 0.4,
+    order: {type:'idle'}, path: null, pathI: 0, repathT: 0,
+    dead: false, flash: 0, role: 'defend',
+    carry: 0, hState: 'seek', hTimer: 0, oreTile: null,
+  };
+  units.push(u);
+  if(team === PLAYER) revealAround(px, py, 6);
+  return u;
+}
+
+function freeTileNear(tx, ty, maxR){
+  for(let r = 0; r <= maxR; r++)
+    for(let dy = -r; dy <= r; dy++)
+      for(let dx = -r; dx <= r; dx++){
+        if(Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
+        const x = tx + dx, y = ty + dy;
+        if(passable(x, y)) return {x, y};
+      }
+  return null;
+}
+
+// ---------- A* pathfinding ----------
+const pfG = new Float32Array(MW * MH);
+const pfFrom = new Int32Array(MW * MH);
+const pfClosed = new Uint8Array(MW * MH);
+function findPath(sx, sy, txx, tyy){
+  if(!inMap(sx, sy)) return null;
+  if(!passable(txx, tyy)){
+    const f = freeTileNear(txx, tyy, 6);
+    if(!f) return null;
+    txx = f.x; tyy = f.y;
+  }
+  pfClosed.fill(0); pfFrom.fill(-1);
+  const open = [];
+  const push = (f, i) => { open.push([f, i]); let c = open.length - 1;
+    while(c > 0){ const p = (c - 1) >> 1; if(open[p][0] <= open[c][0]) break; [open[p], open[c]] = [open[c], open[p]]; c = p; } };
+  const pop = () => { const top = open[0]; const last = open.pop();
+    if(open.length){ open[0] = last; let c = 0;
+      while(true){ let l = c * 2 + 1, r = l + 1, m = c;
+        if(l < open.length && open[l][0] < open[m][0]) m = l;
+        if(r < open.length && open[r][0] < open[m][0]) m = r;
+        if(m === c) break; [open[m], open[c]] = [open[c], open[m]]; c = m; } }
+    return top; };
+  const si = idx(sx, sy), ti = idx(txx, tyy);
+  pfG[si] = 0;
+  push(Math.hypot(txx - sx, tyy - sy), si);
+  const DIRS = [[1,0,1],[-1,0,1],[0,1,1],[0,-1,1],[1,1,1.41],[1,-1,1.41],[-1,1,1.41],[-1,-1,1.41]];
+  let expansions = 0;
+  while(open.length && expansions++ < 4000){
+    const [, ci] = pop();
+    if(pfClosed[ci]) continue;
+    pfClosed[ci] = 1;
+    if(ci === ti) break;
+    const cxT = ci % MW, cyT = (ci / MW) | 0;
+    for(const [dx, dy, c] of DIRS){
+      const nx = cxT + dx, ny = cyT + dy;
+      if(!passable(nx, ny)) continue;
+      if(dx && dy && (!passable(cxT + dx, cyT) || !passable(cxT, cyT + dy))) continue;
+      const ni = idx(nx, ny);
+      if(pfClosed[ni]) continue;
+      const g = pfG[ci] + c;
+      if(pfFrom[ni] === -1 || g < pfG[ni]){
+        pfG[ni] = g; pfFrom[ni] = ci;
+        push(g + Math.hypot(txx - nx, tyy - ny), ni);
+      }
+    }
+  }
+  if(!pfClosed[ti]) return null;
+  const path = [];
+  let cur = ti;
+  while(cur !== si && cur !== -1){
+    path.push({x: (cur % MW) * T + T / 2, y: ((cur / MW) | 0) * T + T / 2});
+    cur = pfFrom[cur];
+  }
+  path.reverse();
+  return path.length ? path : null;
+}
+
+function orderMove(u, wx, wy){
+  const t = tileOf(u);
+  u.path = findPath(t.x, t.y, Math.floor(wx / T), Math.floor(wy / T));
+  u.pathI = 0;
+  if(u.path && passable(Math.floor(wx / T), Math.floor(wy / T))) u.path.push({x: wx, y: wy});
+}
+
+// ---------- damage / death ----------
+function applyDamage(target, dmg, vs, attacker){
+  if(target.dead) return;
+  const mult = (vs && vs[target.def.armor]) || 1;
+  const vet = attacker && attacker.vet || 0;           // veterans hit harder
+  const armor = 1 - (target.vet || 0) * 0.12;          // ...and take less damage
+  target.hp -= dmg * mult * (1 + vet * 0.25) * armor;
+  target.flash = 0.12;
+  if(target.team === PLAYER) underAttackAlert(target);
+  if(target.kind === 'unit' && target.def.weapon && target.order.type === 'idle' && attacker && !attacker.dead
+     && attacker.team !== NEUTRAL)
+    target.order = {type:'attack', target: attacker, auto:true};
+  if(target.hp <= 0){
+    kill(target);
+    if(attacker && attacker.kind === 'unit' && !attacker.dead && target.team !== NEUTRAL) gainXp(attacker, target);
+  }
+}
+
+// veterancy: destroying enough enemy value (relative to your own cost) promotes once, twice for elite
+function gainXp(u, victim){
+  u.xp = (u.xp || 0) + (victim.def.cost || 400);
+  const lvl = u.xp >= u.def.cost * 3 ? 2 : u.xp >= u.def.cost * 1.5 ? 1 : 0;
+  if(lvl > (u.vet || 0)){
+    u.vet = lvl;
+    if(u.team === PLAYER) announce(lvl === 2 ? 'Unit promoted to elite' : 'Unit promoted', false, 'Unit promoted');
+  }
+}
+
+function kill(e){
+  e.dead = true;
+  sfx('explosion');
+  const dieSprite = e.kind === 'unit' ? e.def.key + '_' + FACTION[e.team] + '_die' : null;
+  if(e.kind === 'unit' && e.def.armor === 'inf' && Sprites.has(dieSprite)){
+    effects.push({type:'corpse', x: e.x, y: e.y, name: dieSprite, team: e.team, t: 0, dur: 4});
+  } else if(e.kind === 'building'){
+    // a building goes up in several staggered blasts
+    for(let i = 0; i < e.w * e.h; i++){
+      const ox = (Math.random() - 0.5) * e.w * T * 0.8, oy = (Math.random() - 0.5) * e.h * T * 0.8;
+      effects.push({type:'delay', t: 0, dur: i * 0.12, then: {x: e.x + ox, y: e.y + oy, size: 22 + Math.random() * 16}});
+    }
+    boom(e.x, e.y, e.def.w * 16);
+    scorch(e.x, e.y, e.w * T * 0.6);
+    effects.push({type:'smokecol', x: e.x, y: e.y, t: 0, dur: 6, acc: 0});
+  } else {
+    boom(e.x, e.y, 18);
+    scorch(e.x, e.y, 18);
+    effects.push({type:'smokecol', x: e.x, y: e.y, t: 0, dur: 3.5, acc: 0});
+  }
+  if(e.kind === 'building'){
+    for(let y = e.ty; y < e.ty + e.h; y++)
+      for(let x = e.tx; x < e.tx + e.w; x++)
+        if(occ[idx(x, y)] === e.id) occ[idx(x, y)] = 0;
+    if(e.team === PLAYER) announce('Structure lost', true);
+  }
+}
+
+function boom(x, y, size){
+  effects.push({type:'boom', x, y, size, t: 0, dur: 0.7});
+  for(let i = 0; i < 5; i++)
+    effects.push({type:'puff', x: x + (Math.random() - .5) * size * 0.8, y: y + (Math.random() - .5) * size * 0.8,
+                  z: 4 + Math.random() * size * 0.4, r: size * (0.35 + Math.random() * 0.3), t: -i * 0.04, dur: 1.2 + Math.random() * 0.6});
+  for(let i = 0; i < 8; i++)
+    effects.push({type:'spark', x, y, vx:(Math.random()-.5)*200, vy:(Math.random()-.5)*200 - 40, t:0, dur:.5 + Math.random()*.4});
+}
+
+// burn mark painted permanently into the ground
+function scorch(x, y, r){
+  const s = {x, y, r};
+  scorches.push(s);
+  chunks.forEach((c, id) => {
+    if(c instanceof HTMLCanvasElement) paintScorch(c, (id % chunkCols) * CHUNK, Math.floor(id / chunkCols) * CHUNK, TERRAIN_SCALE, s);
+  });
+  paintScorch(lowC, 0, 0, LOW_SCALE, s);
+  mmBaseDirty = true;
+}
+
+// ---------- fog ----------
+function revealAround(px, py, rTiles){
+  const tx = Math.floor(px / T), ty = Math.floor(py / T);
+  for(let y = ty - rTiles; y <= ty + rTiles; y++)
+    for(let x = tx - rTiles; x <= tx + rTiles; x++)
+      if(inMap(x, y) && !explored[idx(x, y)] && Math.hypot(x - tx, y - ty) <= rTiles){
+        explored[idx(x, y)] = 1;
+        shroudDirty = true;
+      }
+}
+
+// ---------- economy / production ----------
+const state = {
+  credits: [8000, 12000],
+  camX: 0, camY: 0,      // camera in iso space
+  time: 0, started: false, over: false,
+  placing: null,
+  mode: null,          // 'sell' | 'repair' | null
+  lowPower: false,
+  sndOn: true, voiceOn: true,
+};
+
+function powerOf(team){
+  let prod = 0, used = 0;
+  for(const b of buildings){
+    if(b.dead || b.team !== team) continue;
+    if(b.def.power > 0) prod += b.def.power; else used -= b.def.power;
+  }
+  return {prod, used};
+}
+
+// Production queues, one per sidebar tab; the head item is the one being built.
+// Structures build one at a time, units can be queued.
+const prodQ = {structure: [], defense: [], infantry: [], vehicle: []};
+const MAX_QUEUE = 9;
+
+function hasBuilding(team, key){
+  return buildings.some(b => !b.dead && b.team === team && b.def.key === key && b.buildUp >= 1);
+}
+function prereqs(def){
+  const isUnit = def.tab === 'infantry' || def.tab === 'vehicle';
+  return isUnit ? [def.from, ...(def.prereq || [])] : ['conyard', ...(def.prereq || [])];
+}
+function prereqOk(def, team = PLAYER){ return prereqs(def).every(k => hasBuilding(team, k)); }
+
+function tickProduction(dt){
+  const lowFactor = state.lowPower ? 0.45 : 1;
+  for(const tab in prodQ){
+    const s = prodQ[tab][0];
+    if(!s || s.ready || s.hold) continue;
+    const def = s.isUnit ? UNIT_DEFS[s.key] : BUILD_DEFS[s.key];
+    if(!prereqOk(def)) continue;              // factory lost: production stalls
+    if(s.progress < 1){
+      const rate = dt / def.time * lowFactor;
+      const cost = def.cost * rate;
+      if(state.credits[PLAYER] < cost) continue;
+      state.credits[PLAYER] -= cost;
+      s.spent += cost;
+      s.progress = Math.min(1, s.progress + rate);
+    }
+    if(s.progress >= 1){
+      if(s.isUnit){
+        if(deliverUnit(s.key, PLAYER)){
+          prodQ[tab].shift();
+          announce(dispName(def, PLAYER) + ' ready', false, 'Unit ready');
+          sfx('ready');
+        }
+      } else {
+        s.ready = true;
+        announce('Construction complete', false, 'Construction complete');
+        sfx('ready');
+      }
+    }
+  }
+  refreshSidebar();
+}
+
+// A finished unit leaves its factory (door animation) and heads for the rally point.
+function deliverUnit(key, team){
+  const def = UNIT_DEFS[key];
+  const srcs = buildings.filter(b => !b.dead && b.team === team && b.def.key === def.from && b.buildUp >= 1);
+  const src = srcs.find(b => b.primary) || srcs[0];
+  if(!src) return null;
+  const spot = freeTileNear(src.tx + Math.floor(src.w / 2), src.ty + src.h, 5);
+  if(!spot) return null;
+  const u = spawnUnit(key, spot.x * T + T / 2, spot.y * T + T / 2, team);
+  u.face = u.tface = Math.PI / 2;              // rolling out of the door
+  if(src.def.key === 'factory') src.doorT = 0;
+  u.order = {type: 'move'};
+  if(src.rally) orderMove(u, src.rally.x, src.rally.y);
+  else orderMove(u, u.x + (Math.random() - .5) * 40, u.y + T * 1.5);
+  return u;
+}
+
+// ---------- harvester logic ----------
+function nearestOreTile(u){
+  let best = null, bd = 1e9;
+  const t = tileOf(u);
+  for(let y = 0; y < MH; y++)
+    for(let x = 0; x < MW; x++){
+      if(ore[idx(x, y)] <= 0) continue;
+      const d = Math.hypot(x - t.x, y - t.y);
+      if(d < bd){ bd = d; best = {x, y}; }
+    }
+  return best;
+}
+function nearestRefinery(u){
+  let best = null, bd = 1e9;
+  for(const b of buildings){
+    if(b.dead || b.team !== u.team || b.def.key !== 'refinery') continue;
+    const d = dist(u, b);
+    if(d < bd){ bd = d; best = b; }
+  }
+  return best;
+}
+
+function updateHarvester(u, dt){
+  const CAP = 700;
+  if(u.hState === 'seek'){
+    if(!u.oreTile || ore[idx(u.oreTile.x, u.oreTile.y)] <= 0){
+      u.oreTile = nearestOreTile(u);
+      if(!u.oreTile){ u.hState = 'idle'; return; }
+      orderMove(u, u.oreTile.x * T + T/2, u.oreTile.y * T + T/2);
+    }
+    const done = followPath(u, dt);
+    const d = Math.hypot(u.x - (u.oreTile.x * T + T/2), u.y - (u.oreTile.y * T + T/2));
+    if(d < T * 0.8){ u.hState = 'mine'; u.hTimer = 0; }
+    else if(done && d > T){ u.oreTile = null; }
+  } else if(u.hState === 'mine'){
+    u.hTimer += dt;
+    if(u.hTimer >= 0.45){
+      u.hTimer = 0;
+      const i = idx(u.oreTile.x, u.oreTile.y);
+      const take = Math.min(30, ore[i], CAP - u.carry);
+      ore[i] -= take; u.carry += take;
+      if(ore[i] <= 0.5) ore[i] = 0;
+      if(u.carry >= CAP){ u.hState = 'return'; u.retB = null; }
+      else if(ore[i] <= 0){ u.hState = 'seek'; u.oreTile = null; }
+    }
+  } else if(u.hState === 'return'){
+    if(!u.retB || u.retB.dead){
+      u.retB = nearestRefinery(u);
+      if(!u.retB){ u.hState = 'idle'; return; }
+      orderMove(u, u.retB.x, (u.retB.ty + u.retB.h) * T + T/2);
+    }
+    followPath(u, dt);
+    if(dist(u, u.retB) < T * 2.4){
+      u.hState = 'unload'; u.hTimer = 0;
+    }
+  } else if(u.hState === 'unload'){
+    u.hTimer += dt;
+    if(u.hTimer >= 1.2){
+      state.credits[u.team] += Math.round(u.carry);
+      if(u.team === PLAYER) sfx('cash');
+      u.carry = 0; u.hState = 'seek'; u.oreTile = null;
+    }
+  } else {
+    u.hTimer += dt;
+    if(u.hTimer > 3){ u.hTimer = 0; u.hState = u.carry > 100 ? 'return' : 'seek'; u.oreTile = null; }
+  }
+  if(u.order.type === 'move'){
+    const done = followPath(u, dt);
+    if(done){ u.order = {type:'idle'}; u.hState = 'seek'; u.oreTile = null; }
+  }
+}
+
+// ---------- movement & combat ----------
+function followPath(u, dt){
+  if(!u.path || u.pathI >= u.path.length) return true;
+  const wp = u.path[u.pathI];
+  const dx = wp.x - u.x, dy = wp.y - u.y;
+  const d = Math.hypot(dx, dy);
+  if(d < 6){ u.pathI++; return u.pathI >= u.path.length; }
+  const sp = u.def.speed * dt;
+  const want = Math.atan2(dy, dx);
+  if(u.def.armor === 'inf') u.face = want;
+  else {
+    // vehicles turn on the spot before driving off
+    u.face = turnToward(u.face, want, 4.5 * dt);
+    if(Math.abs(angDiff(u.face, want)) > 0.55) return false;
+  }
+  u.moving = true;
+  u.walkPhase += dt * u.def.speed / 7;
+  const nx = u.x + dx / d * sp, ny = u.y + dy / d * sp;
+  if(passable(Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
+  else {
+    u.repathT -= dt;
+    if(u.repathT <= 0){
+      u.repathT = 0.6;
+      const last = u.path[u.path.length - 1];
+      orderMove(u, last.x, last.y);
+    }
+  }
+  return false;
+}
+
+function findEnemyInRange(e, rangeTiles){
+  let best = null, bd = 1e9;
+  const rp = rangeTiles * T;
+  for(const u of units){
+    if(u.dead || u.team === e.team || u.team === NEUTRAL) continue;
+    const d = dist(e, u);
+    if(d <= rp && d < bd){ bd = d; best = u; }
+  }
+  if(!best) for(const b of buildings){
+    if(b.dead || b.team === e.team || b.team === NEUTRAL) continue;
+    const d = dist(e, b) - Math.max(b.w, b.h) * T * 0.35;
+    if(d <= rp && d < bd){ bd = d; best = b; }
+  }
+  return best;
+}
+
+function fireWeapon(e, target){
+  const w = e.def.weapon;
+  e.cool = w.rof / (1 + (e.vet || 0) * 0.2);
+  e.fireT = 0;
+  if(e.kind === 'unit'){
+    const a = Math.atan2(target.y - e.y, target.x - e.x);
+    if(hasTurret(e.def)) e.tface = a; else e.face = a;
+  }
+  const zSrc = e.kind === 'building' ? e.def.z - 4 : 10;
+  if(w.kind === 'beam' || w.kind === 'arc'){
+    effects.push({type: w.kind, x1: e.x, y1: e.y, z1: zSrc, x2: target.x, y2: target.y, t: 0, dur: 0.18});
+    applyDamage(target, w.dmg, w.vs, e);
+    sfx('zap');
+  } else {
+    projectiles.push({
+      x: e.x, y: e.y, target, tx: target.x, ty: target.y,
+      speed: w.kind === 'rocket' ? 210 : 380,
+      dmg: w.dmg, vs: w.vs, kind: w.kind, team: e.team, src: e, life: 3,
+    });
+    sfx(w.kind === 'shell' ? 'cannon' : w.kind === 'rocket' ? 'rocket' : 'shoot');
+  }
+  effects.push({type:'muzzle', x: e.x, y: e.y, z: zSrc, a: Math.atan2(target.y - e.y, target.x - e.x), t: 0, dur: 0.07});
+}
+
+function combatStep(u, target, dt){
+  const w = u.def.weapon;
+  const pad = target.kind === 'building' ? Math.max(target.w, target.h) * T * 0.4 : 0;
+  const d = dist(u, target) - pad;
+  if(d <= w.range * T){
+    u.path = null;
+    const a = Math.atan2(target.y - u.y, target.x - u.x);
+    let aimed = true;
+    if(hasTurret(u.def)){
+      u.tface = turnToward(u.tface, a, 5 * dt);
+      aimed = Math.abs(angDiff(u.tface, a)) < 0.15;
+    } else u.face = a;
+    if(u.cool <= 0 && aimed) fireWeapon(u, target);
+  } else {
+    u.repathT -= dt;
+    if(!u.path || u.pathI >= u.path.length || u.repathT <= 0){
+      u.repathT = 0.8;
+      orderMove(u, target.x, target.y);
+    }
+    followPath(u, dt);
+  }
+}
+
+function updateUnit(u, dt){
+  u.cool -= dt; u.scanT -= dt; u.flash -= dt;
+  u.fireT += dt; u.moving = false;
+  if(u.def.harvester){ updateHarvester(u, dt); applySeparation(u, dt); return; }
+  const o = u.order;
+  // turrets drift back to the hull's heading when not engaging
+  if(hasTurret(u.def) && o.type !== 'attack') u.tface = turnToward(u.tface, u.face, 3 * dt);
+  if(!u.def.weapon){
+    if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
+  } else if(o.type === 'attack'){
+    if(!o.target || o.target.dead){
+      if(o.resume){ u.order = {type:'attackmove', x: o.resume.x, y: o.resume.y}; orderMove(u, o.resume.x, o.resume.y); }
+      else { u.order = {type:'idle'}; u.path = null; }
+    }
+    else combatStep(u, o.target, dt);
+  } else if(o.type === 'move' || o.type === 'attackmove'){
+    if(o.type === 'attackmove' && u.scanT <= 0){
+      u.scanT = 0.4;
+      const t = findEnemyInRange(u, u.def.weapon.range + 1.5);
+      if(t){ u.order = {type:'attack', target: t, resume: {x: o.x, y: o.y}}; return; }
+    }
+    const done = followPath(u, dt);
+    if(done) u.order = {type:'idle'};
+  } else {
+    if(u.scanT <= 0){
+      u.scanT = 0.45;
+      const t = findEnemyInRange(u, u.def.weapon.range + 2.2);
+      if(t) u.order = {type:'attack', target: t, auto: true};
+    }
+  }
+  applySeparation(u, dt);
+}
+
+function applySeparation(u, dt){
+  for(const v of units){
+    if(v === u || v.dead) continue;
+    const dx = u.x - v.x, dy = u.y - v.y;
+    const d = Math.hypot(dx, dy);
+    const min = u.def.r + v.def.r;
+    if(d > 0.01 && d < min){
+      const push = (min - d) * 2.4 * dt * 10;
+      const nx = u.x + dx / d * push, ny = u.y + dy / d * push;
+      if(passable(Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
+    }
+  }
+  u.x = clamp(u.x, T/2, WPX - T/2);
+  u.y = clamp(u.y, T/2, HPX - T/2);
+}
+
+function updateBuilding(b, dt){
+  b.cool -= dt; b.scanT -= dt; b.flash -= dt;
+  if(b.doorT != null) b.doorT += dt;
+  if(b.buildUp < 1) b.buildUp = Math.min(1, b.buildUp + dt * 1.4);
+  if(b.repairing){
+    const heal = Math.min(b.maxHp * 0.08 * dt, b.maxHp - b.hp);
+    const cost = b.def.cost * 0.35 * heal / b.maxHp;
+    if(heal <= 0) b.repairing = false;
+    else if(state.credits[b.team] >= cost){ state.credits[b.team] -= cost; b.hp += heal; }
+  }
+  if(b.hp < b.maxHp * 0.5){
+    b.smokeAcc = (b.smokeAcc || 0) + dt * (b.hp < b.maxHp * 0.25 ? 9 : 4);
+    while(b.smokeAcc > 1){
+      b.smokeAcc -= 1;
+      effects.push({type:'puff', x: b.x + (Math.random() - .5) * b.w * T * 0.5, y: b.y + (Math.random() - .5) * b.h * T * 0.5,
+                    z: b.def.z * 0.8, r: 6 + Math.random() * 5, t: 0, dur: 1.8 + Math.random(), dark: true});
+    }
+  }
+  if(!b.def.weapon) return;
+  const p = powerOf(b.team);
+  if(p.used > p.prod) return;
+  if(b.target && (b.target.dead || dist(b, b.target) > b.def.weapon.range * T * 1.1)) b.target = null;
+  if(!b.target && b.scanT <= 0){
+    b.scanT = 0.4;
+    b.target = findEnemyInRange(b, b.def.weapon.range);
+  }
+  if(b.target && b.cool <= 0 && dist(b, b.target) <= b.def.weapon.range * T)
+    fireWeapon(b, b.target);
+}
+
+function updateProjectiles(dt){
+  for(const p of projectiles){
+    p.life -= dt;
+    if(p.target && !p.target.dead){ p.tx = p.target.x; p.ty = p.target.y; }
+    const dx = p.tx - p.x, dy = p.ty - p.y;
+    const d = Math.hypot(dx, dy);
+    const step = p.speed * dt;
+    if(d <= step + 6 || p.life <= 0){
+      if(p.target && !p.target.dead) applyDamage(p.target, p.dmg, p.vs, p.src);
+      effects.push({type:'hit', x: p.tx, y: p.ty, t: 0, dur: 0.22, big: p.kind !== 'bullet'});
+      p.dead = true;
+    } else {
+      p.x += dx / d * step; p.y += dy / d * step;
+      if(p.kind === 'rocket' && Math.random() < 0.6)
+        effects.push({type:'smoke', x: p.x, y: p.y, t: 0, dur: 0.4});
+    }
+  }
+}
+
+// ---------- enemy AI ----------
+const ai = {
+  waveTimer: 80,
+  waveSize: 3,
+  prodQ: ['rifle','rifle','ltank','rifle','rocket','ltank'],
+  prodI: 0, prodProgress: 0, prodKey: null,
+};
+
+function tickAI(dt){
+  state.credits[ENEMY] += 9 * dt;
+
+  if(!ai.prodKey){
+    ai.prodKey = ai.prodQ[ai.prodI % ai.prodQ.length];
+    if(state.time > 240 && Math.random() < 0.25) ai.prodKey = 'htank';
+    if(state.time > 150 && Math.random() < 0.3) ai.prodKey = 'ltank';
+    ai.prodI++;
+    ai.prodProgress = 0;
+  } else {
+    const def = UNIT_DEFS[ai.prodKey];
+    const armyCount = units.filter(u => u.team === ENEMY && !u.dead && !u.def.harvester).length;
+    const armyCap = Math.min(26, 5 + Math.floor(state.time / 30) * 2);
+    if(armyCount < armyCap){
+      const rate = dt / def.time;
+      const cost = def.cost * rate;
+      if(state.credits[ENEMY] >= cost){
+        state.credits[ENEMY] -= cost;
+        ai.prodProgress += rate;
+        if(ai.prodProgress >= 1){
+          deliverUnit(ai.prodKey, ENEMY);
+          ai.prodKey = null;
+        }
+      }
+    }
+  }
+
+  ai.waveTimer -= dt;
+  if(ai.waveTimer <= 0){
+    const army = units.filter(u => u.team === ENEMY && !u.dead && !u.def.harvester && u.role !== 'attacker');
+    if(army.length >= Math.min(ai.waveSize, 4)){
+      const squad = army.slice(0, ai.waveSize + 2);
+      const target = nearestPlayerTarget(squad[0]);
+      if(target){
+        for(const u of squad){
+          u.role = 'attacker';
+          u.order = {type:'attack', target};
+        }
+        announce('Warning: Soviet forces inbound!', true, 'Warning');
+        sfx('alert');
+      }
+      ai.waveSize = Math.min(14, ai.waveSize + 2);
+      ai.waveTimer = Math.max(45, 85 - state.time / 20);
+    } else {
+      ai.waveTimer = 12;
+    }
+  }
+
+  for(const u of units){
+    if(u.dead || u.team !== ENEMY || u.role !== 'attacker') continue;
+    if(u.order.type === 'idle'){
+      const t = nearestPlayerTarget(u);
+      if(t) u.order = {type:'attack', target: t};
+      else u.role = 'defend';
+    }
+  }
+}
+
+function nearestPlayerTarget(from){
+  let best = null, bd = 1e9;
+  for(const b of buildings){
+    if(b.dead || b.team !== PLAYER) continue;
+    const d = dist(from, b);
+    if(d < bd){ bd = d; best = b; }
+  }
+  if(!best) for(const u of units){
+    if(u.dead || u.team !== PLAYER) continue;
+    const d = dist(from, u);
+    if(d < bd){ bd = d; best = u; }
+  }
+  return best;
+}
+
+// ---------- sound ----------
+let AC = null;
+function audio(){
+  if(!AC) AC = new (window.AudioContext || window.webkitAudioContext)();
+  return AC;
+}
+function sfx(type){
+  if(!state.sndOn || !state.started) return;
+  try{
+    const ac = audio(); const t0 = ac.currentTime;
+    const g = ac.createGain(); g.connect(ac.destination);
+    const vol = v => { g.gain.setValueAtTime(v, t0); };
+    const decay = d => { g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); };
+    if(type === 'shoot'){
+      const o = ac.createOscillator(); o.type = 'square';
+      o.frequency.setValueAtTime(700, t0); o.frequency.exponentialRampToValueAtTime(180, t0 + 0.07);
+      vol(0.05); decay(0.08); o.connect(g); o.start(t0); o.stop(t0 + 0.09);
+    } else if(type === 'cannon' || type === 'rocket'){
+      const o = ac.createOscillator(); o.type = 'triangle';
+      o.frequency.setValueAtTime(140, t0); o.frequency.exponentialRampToValueAtTime(40, t0 + 0.18);
+      vol(0.12); decay(0.2); o.connect(g); o.start(t0); o.stop(t0 + 0.22);
+    } else if(type === 'explosion'){
+      const len = 0.45, buf = ac.createBuffer(1, ac.sampleRate * len, ac.sampleRate);
+      const d = buf.getChannelData(0);
+      for(let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+      const s = ac.createBufferSource(); s.buffer = buf;
+      const f = ac.createBiquadFilter(); f.type = 'lowpass'; f.frequency.value = 500;
+      s.connect(f); f.connect(g); vol(0.22); decay(len); s.start(t0);
+    } else if(type === 'zap'){
+      const o = ac.createOscillator(); o.type = 'sawtooth';
+      o.frequency.setValueAtTime(1900, t0); o.frequency.exponentialRampToValueAtTime(300, t0 + 0.15);
+      vol(0.06); decay(0.17); o.connect(g); o.start(t0); o.stop(t0 + 0.18);
+    } else if(type === 'ready'){
+      const o = ac.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(520, t0); o.frequency.setValueAtTime(780, t0 + 0.1);
+      vol(0.08); decay(0.25); o.connect(g); o.start(t0); o.stop(t0 + 0.26);
+    } else if(type === 'cash'){
+      const o = ac.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(900, t0); o.frequency.setValueAtTime(1200, t0 + 0.06);
+      vol(0.05); decay(0.15); o.connect(g); o.start(t0); o.stop(t0 + 0.16);
+    } else if(type === 'alert'){
+      const o = ac.createOscillator(); o.type = 'square';
+      o.frequency.setValueAtTime(300, t0); o.frequency.setValueAtTime(240, t0 + 0.15); o.frequency.setValueAtTime(300, t0 + 0.3);
+      vol(0.07); decay(0.5); o.connect(g); o.start(t0); o.stop(t0 + 0.5);
+    } else if(type === 'click'){
+      const o = ac.createOscillator(); o.type = 'square';
+      o.frequency.setValueAtTime(1000, t0); vol(0.04); decay(0.05);
+      o.connect(g); o.start(t0); o.stop(t0 + 0.05);
+    }
+  }catch(e){/* audio unavailable */}
+}
+
+function speak(text){
+  if(!state.voiceOn || !window.speechSynthesis) return;
+  try{
+    const u = new SpeechSynthesisUtterance(text);
+    u.rate = 1.0; u.pitch = 0.7; u.volume = 0.9;
+    speechSynthesis.cancel();
+    speechSynthesis.speak(u);
+  }catch(e){}
+}
+
+// ---------- announcer messages ----------
+const announceEl = document.getElementById('announcer');
+let lastAttackAlert = -99;
+function announce(text, important, sayText){
+  const d = document.createElement('div');
+  d.className = 'announceMsg';
+  if(important) d.style.borderLeftColor = '#ff5b5b', d.style.color = '#ffb3b3';
+  d.textContent = text;
+  announceEl.appendChild(d);
+  setTimeout(() => { d.style.transition = 'opacity .6s'; d.style.opacity = '0'; setTimeout(() => d.remove(), 650); }, 4200);
+  if(sayText) speak(sayText);
+}
+function underAttackAlert(e){
+  if(state.time - lastAttackAlert < 14) return;
+  lastAttackAlert = state.time;
+  if(e.kind === 'building') announce('Our base is under attack!', true, 'Our base is under attack');
+  else announce('Our forces are under attack', true);
+  sfx('alert');
+}
+
+// ---------- sidebar UI ----------
+const tabsEl = document.querySelectorAll('#tabs .tab');
+const gridEl = document.getElementById('buildGrid');
+let activeTab = 'structure';
+const cameoEls = {};
+
+const TAB_ITEMS = {
+  structure: ['power','refinery','barracks','factory','radar'],
+  defense:   ['pillbox','beamtower'],
+  infantry:  ['rifle','rocket'],
+  vehicle:   ['ltank','htank','harv','mcv'],
+};
+
+function makeCameoIcon(key, isUnit){
+  const pic = Sprites.cameo(key + '_' + FACTION[PLAYER], PLAYER);
+  if(pic){
+    const c = document.createElement('canvas');
+    c.width = pic.width; c.height = pic.height;
+    c.className = 'pic';
+    c.getContext('2d').drawImage(pic, 0, 0);
+    return c;
+  }
+  const c = document.createElement('canvas');
+  c.width = 92; c.height = 48;
+  c.style.width = '92px'; c.style.height = '48px';
+  const g = c.getContext('2d');
+  const prev = cx; cx = g;
+  try{
+    if(isUnit){
+      const def = UNIT_DEFS[key];
+      const mock = {x: 0, y: 0, def, team: PLAYER, face: Math.PI / 8, carry: 300, flash: 0};
+      const p = toIso(0, 0);
+      g.save();
+      g.translate(46 - p.x, (def.key === 'rifle' || def.key === 'rocket' ? 36 : 32) - p.y);
+      drawUnitSprite(mock);
+      g.restore();
+    } else {
+      const def = BUILD_DEFS[key];
+      const mock = {tx: 0, ty: 0, w: def.w, h: def.h, def, team: PLAYER, buildUp: 1, flash: 0, id: 0,
+                    x: def.w * T / 2, y: def.h * T / 2};
+      const c0 = toIso(def.w * T / 2, def.h * T / 2);
+      const s = def.w > 1 ? 0.44 : 0.62;
+      g.save();
+      g.translate(46 - c0.x * s, 30 + def.z * s * 0.5 - c0.y * s);
+      g.scale(s, s);
+      drawBuildingSprite(mock);
+      g.restore();
+    }
+  } finally { cx = prev; }
+  return c;
+}
+
+function buildSidebar(){
+  gridEl.innerHTML = '';
+  for(const key of TAB_ITEMS[activeTab]){
+    const isUnit = !!UNIT_DEFS[key];
+    const def = isUnit ? UNIT_DEFS[key] : BUILD_DEFS[key];
+    const el = document.createElement('div');
+    el.className = 'cameo';
+    el.title = `${def.name} — $${def.cost}`;
+    el.appendChild(makeCameoIcon(key, isUnit));
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = def.name;
+    const prog = document.createElement('div'); prog.className = 'prog';
+    const ready = document.createElement('div'); ready.className = 'ready';
+    const cnt = document.createElement('div'); cnt.className = 'cnt';
+    el.append(nm, prog, ready, cnt);
+    el.addEventListener('click', () => onCameoClick(key, isUnit));
+    el.addEventListener('contextmenu', ev => { ev.preventDefault(); cancelProduction(key, isUnit); });
+    gridEl.appendChild(el);
+    cameoEls[key] = el;
+  }
+  refreshSidebar();
+}
+
+function onCameoClick(key, isUnit){
+  if(state.over) return;
+  const def = isUnit ? UNIT_DEFS[key] : BUILD_DEFS[key];
+  const q = prodQ[def.tab];
+  const head = q[0];
+  sfx('click');
+  if(head && head.key === key && head.hold){ head.hold = false; announce(isUnit ? 'Training' : 'Building', false, isUnit ? 'Training' : 'Building'); return; }
+  if(!isUnit){
+    if(head && head.key === key && head.ready){ state.placing = key; setMode(null); return; }
+    if(head){ announce('Construction already in progress', false, 'Construction in progress'); return; }
+  } else if(q.length >= MAX_QUEUE){ announce('Queue full'); return; }
+  if(!prereqOk(def)){ announce('Requires: ' + prereqLabel(def)); return; }
+  if(state.credits[PLAYER] < 20){ announce('Insufficient funds', false, 'Insufficient funds'); return; }
+  q.push({key, isUnit, progress: 0, spent: 0, ready: false, hold: false});
+  if(q.length === 1) announce(isUnit ? 'Training' : 'Building', false, isUnit ? 'Training' : 'Building');
+  refreshSidebar();
+}
+
+function prereqLabel(def){
+  return prereqs(def).filter(k => k !== 'conyard' || def.tab === 'structure' || def.tab === 'defense')
+    .map(k => BUILD_DEFS[k].name).join(', ');
+}
+
+// Right-click: drop a queued copy; on the active item, first hold, then cancel (refund).
+function cancelProduction(key, isUnit){
+  const def = isUnit ? UNIT_DEFS[key] : BUILD_DEFS[key];
+  const q = prodQ[def.tab];
+  let i = -1;
+  for(let k = q.length - 1; k >= 0; k--) if(q[k].key === key){ i = k; break; }
+  if(i < 0) return;
+  const s = q[i];
+  sfx('click');
+  if(i > 0){ q.splice(i, 1); }
+  else if(!s.hold && !s.ready && s.progress > 0){ s.hold = true; announce('On hold', false, 'On hold'); }
+  else {
+    state.credits[PLAYER] += s.spent;
+    q.shift();
+    if(state.placing === key) state.placing = null;
+    announce('Canceled', false, 'Canceled');
+  }
+  refreshSidebar();
+}
+
+function refreshSidebar(){
+  for(const key of TAB_ITEMS[activeTab]){
+    const el = cameoEls[key];
+    if(!el || !el.isConnected) continue;
+    const isUnit = !!UNIT_DEFS[key];
+    const def = isUnit ? UNIT_DEFS[key] : BUILD_DEFS[key];
+    const q = prodQ[def.tab];
+    const head = q[0];
+    const mine = head && head.key === key;
+    const n = q.filter(s => s.key === key).length;
+    el.classList.toggle('disabled', !prereqOk(def) && !n);
+    el.classList.toggle('building', !!mine && !head.ready);
+    el.classList.toggle('isReady', !!mine && (head.ready || head.hold));
+    el.querySelector('.ready').textContent = mine && head.hold ? 'ON HOLD' : 'READY';
+    el.querySelector('.cnt').textContent = isUnit && n > 1 ? n : '';
+    el.querySelector('.prog').style.setProperty('--p', mine ? (head.progress * 100) + '%' : '0%');
+  }
+}
+
+tabsEl.forEach(t => t.addEventListener('click', () => {
+  tabsEl.forEach(x => x.classList.remove('active'));
+  t.classList.add('active');
+  activeTab = t.dataset.tab;
+  buildSidebar();
+  sfx('click');
+}));
+
+// ---------- input ----------
+const mouse = {x: 0, y: 0, wx: 0, wy: 0, down: false, dragX: 0, dragY: 0, dragging: false, inCanvas: false};
+const keys = {};
+let selection = [];
+const groups = {};
+
+function updateMouseWorld(e){
+  const r = cv.getBoundingClientRect();
+  mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
+  const w = toWorld(mouse.x / ZOOM + state.camX, mouse.y / ZOOM + state.camY);
+  mouse.wx = w.x; mouse.wy = w.y;
+}
+
+cv.addEventListener('contextmenu', e => e.preventDefault());
+cv.addEventListener('mousemove', e => {
+  updateMouseWorld(e);
+  mouse.inCanvas = true;
+  if(mouse.down && Math.hypot(mouse.x - mouse.dragX, mouse.y - mouse.dragY) > 5) mouse.dragging = true;
+});
+cv.addEventListener('mouseleave', () => { mouse.inCanvas = false; });
+cv.addEventListener('mousedown', e => {
+  if(!state.started || state.over) return;
+  updateMouseWorld(e);
+  if(e.button === 0){
+    if(state.mode){ applyMode(); return; }
+    if(state.placing){ tryPlace(); return; }
+    mouse.down = true; mouse.dragging = false;
+    mouse.dragX = mouse.x; mouse.dragY = mouse.y;
+  } else if(e.button === 2){
+    if(state.mode){ setMode(null); return; }
+    if(state.placing){ state.placing = null; return; }
+    issueCommand(e);
+  }
+});
+window.addEventListener('mouseup', e => {
+  if(e.button !== 0 || !mouse.down) return;
+  mouse.down = false;
+  if(!state.started || state.over) return;
+  if(mouse.dragging){
+    // selection box in iso screen space
+    const x1 = Math.min(mouse.dragX, mouse.x) / ZOOM + state.camX, x2 = Math.max(mouse.dragX, mouse.x) / ZOOM + state.camX;
+    const y1 = Math.min(mouse.dragY, mouse.y) / ZOOM + state.camY, y2 = Math.max(mouse.dragY, mouse.y) / ZOOM + state.camY;
+    const picked = units.filter(u => {
+      if(u.dead || u.team !== PLAYER) return false;
+      const p = toIso(u.x, u.y);
+      return p.x >= x1 && p.x <= x2 && p.y >= y1 - 10 && p.y <= y2 + 6;
+    });
+    if(picked.length){ selection = picked; sfx('click'); ack('select', picked[0]); }
+    else if(!e.shiftKey) selection = [];
+  } else {
+    const e2 = pickEntity(mouse.wx, mouse.wy);
+    if(e2 && e2.def.mcv && e2.team === PLAYER && selection.length === 1 && selection[0] === e2){
+      deployMcv(e2);
+    } else if(e2 && e2.team === PLAYER){
+      if(!selection.includes(e2)) ack('select', e2);
+      if(e.shiftKey){ if(!selection.includes(e2)) selection.push(e2); }
+      else selection = [e2];
+      sfx('click');
+    } else if(!e.shiftKey) selection = [];
+  }
+  mouse.dragging = false;
+});
+
+function pickEntity(wx, wy){
+  const c = toIso(wx, wy);
+  for(const u of units){
+    if(u.dead) continue;
+    const p = toIso(u.x, u.y);
+    const r = u.def.r + 9;
+    if(Math.abs(p.x - c.x) < r && Math.abs(p.y - c.y + 6) < r * 0.85) return u;
+  }
+  for(const b of buildings){
+    if(b.dead) continue;
+    if(wx >= b.tx * T && wx < (b.tx + b.w) * T && wy >= b.ty * T && wy < (b.ty + b.h) * T) return b;
+  }
+  return null;
+}
+
+const PRODUCERS = new Set(['barracks', 'factory']);
+
+// Right-click orders. Ctrl forces fire on anything / attack-moves on ground.
+function issueCommand(ev){
+  const force = ev && (ev.ctrlKey || ev.metaKey);
+  const sel = selection.filter(s => !s.dead && s.team === PLAYER);
+  const selUnits = sel.filter(s => s.kind === 'unit');
+  if(!selUnits.length){
+    // rally point for selected production buildings
+    const fac = sel.filter(s => s.kind === 'building' && PRODUCERS.has(s.def.key));
+    if(fac.length){
+      for(const b of fac) b.rally = {x: mouse.wx, y: mouse.wy};
+      effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4});
+      sfx('click');
+    }
+    return;
+  }
+  const target = pickEntity(mouse.wx, mouse.wy);
+  if(target && target.def.mcv && selUnits.length === 1 && selUnits[0] === target){ deployMcv(target); return; }
+  if(target && target !== selUnits[0] && (target.team === ENEMY || (force && target.team !== PLAYER))){
+    let any = false;
+    for(const u of selUnits){
+      if(!u.def.weapon) continue;
+      u.order = {type:'attack', target};
+      any = true;
+    }
+    if(any){
+      effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4, red: true});
+      sfx('click');
+      ack('attack', selUnits[0]);
+      return;
+    }
+  }
+  const n = selUnits.length;
+  const cols = Math.ceil(Math.sqrt(n));
+  selUnits.forEach((u, i) => {
+    const ox = (i % cols - (cols - 1) / 2) * 30;
+    const oy = (Math.floor(i / cols) - (Math.ceil(n / cols) - 1) / 2) * 30;
+    const wx = clamp(mouse.wx + ox, T, WPX - T), wy = clamp(mouse.wy + oy, T, HPX - T);
+    if(u.def.harvester){
+      const tx = Math.floor(wx / T), ty = Math.floor(wy / T);
+      if(inMap(tx, ty) && ore[idx(tx, ty)] > 0){ u.hState = 'seek'; u.oreTile = {x: tx, y: ty}; u.order = {type:'idle'}; orderMove(u, tx*T+T/2, ty*T+T/2); }
+      else { u.order = {type:'move'}; orderMove(u, wx, wy); }
+    } else {
+      u.order = force && u.def.weapon ? {type:'attackmove', x: wx, y: wy} : {type:'move'};
+      orderMove(u, wx, wy);
+    }
+  });
+  effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4});
+  sfx('click');
+  ack('move', selUnits[0]);
+}
+
+// ---------- construction vehicle deployment ----------
+function mcvFootprint(u){ return {tx: Math.floor(u.x / T) - 1, ty: Math.floor(u.y / T) - 1}; }
+function canDeploy(u){
+  const {tx, ty} = mcvFootprint(u);
+  for(let y = ty; y < ty + 3; y++)
+    for(let x = tx; x < tx + 3; x++)
+      if(!inMap(x, y) || occ[idx(x, y)] !== 0 || ore[idx(x, y)] > 0) return false;
+  return true;
+}
+function deployMcv(u){
+  if(!canDeploy(u)){ if(u.team === PLAYER) announce('Cannot deploy here', false, 'Cannot deploy here'); return false; }
+  const {tx, ty} = mcvFootprint(u);
+  u.dead = true;
+  const b = placeBuilding('conyard', tx, ty, u.team, false);
+  // nudge anyone standing in the footprint out of the way
+  for(const v of units){
+    if(v.dead || v === u) continue;
+    const t = tileOf(v);
+    if(t.x >= tx && t.x < tx + 3 && t.y >= ty && t.y < ty + 3){
+      const f = freeTileNear(tx + 1, ty + 3, 4);
+      if(f){ v.order = {type:'move'}; orderMove(v, f.x * T + T / 2, f.y * T + T / 2); }
+    }
+  }
+  if(u.team === PLAYER){ selection = [b]; sfx('ready'); }
+  return true;
+}
+
+// ---------- unit voices (browser speech, pitched per side) ----------
+const ACK = {
+  select: ['Reporting', 'Yes sir', 'Standing by', 'Awaiting orders', 'Ready'],
+  move:   ['Moving out', 'Affirmative', 'On my way', 'Acknowledged', 'Double time'],
+  attack: ['Attacking', 'Engaging', 'Target acquired', 'Open fire', 'Taking it down'],
+};
+let lastAck = 0;
+function ack(kind, u){
+  if(!state.voiceOn || !window.speechSynthesis || !u || u.kind !== 'unit') return;
+  const now = performance.now();
+  if(now - lastAck < 1400 || speechSynthesis.speaking) return;
+  lastAck = now;
+  let lines = ACK[kind];
+  if(u.def.harvester) lines = kind === 'select' ? ['Miner ready', 'Ore miner'] : ['Heading out', 'Acknowledged'];
+  if(u.def.mcv) lines = kind === 'select' ? ['Construction vehicle ready', 'Builder standing by'] : ['Rolling out', 'Moving'];
+  try{
+    const m = new SpeechSynthesisUtterance(lines[Math.floor(Math.random() * lines.length)]);
+    m.rate = 1.15; m.pitch = u.def.armor === 'inf' ? 1.05 : 0.8; m.volume = 0.8;
+    speechSynthesis.speak(m);
+  }catch(e){}
+}
+
+// ---------- sell / repair modes ----------
+const repairBtn = document.getElementById('repairBtn');
+const sellBtn = document.getElementById('sellBtn');
+function setMode(m){
+  state.mode = m;
+  if(m) state.placing = null;
+  repairBtn.classList.toggle('on', m === 'repair');
+  sellBtn.classList.toggle('on', m === 'sell');
+}
+repairBtn.addEventListener('click', () => { sfx('click'); setMode(state.mode === 'repair' ? null : 'repair'); });
+sellBtn.addEventListener('click', () => { sfx('click'); setMode(state.mode === 'sell' ? null : 'sell'); });
+
+function modeTarget(){
+  const b = pickEntity(mouse.wx, mouse.wy);
+  return b && b.kind === 'building' && b.team === PLAYER && b.buildUp >= 1 ? b : null;
+}
+
+function applyMode(){
+  const b = modeTarget();
+  if(!b){ sfx('click'); return; }
+  if(state.mode === 'sell') sellBuilding(b);
+  else { b.repairing = !b.repairing && b.hp < b.maxHp; sfx('click'); }
+}
+
+// sale: half the value back (scaled by damage) and a few survivors walk out
+function sellBuilding(b){
+  b.dead = true;
+  for(let y = b.ty; y < b.ty + b.h; y++)
+    for(let x = b.tx; x < b.tx + b.w; x++)
+      if(occ[idx(x, y)] === b.id) occ[idx(x, y)] = 0;
+  state.credits[b.team] += Math.floor(b.def.cost * 0.5 * b.hp / b.maxHp);
+  const n = b.w * b.h >= 9 ? 3 : b.w * b.h >= 4 ? 2 : 1;
+  for(let i = 0; i < n; i++){
+    const spot = freeTileNear(b.tx + (i % b.w), b.ty + b.h - 1, 4);
+    if(spot) spawnUnit('rifle', spot.x * T + T / 2, spot.y * T + T / 2, b.team);
+  }
+  announce('Structure sold', false, 'Structure sold');
+  sfx('cash');
+}
+
+function tryPlace(){
+  const key = state.placing;
+  const def = BUILD_DEFS[key];
+  const tx = Math.floor(mouse.wx / T - def.w / 2 + 0.5);
+  const ty = Math.floor(mouse.wy / T - def.h / 2 + 0.5);
+  if(canPlace(key, tx, ty, PLAYER)){
+    placeBuilding(key, tx, ty, PLAYER, false);
+    prodQ[def.tab].shift();
+    state.placing = null;
+    sfx('ready');
+    if(key === 'refinery'){
+      const spot = freeTileNear(tx + 1, ty + def.h, 4);
+      if(spot) spawnUnit('harv', spot.x * T + T/2, spot.y * T + T/2, PLAYER);
+    }
+    refreshSidebar();
+  } else {
+    announce('Cannot deploy here');
+  }
+}
+
+window.addEventListener('keydown', e => {
+  keys[e.key.toLowerCase()] = true;
+  if(!state.started) return;
+  if(e.key === 'Escape'){ state.placing = null; selection = []; setMode(null); }
+  if(e.key.toLowerCase() === 'k') setMode(state.mode === 'repair' ? null : 'repair');
+  if(e.key.toLowerCase() === 'l') setMode(state.mode === 'sell' ? null : 'sell');
+  if(e.key.toLowerCase() === 'h'){
+    const cy = buildings.find(b => !b.dead && b.team === PLAYER && b.def.key === 'conyard') ||
+               buildings.find(b => !b.dead && b.team === PLAYER);
+    if(cy){ const p = toIso(cy.x, cy.y); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); }
+  }
+  if(e.key.toLowerCase() === 'd'){
+    const m = selection.find(u => !u.dead && u.kind === 'unit' && u.def.mcv);
+    if(m) deployMcv(m);
+  }
+  if(e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey){
+    for(const u of selection) if(u.kind === 'unit'){ u.order = {type:'idle'}; u.path = null; }
+  }
+  const d = parseInt(e.key);
+  if(d >= 1 && d <= 9){
+    if(e.ctrlKey || e.metaKey){ groups[d] = selection.slice(); e.preventDefault(); }
+    else if(groups[d]){ selection = groups[d].filter(u => !u.dead); }
+  }
+});
+window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
+
+// ---------- zoom (mouse wheel, +/-) ----------
+let wheelAcc = 0;
+function setZoom(z, ax = CW / 2, ay = CH / 2){
+  // keep the world point under (ax, ay) fixed on screen
+  const ix = ax / ZOOM + state.camX, iy = ay / ZOOM + state.camY;
+  ZOOM = z;
+  VW = CW / ZOOM; VH = CH / ZOOM;
+  state.camX = clamp(ix - ax / ZOOM, 0, Math.max(0, IW - VW));
+  state.camY = clamp(iy - ay / ZOOM, 0, Math.max(0, IH - VH));
+}
+function stepZoom(dir, ax, ay){
+  let i = ZOOMS.findIndex(z => z >= ZOOM - 1e-6);
+  if(i < 0) i = ZOOMS.length - 1;
+  i = clamp(i + dir, 0, ZOOMS.length - 1);
+  setZoom(ZOOMS[i], ax, ay);
+}
+cv.addEventListener('wheel', e => {
+  e.preventDefault();
+  wheelAcc += e.deltaY;
+  if(Math.abs(wheelAcc) < 40) return;            // trackpads send many tiny deltas
+  updateMouseWorld(e);
+  stepZoom(wheelAcc < 0 ? 1 : -1, mouse.x, mouse.y);
+  wheelAcc = 0;
+}, {passive: false});
+window.addEventListener('keydown', e => {
+  if(e.key === '+' || e.key === '=') stepZoom(1);
+  if(e.key === '-' || e.key === '_') stepZoom(-1);
+});
+
+// minimap interaction
+const mmC = document.getElementById('minimap');
+const mmX = mmC.getContext('2d');
+const MMW = 220, MMH = 120;
+const MM_RES = DPR * UI;   // minimap backing-store scale
+mmC.width = Math.round(MMW * MM_RES); mmC.height = Math.round(MMH * MM_RES);
+const mmSX = MMW / IW, mmSY = MMH / IH;
+let mmDown = false;
+function mmJump(e){
+  if(!radarOn) return;
+  const r = mmC.getBoundingClientRect();
+  const fx = (e.clientX - r.left) / r.width, fy = (e.clientY - r.top) / r.height;
+  state.camX = clamp(fx * IW - VW / 2, 0, Math.max(0, IW - VW));
+  state.camY = clamp(fy * IH - VH / 2, 0, Math.max(0, IH - VH));
+}
+mmC.addEventListener('mousedown', e => { mmDown = true; mmJump(e); });
+window.addEventListener('mousemove', e => { if(mmDown) mmJump(e); });
+window.addEventListener('mouseup', () => { mmDown = false; });
+
+// ---------- camera scroll ----------
+function tickCamera(dt){
+  const sp = 680 * dt / Math.sqrt(ZOOM);
+  if(keys['arrowleft']) state.camX -= sp;
+  if(keys['arrowright']) state.camX += sp;
+  if(keys['arrowup']) state.camY -= sp;
+  if(keys['arrowdown']) state.camY += sp;
+  const EDGE = 24;
+  if(mouse.inCanvas && !mouse.down){
+    if(mouse.x < EDGE) state.camX -= sp;
+    if(mouse.x > CW - EDGE) state.camX += sp;
+    if(mouse.y < EDGE) state.camY -= sp;
+    if(mouse.y > CH - EDGE) state.camY += sp;
+  }
+  state.camX = clamp(state.camX, 0, Math.max(0, IW - VW));
+  state.camY = clamp(state.camY, 0, Math.max(0, IH - VH));
+}
+
+// ---------- terrain pre-render (iso) ----------
+function tilePath(g, x, y, grow){
+  const e = grow || 0;
+  const t = toIso(x * T - e, y * T - e), r = toIso((x + 1) * T + e, y * T - e);
+  const b = toIso((x + 1) * T + e, (y + 1) * T + e), l = toIso(x * T - e, (y + 1) * T + e);
+  g.beginPath(); g.moveTo(t.x, t.y); g.lineTo(r.x, r.y); g.lineTo(b.x, b.y); g.lineTo(l.x, l.y); g.closePath();
+}
+
+// ---------- terrain ----------
+// The ground is painted at TERRAIN_SCALE px per iso px in CHUNK x CHUNK iso-px
+// chunks by a pool of workers. A quick low-res copy (also the minimap source)
+// fills any chunk that isn't ready yet. Scorch marks are painted into both.
+const TERRAIN_SCALE = 2, CHUNK = 256, LOW_SCALE = 0.25;
+const chunkCols = Math.ceil(IW / CHUNK), chunkRows = Math.ceil(IH / CHUNK);
+const chunks = new Array(chunkCols * chunkRows).fill(null);   // canvas | 'void' | 'pending' | null
+const scorches = [];
+
+const lowC = document.createElement('canvas');
+lowC.width = IW * LOW_SCALE; lowC.height = IH * LOW_SCALE;
+(function paintLow(){
+  const g = lowC.getContext('2d');
+  const img = g.createImageData(lowC.width, lowC.height);
+  TerrainGen.paint(img.data, lowC.width, lowC.height, 0, 0, LOW_SCALE);
+  g.putImageData(img, 0, 0);
+})();
+
+// does the chunk overlap the map diamond at all?
+function chunkInMap(ci, cj){
+  const x0 = ci * CHUNK, y0 = cj * CHUNK;
+  for(let sy = 0; sy <= 8; sy++)
+    for(let sx = 0; sx <= 8; sx++){
+      const w = toWorld(x0 + sx * CHUNK / 8, y0 + sy * CHUNK / 8);
+      if(w.x > -T && w.y > -T && w.x < WPX + T && w.y < HPX + T) return true;
+    }
+  return false;
+}
+
+const terrainJobs = [];
+let terrainWorkers = [];
+function startTerrainWorkers(focusX, focusY){
+  for(let cj = 0; cj < chunkRows; cj++)
+    for(let ci = 0; ci < chunkCols; ci++){
+      const id = cj * chunkCols + ci;
+      if(!chunkInMap(ci, cj)){ chunks[id] = 'void'; continue; }
+      terrainJobs.push(id);
+    }
+  // nearest to the starting view first
+  const d = id => Math.hypot((id % chunkCols + 0.5) * CHUNK - focusX, (Math.floor(id / chunkCols) + 0.5) * CHUNK - focusY);
+  terrainJobs.sort((a, b) => d(a) - d(b));
+  const n = Math.max(2, Math.min(8, (navigator.hardwareConcurrency || 4) - 1));
+  try{
+    for(let i = 0; i < n; i++){
+      const w = new Worker('js/terrain-worker.js');
+      w.onmessage = ev => { finishChunk(ev.data.id, ev.data.data); feedWorker(w); };
+      terrainWorkers.push(w);
+      feedWorker(w);
+    }
+  }catch(e){ console.warn('terrain workers unavailable, using low-res ground', e); }
+}
+function feedWorker(w){
+  const id = terrainJobs.shift();
+  if(id == null){ w.terminate(); return; }
+  chunks[id] = 'pending';
+  const px = CHUNK * TERRAIN_SCALE;
+  w.postMessage({id, ix0: (id % chunkCols) * CHUNK, iy0: Math.floor(id / chunkCols) * CHUNK, w: px, h: px, scale: TERRAIN_SCALE});
+}
+function finishChunk(id, data){
+  const px = CHUNK * TERRAIN_SCALE;
+  const c = document.createElement('canvas');
+  c.width = c.height = px;
+  c.getContext('2d').putImageData(new ImageData(data, px, px), 0, 0);
+  chunks[id] = c;
+  for(const s of scorches) paintScorch(c, (id % chunkCols) * CHUNK, Math.floor(id / chunkCols) * CHUNK, TERRAIN_SCALE, s);
+}
+
+function paintScorch(canvas, ox, oy, scale, s){
+  const p = toIso(s.x, s.y);
+  if(p.x + s.r < ox || p.x - s.r > ox + canvas.width / scale || p.y + s.r < oy || p.y - s.r > oy + canvas.height / scale) return;
+  const g = canvas.getContext('2d');
+  g.save();
+  g.setTransform(scale, 0, 0, scale * 0.5, (p.x - ox) * scale, (p.y - oy) * scale);
+  const grd = g.createRadialGradient(0, 0, 0, 0, 0, s.r);
+  grd.addColorStop(0, 'rgba(15,12,10,0.75)');
+  grd.addColorStop(0.6, 'rgba(25,20,15,0.35)');
+  grd.addColorStop(1, 'rgba(30,25,20,0)');
+  g.fillStyle = grd;
+  g.beginPath(); g.arc(0, 0, s.r, 0, Math.PI * 2); g.fill();
+  g.restore();
+}
+
+// draw the ground for the visible iso rect (context already in iso px)
+function drawTerrain(){
+  const c0 = Math.max(0, Math.floor(state.camX / CHUNK)), c1 = Math.min(chunkCols - 1, Math.floor((state.camX + VW) / CHUNK));
+  const r0 = Math.max(0, Math.floor(state.camY / CHUNK)), r1 = Math.min(chunkRows - 1, Math.floor((state.camY + VH) / CHUNK));
+  for(let cj = r0; cj <= r1; cj++)
+    for(let ci = c0; ci <= c1; ci++){
+      const c = chunks[cj * chunkCols + ci];
+      const x = ci * CHUNK, y = cj * CHUNK;
+      if(c === 'void') continue;
+      if(c && c !== 'pending') cx.drawImage(c, x, y, CHUNK + 0.5, CHUNK + 0.5);   // slight overlap hides seams
+      else {
+        const sm = cx.imageSmoothingEnabled;
+        cx.imageSmoothingEnabled = true;       // low-res stand-in: blur beats blocks
+        cx.drawImage(lowC, x * LOW_SCALE, y * LOW_SCALE, CHUNK * LOW_SCALE, CHUNK * LOW_SCALE, x, y, CHUNK + 0.5, CHUNK + 0.5);
+        cx.imageSmoothingEnabled = sm;
+      }
+    }
+}
+
+// ---------- drawing: sprites ----------
+function shade(hex, f){ // quick brightness adjust of #rrggbb
+  const n = parseInt(hex.slice(1), 16);
+  const r = clamp(((n >> 16) & 255) * f | 0, 0, 255), g = clamp(((n >> 8) & 255) * f | 0, 0, 255), b = clamp((n & 255) * f | 0, 0, 255);
+  return `rgb(${r},${g},${b})`;
+}
+
+// extruded iso box: footprint (tiles), height z px. Returns roof corner points.
+function isoBox(tx, ty, w, h, z, wall, roofC){
+  const t = toIso(tx * T, ty * T), r = toIso((tx + w) * T, ty * T);
+  const b = toIso((tx + w) * T, (ty + h) * T), l = toIso(tx * T, (ty + h) * T);
+  // left (SW-facing) face — darker
+  cx.fillStyle = shade(wall, 0.62);
+  cx.beginPath(); cx.moveTo(l.x, l.y); cx.lineTo(b.x, b.y); cx.lineTo(b.x, b.y - z); cx.lineTo(l.x, l.y - z); cx.closePath(); cx.fill();
+  // right (SE-facing) face — lighter
+  cx.fillStyle = shade(wall, 0.88);
+  cx.beginPath(); cx.moveTo(b.x, b.y); cx.lineTo(r.x, r.y); cx.lineTo(r.x, r.y - z); cx.lineTo(b.x, b.y - z); cx.closePath(); cx.fill();
+  // roof
+  cx.fillStyle = roofC;
+  cx.beginPath(); cx.moveTo(t.x, t.y - z); cx.lineTo(r.x, r.y - z); cx.lineTo(b.x, b.y - z); cx.lineTo(l.x, l.y - z); cx.closePath(); cx.fill();
+  cx.strokeStyle = 'rgba(0,0,0,0.25)'; cx.lineWidth = 1;
+  cx.stroke();
+  return {t, r, b, l};
+}
+
+function groundShadow(tx, ty, w, h){
+  cx.fillStyle = 'rgba(0,0,0,0.28)';
+  const t = toIso(tx * T, ty * T), r = toIso((tx + w) * T + 8, ty * T);
+  const b = toIso((tx + w) * T + 8, (ty + h) * T + 8), l = toIso(tx * T, (ty + h) * T + 8);
+  cx.beginPath(); cx.moveTo(t.x, t.y); cx.lineTo(r.x, r.y); cx.lineTo(b.x, b.y); cx.lineTo(l.x, l.y); cx.closePath(); cx.fill();
+}
+
+function roofDiamond(c, z, fx, fy, scale, fill){ // small diamond on the roof, offsets in world px
+  const p = toIso(c.wx + fx, c.wy + fy);
+  cx.fillStyle = fill;
+  cx.beginPath();
+  cx.moveTo(p.x, p.y - z - scale * 0.5);
+  cx.lineTo(p.x + scale, p.y - z);
+  cx.lineTo(p.x, p.y - z + scale * 0.5);
+  cx.lineTo(p.x - scale, p.y - z);
+  cx.closePath(); cx.fill();
+}
+
+function cylinder(px, py, rad, hgt, color, topColor){
+  cx.fillStyle = shade(color, 0.75);
+  cx.beginPath();
+  cx.ellipse(px, py, rad, rad * 0.5, 0, 0, Math.PI);
+  cx.lineTo(px - rad, py - hgt);
+  cx.ellipse(px, py - hgt, rad, rad * 0.5, 0, Math.PI, 0, true);
+  cx.closePath(); cx.fill();
+  // light strip
+  cx.fillStyle = shade(color, 1.05);
+  cx.fillRect(px + rad * 0.2, py - hgt, rad * 0.45, hgt);
+  cx.fillStyle = topColor || shade(color, 1.15);
+  cx.beginPath(); cx.ellipse(px, py - hgt, rad, rad * 0.5, 0, 0, Math.PI * 2); cx.fill();
+  cx.strokeStyle = 'rgba(0,0,0,0.3)'; cx.lineWidth = 1;
+  cx.beginPath(); cx.ellipse(px, py - hgt, rad, rad * 0.5, 0, 0, Math.PI * 2); cx.stroke();
+}
+
+const bName = b => b.def.key === 'civ' ? 'civ' : b.def.key + '_' + FACTION[b.team];
+
+// animation frame of a building sheet: town variants, factory door, spinning radar
+function buildingFrame(b, e){
+  if(e.frames <= 1) return 0;
+  if(b.def.key === 'civ') return b.variant % e.frames;
+  if(b.def.key === 'factory'){
+    const t = b.doorT;
+    if(t == null || t > 1.6) return 0;
+    const last = e.frames - 1;
+    if(t < 0.3) return Math.floor(t / 0.3 * last);
+    if(t < 1.3) return last;
+    return Math.max(0, last - Math.floor((t - 1.3) / 0.3 * last));
+  }
+  if(b.def.anim){
+    const p = powerOf(b.team);
+    return p.used <= p.prod ? Math.floor(state.time * 7 + b.id) % e.frames : 0;
+  }
+  return 0;
+}
+
+function drawBuildingSprite(b){
+  const name = bName(b);
+  if(Sprites.has(name)){
+    const p = toIso(b.x, b.y);
+    const e = Sprites.get(name);
+    cx.save();
+    if(b.flash > 0) cx.filter = 'brightness(1.8)';
+    // build-up: the structure rises out of the ground
+    const clipTop = b.buildUp < 1 ? e.fh * (1 - b.buildUp) : 0;
+    Sprites.draw(cx, name, b.team, buildingFrame(b, e), p.x, p.y, clipTop);
+    cx.restore();
+    drawBuildingFx(b, p, e);
+    return;
+  }
+  const k = b.def.key;
+  const tc = TEAM_COLOR[b.team];
+  const up = clamp(b.buildUp, 0.12, 1);
+  const z = b.def.z * up;
+  const ctr = toIso(b.x, b.y);
+  const wxc = b.x, wyc = b.y;
+  const cInfo = {wx: wxc, wy: wyc};
+
+  cx.save();
+  if(b.flash > 0) cx.filter = 'brightness(1.9)';
+  if(b.buildUp < 1) cx.globalAlpha = 0.45 + b.buildUp * 0.55;
+
+  groundShadow(b.tx, b.ty, b.w, b.h);
+
+  const allied = b.team === PLAYER;
+  const wall = allied ? '#8f99a8' : '#93857a';
+  const roof = allied ? shade('#aab4c4', 1) : shade('#a89a8c', 1);
+
+  if(k === 'conyard'){
+    const c = isoBox(b.tx, b.ty, b.w, b.h, z, wall, roof);
+    // roof deck + team trim
+    cx.strokeStyle = tc; cx.lineWidth = 2.5;
+    cx.beginPath(); cx.moveTo(c.t.x, c.t.y - z); cx.lineTo(c.r.x, c.r.y - z); cx.lineTo(c.b.x, c.b.y - z); cx.lineTo(c.l.x, c.l.y - z); cx.closePath(); cx.stroke();
+    // crane tower + jib
+    const cb = toIso(wxc - 14, wyc - 10);
+    cx.strokeStyle = '#e9b83a'; cx.lineWidth = 4;
+    cx.beginPath(); cx.moveTo(cb.x, cb.y - z); cx.lineTo(cb.x, cb.y - z - 26); cx.stroke();
+    cx.lineWidth = 3;
+    cx.beginPath(); cx.moveTo(cb.x, cb.y - z - 26); cx.lineTo(cb.x + 30, cb.y - z - 18); cx.stroke();
+    cx.strokeStyle = '#666'; cx.lineWidth = 1;
+    cx.beginPath(); cx.moveTo(cb.x + 30, cb.y - z - 18); cx.lineTo(cb.x + 30, cb.y - z - 4); cx.stroke();
+    cx.fillStyle = '#333'; cx.fillRect(cb.x + 27, cb.y - z - 6, 6, 5);
+    // roof hatch + vents
+    roofDiamond(cInfo, z, 16, 16, 9, '#5f6774');
+    roofDiamond(cInfo, z, 16, 16, 5, '#3d434e');
+    cylinder(ctr.x + 22, ctr.y - z * 0.2, 4, 8 + z * 0.2, '#7d8694');
+  } else if(k === 'power'){
+    const c = isoBox(b.tx, b.ty, b.w, b.h, z, wall, allied ? '#7f92ad' : '#8d7f74');
+    // twin cooling stacks
+    cylinder(ctr.x - 10, ctr.y - z + 10, 7, 18, allied ? '#93a5bf' : '#9a8a7c');
+    cylinder(ctr.x + 12, ctr.y - z + 12, 7, 18, allied ? '#93a5bf' : '#9a8a7c');
+    // glowing core between them
+    const glow = 0.55 + Math.sin(state.time * 4 + b.id) * 0.3;
+    cx.fillStyle = allied ? `rgba(120,220,255,${glow})` : `rgba(255,140,120,${glow})`;
+    cx.beginPath(); cx.ellipse(ctr.x + 1, ctr.y - z + 4, 6, 3.5, 0, 0, 7); cx.fill();
+    cx.strokeStyle = tc; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(c.l.x, c.l.y - z); cx.lineTo(c.b.x, c.b.y - z); cx.lineTo(c.r.x, c.r.y - z); cx.stroke();
+  } else if(k === 'refinery'){
+    const c = isoBox(b.tx, b.ty, b.w, b.h, z, wall, roof);
+    // ore silo (gold-topped cylinder)
+    cylinder(ctr.x - 20, ctr.y - z + 16, 12, 22, allied ? '#8f99a8' : '#93857a', '#d9a520');
+    cx.fillStyle = '#ffdf6b';
+    cx.beginPath(); cx.ellipse(ctr.x - 20, ctr.y - z - 6, 7, 3.5, 0, 0, 7); cx.fill();
+    // smokestack
+    cylinder(ctr.x + 18, ctr.y - z + 8, 4, 16, '#6b7280');
+    // docking bay: flat pad in front (south corner) with hazard chevrons
+    const pad = toIso(wxc + 6, wyc + b.h * T * 0.5 + 12);
+    cx.fillStyle = '#3c4148';
+    cx.beginPath(); cx.moveTo(pad.x, pad.y - 10); cx.lineTo(pad.x + 26, pad.y + 3); cx.lineTo(pad.x, pad.y + 16); cx.lineTo(pad.x - 26, pad.y + 3); cx.closePath(); cx.fill();
+    cx.fillStyle = '#f5c542';
+    for(let i = -1; i <= 1; i++){
+      cx.beginPath(); cx.moveTo(pad.x + i * 12, pad.y - 2); cx.lineTo(pad.x + 6 + i * 12, pad.y + 3); cx.lineTo(pad.x + i * 12, pad.y + 8); cx.lineTo(pad.x - 6 + i * 12, pad.y + 3); cx.closePath(); cx.fill();
+    }
+    cx.strokeStyle = tc; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(c.t.x, c.t.y - z); cx.lineTo(c.r.x, c.r.y - z); cx.stroke();
+  } else if(k === 'barracks'){
+    const c = isoBox(b.tx, b.ty, b.w, b.h, z, allied ? '#98a3b0' : '#9a8a76', allied ? '#5f7d5a' : '#7d6a52');
+    // roof ridge
+    cx.strokeStyle = 'rgba(255,255,255,0.25)'; cx.lineWidth = 1.5;
+    cx.beginPath(); cx.moveTo(c.l.x + 6, c.l.y - z); cx.lineTo(c.r.x - 6, c.r.y - z); cx.stroke();
+    // door on SE face
+    const dm = toIso(wxc + b.w * T * 0.5, wyc + 6);
+    cx.fillStyle = '#2c313a';
+    cx.fillRect(dm.x - 12, dm.y - 14, 10, 14);
+    // flag pole + team flag
+    const fp = toIso(b.tx * T + 6, b.ty * T + 6);
+    cx.strokeStyle = '#cfd4dc'; cx.lineWidth = 1.5;
+    cx.beginPath(); cx.moveTo(fp.x, fp.y - z); cx.lineTo(fp.x, fp.y - z - 20); cx.stroke();
+    cx.fillStyle = tc;
+    cx.beginPath(); cx.moveTo(fp.x, fp.y - z - 20); cx.lineTo(fp.x + 13, fp.y - z - 16.5); cx.lineTo(fp.x, fp.y - z - 13); cx.closePath(); cx.fill();
+  } else if(k === 'factory'){
+    const c = isoBox(b.tx, b.ty, b.w, b.h, z, wall, roof);
+    // huge SE-face door with hazard stripes
+    const b0 = toIso((b.tx + b.w) * T, (b.ty + b.h) * T);
+    const r0 = toIso((b.tx + b.w) * T, b.ty * T);
+    const doorTopY = -z + 6;
+    cx.fillStyle = '#333941';
+    cx.beginPath();
+    cx.moveTo(b0.x + (r0.x - b0.x) * 0.18, b0.y + (r0.y - b0.y) * 0.18);
+    cx.lineTo(b0.x + (r0.x - b0.x) * 0.82, b0.y + (r0.y - b0.y) * 0.82);
+    cx.lineTo(b0.x + (r0.x - b0.x) * 0.82, b0.y + (r0.y - b0.y) * 0.82 + doorTopY);
+    cx.lineTo(b0.x + (r0.x - b0.x) * 0.18, b0.y + (r0.y - b0.y) * 0.18 + doorTopY);
+    cx.closePath(); cx.fill();
+    cx.strokeStyle = '#f5c542'; cx.lineWidth = 2;
+    for(let i = 0.3; i <= 0.7; i += 0.2){
+      cx.beginPath();
+      cx.moveTo(b0.x + (r0.x - b0.x) * i, b0.y + (r0.y - b0.y) * i);
+      cx.lineTo(b0.x + (r0.x - b0.x) * i, b0.y + (r0.y - b0.y) * i + doorTopY + 2);
+      cx.stroke();
+    }
+    // sawtooth roof lights
+    for(let i = 0; i < 3; i++)
+      roofDiamond(cInfo, z, -18 + i * 18, -14 + i * 2, 6, i % 2 ? '#c9d2e0' : '#79828f');
+    // chimneys
+    cylinder(ctr.x - 26, ctr.y - z + 6, 4.5, 20, '#5b626e');
+    cylinder(ctr.x - 14, ctr.y - z + 2, 4.5, 24, '#5b626e');
+    cx.strokeStyle = tc; cx.lineWidth = 2.5;
+    cx.beginPath(); cx.moveTo(c.t.x, c.t.y - z); cx.lineTo(c.l.x, c.l.y - z); cx.stroke();
+  } else if(k === 'pillbox'){
+    // sandbag bunker: low dome
+    cx.fillStyle = '#7a7a5c';
+    cx.beginPath(); cx.ellipse(ctr.x, ctr.y - 4, 16, 9, 0, 0, 7); cx.fill();
+    cx.fillStyle = '#8f8f6d';
+    cx.beginPath(); cx.ellipse(ctr.x, ctr.y - 8, 12, 6.5, 0, 0, 7); cx.fill();
+    // sandbag texture
+    cx.strokeStyle = 'rgba(0,0,0,0.25)'; cx.lineWidth = 1;
+    for(let i = -2; i <= 2; i++){
+      cx.beginPath(); cx.ellipse(ctr.x + i * 6, ctr.y - 2, 3, 1.6, 0, 0, 7); cx.stroke();
+    }
+    // gun slit + barrel
+    cx.fillStyle = '#20242c';
+    cx.fillRect(ctr.x - 6, ctr.y - 10, 12, 3.5);
+    const ta = b.target ? Math.atan2(b.target.y - b.y, b.target.x - b.x) : Math.PI / 4;
+    const gx = Math.cos(ta) - Math.sin(ta), gy = (Math.cos(ta) + Math.sin(ta)) * 0.5;
+    const gl = Math.hypot(gx, gy);
+    cx.strokeStyle = '#20242c'; cx.lineWidth = 2.5;
+    cx.beginPath(); cx.moveTo(ctr.x, ctr.y - 8); cx.lineTo(ctr.x + gx / gl * 13, ctr.y - 8 + gy / gl * 13); cx.stroke();
+    cx.fillStyle = tc; cx.fillRect(ctr.x - 5, ctr.y + 2, 10, 3);
+  } else if(k === 'beamtower' || k === 'arctower'){
+    // tall narrow tower
+    const twr = k === 'beamtower' ? '#c3cbd8' : '#4c525e';
+    cx.fillStyle = shade(twr, 0.7);
+    cx.beginPath(); cx.moveTo(ctr.x - 7, ctr.y); cx.lineTo(ctr.x - 4, ctr.y - z); cx.lineTo(ctr.x, ctr.y - z + 2); cx.lineTo(ctr.x, ctr.y + 4); cx.closePath(); cx.fill();
+    cx.fillStyle = twr;
+    cx.beginPath(); cx.moveTo(ctr.x + 7, ctr.y); cx.lineTo(ctr.x + 4, ctr.y - z); cx.lineTo(ctr.x, ctr.y - z + 2); cx.lineTo(ctr.x, ctr.y + 4); cx.closePath(); cx.fill();
+    // base pad
+    cx.fillStyle = '#565c66';
+    cx.beginPath(); cx.ellipse(ctr.x, ctr.y + 3, 13, 7, 0, 0, 7); cx.fill();
+    cx.fillStyle = tc;
+    cx.beginPath(); cx.ellipse(ctr.x, ctr.y + 2, 9, 4.5, 0, 0, 7); cx.fill();
+    const pulse = 0.5 + Math.sin(state.time * 6 + b.id) * 0.4;
+    if(k === 'beamtower'){
+      // crystal head
+      cx.fillStyle = `rgba(150,225,255,${0.55 + pulse * 0.4})`;
+      cx.beginPath();
+      cx.moveTo(ctr.x, ctr.y - z - 12);
+      cx.lineTo(ctr.x + 7, ctr.y - z - 2);
+      cx.lineTo(ctr.x, ctr.y - z + 4);
+      cx.lineTo(ctr.x - 7, ctr.y - z - 2);
+      cx.closePath(); cx.fill();
+      cx.strokeStyle = 'rgba(255,255,255,0.7)'; cx.lineWidth = 1;
+      cx.beginPath(); cx.moveTo(ctr.x, ctr.y - z - 12); cx.lineTo(ctr.x, ctr.y - z + 4); cx.stroke();
+    } else {
+      // arc tower rings + orb
+      cx.strokeStyle = '#6e7686'; cx.lineWidth = 2;
+      for(let i = 0; i < 3; i++){
+        cx.beginPath(); cx.ellipse(ctr.x, ctr.y - z + 2 - i * 5, 8 - i, 3.5 - i * 0.7, 0, 0, 7); cx.stroke();
+      }
+      cx.fillStyle = `rgba(140,200,255,${0.5 + pulse * 0.5})`;
+      cx.beginPath(); cx.arc(ctr.x, ctr.y - z - 8, 5, 0, 7); cx.fill();
+      if(pulse > 0.7){
+        cx.strokeStyle = `rgba(160,220,255,${pulse})`; cx.lineWidth = 1;
+        cx.beginPath();
+        cx.moveTo(ctr.x - 4, ctr.y - z - 10);
+        cx.lineTo(ctr.x + 2, ctr.y - z - 5);
+        cx.lineTo(ctr.x - 2, ctr.y - z - 2);
+        cx.stroke();
+      }
+    }
+  }
+
+  cx.restore();
+}
+
+// fires on badly damaged structures (smoke is emitted in updateBuilding)
+function drawBuildingFx(b, p, e){
+  const frac = b.hp / b.maxHp;
+  if(frac >= 0.5 || b.buildUp < 1) return;
+  const bb = Sprites.bbox(bName(b), 0);
+  if(!bb) return;
+  const n = frac < 0.25 ? 3 : 1;
+  cx.save();
+  cx.globalCompositeOperation = 'lighter';
+  for(let i = 0; i < n; i++){
+    const fx = p.x + bb.x0 + (bb.x1 - bb.x0) * (0.3 + hash2(b.id, i) * 0.4);
+    const fy = p.y + bb.y0 + (bb.y1 - bb.y0) * (0.25 + hash2(i, b.id) * 0.3);
+    const fl = 0.75 + Math.sin(state.time * 17 + i * 3) * 0.25;
+    const r = 9 * fl;
+    const grd = cx.createRadialGradient(fx, fy, 0, fx, fy - 3, r);
+    grd.addColorStop(0, 'rgba(255,230,140,0.95)');
+    grd.addColorStop(0.45, 'rgba(255,120,30,0.7)');
+    grd.addColorStop(1, 'rgba(160,30,0,0)');
+    cx.fillStyle = grd;
+    cx.beginPath(); cx.ellipse(fx, fy - 3, r * 0.7, r, 0, 0, Math.PI * 2); cx.fill();
+  }
+  cx.restore();
+}
+
+// iso direction of a world-facing angle
+function isoDir(f){
+  const x = Math.cos(f) - Math.sin(f), y = (Math.cos(f) + Math.sin(f)) * 0.5;
+  const l = Math.hypot(x, y);
+  return {x: x / l, y: y / l};
+}
+
+// frame of an infantry sheet for the unit's current action
+function infantryFrame(u, e){
+  let f = Sprites.facing(e, u.face) * e.seq;
+  if(u.fireT < 0.18) f += e.anims.fire[0] + (u.fireT < 0.09 ? 0 : 1);
+  else if(u.moving) f += e.anims.walk[0] + Math.floor(u.walkPhase) % e.anims.walk[1];
+  return f;
+}
+
+function drawUnitSprite(u){
+  const p = toIso(u.x, u.y);
+  const name = u.def.key + '_' + FACTION[u.team];
+  const inf = Sprites.get(name);
+  const body = Sprites.get(name + '_body');
+  if(inf || body){
+    cx.save();
+    if(u.flash > 0) cx.filter = 'brightness(1.9)';
+    if(inf) Sprites.draw(cx, name, u.team, infantryFrame(u, inf), p.x, p.y);
+    else {
+      Sprites.draw(cx, name + '_body', u.team, Sprites.facing(body, u.face), p.x, p.y);
+      const tur = Sprites.get(name + '_turret');
+      if(tur) Sprites.draw(cx, name + '_turret', u.team, Sprites.facing(tur, u.tface), p.x, p.y);
+    }
+    cx.restore();
+    return;
+  }
+  const k = u.def.key;
+  const tc = TEAM_COLOR[u.team];
+  const allied = u.team === PLAYER;
+
+  cx.save();
+  if(u.flash > 0) cx.filter = 'brightness(1.9)';
+
+  // shadow
+  cx.fillStyle = 'rgba(0,0,0,0.3)';
+  cx.beginPath(); cx.ellipse(p.x, p.y + 1, u.def.r + 2, (u.def.r + 2) * 0.5, 0, 0, 7); cx.fill();
+
+  if(k === 'rifle' || k === 'rocket'){
+    const d = isoDir(u.face);
+    const uni = k === 'rifle' ? (allied ? '#5d7244' : '#8a7a5a') : (allied ? '#4e6a8c' : '#6d5b4c');
+    // legs
+    cx.strokeStyle = '#2e3324'; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(p.x - 2, p.y); cx.lineTo(p.x - 2, p.y - 5); cx.moveTo(p.x + 2, p.y); cx.lineTo(p.x + 2, p.y - 5); cx.stroke();
+    // torso
+    cx.fillStyle = uni;
+    cx.fillRect(p.x - 3.5, p.y - 12, 7, 8);
+    // team armband
+    cx.fillStyle = tc; cx.fillRect(p.x - 3.5, p.y - 11, 7, 2);
+    // head + helmet
+    cx.fillStyle = '#caa27b';
+    cx.beginPath(); cx.arc(p.x, p.y - 14.5, 2.6, 0, 7); cx.fill();
+    cx.fillStyle = allied ? '#44522f' : '#6d3b32';
+    cx.beginPath(); cx.arc(p.x, p.y - 15.4, 2.8, Math.PI, 0); cx.fill();
+    // weapon
+    if(k === 'rifle'){
+      cx.strokeStyle = '#23272e'; cx.lineWidth = 2;
+      cx.beginPath(); cx.moveTo(p.x, p.y - 9); cx.lineTo(p.x + d.x * 9, p.y - 9 + d.y * 9); cx.stroke();
+    } else {
+      // shoulder rocket tube
+      cx.strokeStyle = '#3f4c38'; cx.lineWidth = 3.5;
+      cx.beginPath(); cx.moveTo(p.x - d.x * 4, p.y - 13 - d.y * 4); cx.lineTo(p.x + d.x * 9, p.y - 13 + d.y * 9); cx.stroke();
+      cx.fillStyle = '#e05038';
+      cx.beginPath(); cx.arc(p.x + d.x * 9, p.y - 13 + d.y * 9, 1.8, 0, 7); cx.fill();
+    }
+  } else {
+    // vehicles: draw hull in a foreshortened rotated frame
+    const hullC = k === 'harv'
+      ? (allied ? '#7c8aa0' : '#8d6f52')
+      : (allied ? '#7688a0' : '#87604f');
+    const dark = shade(hullC, 0.6), light = shade(hullC, 1.15);
+    const L = k === 'htank' ? 21 : k === 'harv' ? 19 : 16;   // half length
+    const Wd = k === 'htank' ? 13 : k === 'harv' ? 13 : 10;  // half width
+
+    cx.translate(p.x, p.y - 4);
+    cx.save();
+    cx.scale(1, 0.5);
+    cx.rotate(u.face + Math.PI / 4);
+    // treads
+    cx.fillStyle = '#23262c';
+    cx.fillRect(-L, -Wd - 3, L * 2, 6);
+    cx.fillRect(-L, Wd - 3, L * 2, 6);
+    // tread links
+    cx.fillStyle = '#3a3e46';
+    for(let i = -L + 2; i < L; i += 5){ cx.fillRect(i, -Wd - 2, 2, 4); cx.fillRect(i, Wd - 2, 2, 4); }
+    // hull
+    cx.fillStyle = hullC;
+    cx.fillRect(-L + 2, -Wd + 1, L * 2 - 4, Wd * 2 - 2);
+    cx.fillStyle = light;
+    cx.fillRect(-L + 2, -Wd + 1, L * 2 - 4, 3);
+    cx.fillStyle = dark;
+    cx.fillRect(-L + 2, Wd - 4, L * 2 - 4, 3);
+    // front glacis marker
+    cx.fillStyle = dark;
+    cx.beginPath(); cx.moveTo(L - 2, -Wd + 1); cx.lineTo(L + 4, 0); cx.lineTo(L - 2, Wd - 1); cx.closePath(); cx.fill();
+
+    if(k === 'harv'){
+      // cab + ore hopper
+      cx.fillStyle = shade(hullC, 1.25);
+      cx.fillRect(L - 12, -Wd + 2, 9, Wd * 2 - 4);
+      cx.fillStyle = '#1d2026';
+      cx.fillRect(L - 10, -Wd + 3, 3, Wd * 2 - 6);
+      cx.fillStyle = dark;
+      cx.fillRect(-L + 3, -Wd + 3, L + 4, Wd * 2 - 6);
+      if(u.carry > 0){
+        cx.fillStyle = '#e8b62e';
+        const fill = Math.min(1, u.carry / 700);
+        cx.fillRect(-L + 4, -Wd + 4, (L + 2) * fill, Wd * 2 - 8);
+        cx.fillStyle = '#ffdf6b';
+        cx.fillRect(-L + 5, -Wd + 5, (L) * fill, 2);
+      }
+      // scoop arm
+      cx.fillStyle = '#4a4f58';
+      cx.fillRect(L + 2, -4, 7, 8);
+    }
+    cx.restore();
+
+    if(k !== 'harv'){
+      // turret (screen space, slightly raised)
+      const d = isoDir(u.face);
+      const ty0 = -5;
+      cx.fillStyle = shade(hullC, 1.1);
+      cx.beginPath(); cx.ellipse(0, ty0, k === 'htank' ? 9 : 7, (k === 'htank' ? 9 : 7) * 0.55, 0, 0, 7); cx.fill();
+      cx.strokeStyle = 'rgba(0,0,0,0.35)'; cx.lineWidth = 1;
+      cx.beginPath(); cx.ellipse(0, ty0, k === 'htank' ? 9 : 7, (k === 'htank' ? 9 : 7) * 0.55, 0, 0, 7); cx.stroke();
+      // barrel(s): twin barrels for the Soviet heavy tank
+      const twin = k === 'htank' && u.team === ENEMY;
+      const bl = k === 'htank' ? 17 : 14;
+      cx.strokeStyle = '#23272e';
+      cx.lineWidth = k === 'htank' ? 3 : 2.5;
+      if(twin){
+        const px2 = -d.y * 2.4, py2 = d.x * 1.4;
+        cx.beginPath();
+        cx.moveTo(px2, ty0 + py2); cx.lineTo(px2 + d.x * bl, ty0 + py2 + d.y * bl);
+        cx.moveTo(-px2, ty0 - py2); cx.lineTo(-px2 + d.x * bl, ty0 - py2 + d.y * bl);
+        cx.stroke();
+      } else {
+        cx.beginPath(); cx.moveTo(0, ty0); cx.lineTo(d.x * bl, ty0 + d.y * bl); cx.stroke();
+        cx.fillStyle = '#23272e';
+        cx.fillRect(d.x * bl - 1.5, ty0 + d.y * bl - 1.5, 3, 3);
+      }
+      // team color hatch on turret
+      cx.fillStyle = tc;
+      cx.beginPath(); cx.ellipse(-2, ty0 - 1, 2.6, 1.6, 0, 0, 7); cx.fill();
+    }
+  }
+  cx.restore();
+}
+
+// segmented health bar in a black box
+function drawHealthBar(sx, sy, w, frac){
+  cx.fillStyle = 'rgba(6,8,12,0.85)';
+  cx.fillRect(sx - w / 2 - 1, sy - 1, w + 2, 6);
+  const col = frac > 0.55 ? '#3ee653' : frac > 0.25 ? '#f5c542' : '#e04040';
+  const pipW = 3, gap = 1, n = Math.floor(w / (pipW + gap));
+  const lit = Math.ceil(frac * n);
+  for(let i = 0; i < n; i++){
+    cx.fillStyle = i < lit ? col : '#20242c';
+    cx.fillRect(sx - w / 2 + i * (pipW + gap), sy, pipW, 4);
+  }
+}
+
+function drawFlag(x, y, color){
+  cx.strokeStyle = '#e8edf3'; cx.lineWidth = 1.5;
+  cx.beginPath(); cx.moveTo(x, y); cx.lineTo(x, y - 18); cx.stroke();
+  const w = Math.sin(state.time * 6) * 1.5;
+  cx.fillStyle = color;
+  cx.beginPath(); cx.moveTo(x, y - 18); cx.lineTo(x + 11, y - 15 + w); cx.lineTo(x, y - 11); cx.closePath(); cx.fill();
+  cx.strokeStyle = 'rgba(0,0,0,.5)'; cx.lineWidth = 1; cx.stroke();
+}
+
+// veterancy: one gold chevron for veteran, two for elite
+function drawChevrons(x, y, n){
+  for(let i = 0; i < n; i++){
+    const yy = y + i * 4;
+    cx.strokeStyle = '#000'; cx.lineWidth = 3.5;
+    cx.beginPath(); cx.moveTo(x, yy); cx.lineTo(x + 4, yy + 3); cx.lineTo(x + 8, yy); cx.stroke();
+    cx.strokeStyle = '#ffd24a'; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(x, yy); cx.lineTo(x + 4, yy + 3); cx.lineTo(x + 8, yy); cx.stroke();
+  }
+}
+
+// ---------- mouse cursor (context sensitive) ----------
+function cursorType(){
+  if(state.mode) return state.mode;
+  if(state.placing || mouse.dragging || !state.started) return 'arrow';
+  const sel = selection.filter(s => !s.dead && s.team === PLAYER);
+  const su = sel.filter(s => s.kind === 'unit');
+  const t = pickEntity(mouse.wx, mouse.wy);
+  if(su.length){
+    if(t && t.def.mcv && su.length === 1 && su[0] === t) return canDeploy(t) ? 'deploy' : 'nodeploy';
+    if(t && t.team === ENEMY && su.some(u => u.def.weapon)) return 'attack';
+    if(t && t.team === PLAYER) return 'select';
+    const tx = Math.floor(mouse.wx / T), ty = Math.floor(mouse.wy / T);
+    if(!inMap(tx, ty) || (occ[idx(tx, ty)] !== 0 && explored[idx(tx, ty)])) return 'nomove';
+    return 'move';
+  }
+  if(t && t.team === PLAYER) return 'select';
+  if(sel.some(b => b.kind === 'building' && PRODUCERS.has(b.def.key))) return 'rally';
+  return 'arrow';
+}
+
+function drawCursor(){
+  if(!mouse.inCanvas) return;
+  const type = cursorType();
+  const x = mouse.x, y = mouse.y, t = state.time + performance.now() / 1000;
+  const pulse = (Math.sin(t * 8) + 1) / 2;
+  cx.save();
+  cx.lineJoin = 'round';
+  const stroke2 = (color, w, draw) => {
+    cx.strokeStyle = '#000'; cx.lineWidth = w + 2.5; cx.beginPath(); draw(); cx.stroke();
+    cx.strokeStyle = color; cx.lineWidth = w; cx.beginPath(); draw(); cx.stroke();
+  };
+  if(type === 'arrow' || type === 'rally'){
+    cx.fillStyle = '#e9eef4'; cx.strokeStyle = '#11161d'; cx.lineWidth = 1.5;
+    cx.beginPath();
+    cx.moveTo(x, y); cx.lineTo(x, y + 17); cx.lineTo(x + 4.5, y + 13); cx.lineTo(x + 8, y + 20);
+    cx.lineTo(x + 10.5, y + 19); cx.lineTo(x + 7.5, y + 12); cx.lineTo(x + 13, y + 12); cx.closePath();
+    cx.fill(); cx.stroke();
+    if(type === 'rally') drawFlag(x + 14, y + 24, TEAM_COLOR[PLAYER]);
+  } else if(type === 'select'){
+    const r = 9 + pulse * 3, L = 5;
+    stroke2('#ffffff', 1.5, () => {
+      for(const [sx, sy] of [[-1, -1], [1, -1], [1, 1], [-1, 1]]){
+        cx.moveTo(x + sx * r, y + sy * (r - L)); cx.lineTo(x + sx * r, y + sy * r); cx.lineTo(x + sx * (r - L), y + sy * r);
+      }
+    });
+  } else if(type === 'move' || type === 'deploy'){
+    // four arrowheads converging on (move) or pointing away from (deploy) the spot
+    const col = type === 'move' ? '#55f06a' : '#ffd24a';
+    const r = 7 + pulse * 5, dir = type === 'move' ? -1 : 1;
+    cx.fillStyle = col; cx.strokeStyle = '#000'; cx.lineWidth = 1.2;
+    for(let k = 0; k < 4; k++){
+      const a = k * Math.PI / 2 + Math.PI / 4;
+      const px = x + Math.cos(a) * r, py = y + Math.sin(a) * r * 0.75;
+      const ux = Math.cos(a) * dir, uy = Math.sin(a) * dir;
+      cx.beginPath();
+      cx.moveTo(px + ux * 6, py + uy * 6);
+      cx.lineTo(px - uy * 4, py + ux * 4); cx.lineTo(px + uy * 4, py - ux * 4);
+      cx.closePath(); cx.fill(); cx.stroke();
+    }
+  } else if(type === 'attack'){
+    const r = 11;
+    stroke2('#ff4a3a', 2, () => { cx.arc(x, y, r, 0, Math.PI * 2); });
+    stroke2('#ff4a3a', 2, () => {
+      for(let k = 0; k < 4; k++){
+        const a = k * Math.PI / 2 + t * 2;
+        cx.moveTo(x + Math.cos(a) * (r - 5), y + Math.sin(a) * (r - 5));
+        cx.lineTo(x + Math.cos(a) * (r + 5), y + Math.sin(a) * (r + 5));
+      }
+    });
+    cx.fillStyle = '#ff4a3a'; cx.fillRect(x - 1, y - 1, 2, 2);
+  } else if(type === 'nomove' || type === 'nodeploy'){
+    stroke2('#ff4a3a', 2.2, () => { cx.arc(x, y, 9, 0, Math.PI * 2); });
+    stroke2('#ff4a3a', 2.2, () => { cx.moveTo(x - 6, y - 6); cx.lineTo(x + 6, y + 6); });
+  } else if(type === 'sell' || type === 'repair'){
+    const ok = !!modeTarget();
+    cx.font = 'bold 20px sans-serif'; cx.textAlign = 'center'; cx.textBaseline = 'middle';
+    cx.strokeStyle = '#000'; cx.lineWidth = 3;
+    const glyph = type === 'sell' ? '$' : '🔧';
+    cx.fillStyle = ok ? '#ffd24a' : '#ff5b5b';
+    cx.strokeText(glyph, x, y); cx.fillText(glyph, x, y);
+    if(!ok) stroke2('#ff4a3a', 2, () => { cx.moveTo(x - 10, y - 10); cx.lineTo(x + 10, y + 10); });
+  }
+  cx.restore();
+}
+
+// white corner selection brackets
+function drawBrackets(sx, sy, w, h){
+  const L = Math.min(7, w * 0.3);
+  cx.strokeStyle = 'rgba(255,255,255,0.92)';
+  cx.lineWidth = 1.5;
+  cx.beginPath();
+  cx.moveTo(sx + L, sy); cx.lineTo(sx, sy); cx.lineTo(sx, sy + L);
+  cx.moveTo(sx + w - L, sy); cx.lineTo(sx + w, sy); cx.lineTo(sx + w, sy + L);
+  cx.moveTo(sx + L, sy + h); cx.lineTo(sx, sy + h); cx.lineTo(sx, sy + h - L);
+  cx.moveTo(sx + w - L, sy + h); cx.lineTo(sx + w, sy + h); cx.lineTo(sx + w, sy + h - L);
+  cx.stroke();
+}
+
+function drawProjectile(p){
+  const s = toIso(p.x, p.y);
+  const t = toIso(p.tx, p.ty);
+  s.y -= 8; t.y -= 6;
+  const a = Math.atan2(t.y - s.y, t.x - s.x);
+  if(p.kind === 'bullet'){
+    cx.strokeStyle = '#ffe9a0'; cx.lineWidth = 1.5;
+    cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(s.x - Math.cos(a) * 8, s.y - Math.sin(a) * 8); cx.stroke();
+  } else if(p.kind === 'shell'){
+    cx.fillStyle = '#ffcf5a';
+    cx.beginPath(); cx.arc(s.x, s.y, 2.5, 0, 7); cx.fill();
+  } else {
+    cx.save(); cx.translate(s.x, s.y); cx.rotate(a);
+    cx.fillStyle = '#d8dee9'; cx.fillRect(-5, -1.5, 10, 3);
+    cx.fillStyle = '#ff9a3b'; cx.fillRect(-8, -1, 3, 2);
+    cx.restore();
+  }
+}
+
+function drawEffect(e){
+  if(e.t < 0 || e.type === 'delay' || e.type === 'smokecol') return;
+  const f = e.t / e.dur;
+  if(e.type === 'boom'){
+    // fireball: bright core that swells upward, then fades into the puffs around it
+    const p = toIso(e.x, e.y);
+    const r = e.size * (0.5 + Math.sqrt(f) * 0.9);
+    const lift = f * e.size * 0.6;
+    cx.save();
+    cx.globalCompositeOperation = 'lighter';
+    const g = cx.createRadialGradient(p.x, p.y - lift, 0, p.x, p.y - lift, r);
+    const a = Math.max(0, 1 - f * 1.3);
+    g.addColorStop(0, `rgba(255,250,210,${a})`);
+    g.addColorStop(0.3, `rgba(255,190,70,${a * 0.9})`);
+    g.addColorStop(0.7, `rgba(230,80,10,${a * 0.5})`);
+    g.addColorStop(1, 'rgba(120,20,0,0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.ellipse(p.x, p.y - lift, r, r * 0.8, 0, 0, Math.PI * 2); cx.fill();
+    cx.restore();
+    if(f < 0.15){ // ground flash
+      cx.fillStyle = `rgba(255,220,150,${0.35 * (1 - f / 0.15)})`;
+      cx.beginPath(); cx.ellipse(p.x, p.y, e.size * 1.6, e.size * 0.8, 0, 0, Math.PI * 2); cx.fill();
+    }
+  } else if(e.type === 'puff'){
+    const p = toIso(e.x, e.y);
+    const r = e.r * (0.6 + f * 1.1);
+    const a = (e.dark ? 0.45 : 0.55) * (1 - f) * Math.min(1, e.t * 8);
+    const c = e.dark ? 40 + f * 60 : 90 + f * 70;
+    const g = cx.createRadialGradient(p.x, p.y - e.z, 0, p.x, p.y - e.z, r);
+    g.addColorStop(0, `rgba(${c},${c * 0.95},${c * 0.9},${a})`);
+    g.addColorStop(1, `rgba(${c},${c},${c},0)`);
+    cx.fillStyle = g;
+    cx.beginPath(); cx.arc(p.x, p.y - e.z, r, 0, Math.PI * 2); cx.fill();
+  } else if(e.type === 'corpse'){
+    const p = toIso(e.x, e.y);
+    cx.save();
+    cx.globalAlpha = e.t > e.dur - 1 ? e.dur - e.t : 1;
+    Sprites.draw(cx, e.name, e.team, Math.min(3, Math.floor(e.t / 0.1)), p.x, p.y);
+    cx.restore();
+  } else if(e.type === 'spark'){
+    const p = toIso(e.x, e.y);
+    cx.fillStyle = `rgba(255,${180 - f * 120 | 0},60,${1 - f})`;
+    cx.fillRect(p.x - 2, p.y - 8 - f * 6, 4, 4);
+  } else if(e.type === 'hit'){
+    const p = toIso(e.x, e.y);
+    cx.fillStyle = `rgba(255,200,90,${1 - f})`;
+    cx.beginPath(); cx.arc(p.x, p.y - 6, (e.big ? 9 : 4.5) * (0.5 + f), 0, 7); cx.fill();
+  } else if(e.type === 'muzzle'){
+    const p = toIso(e.x, e.y);
+    const d = isoDir(e.a);
+    cx.strokeStyle = `rgba(255,240,160,${1 - f})`;
+    cx.lineWidth = 3;
+    cx.beginPath();
+    cx.moveTo(p.x + d.x * 8, p.y - e.z + d.y * 8);
+    cx.lineTo(p.x + d.x * 15, p.y - e.z + d.y * 15);
+    cx.stroke();
+  } else if(e.type === 'smoke'){
+    const p = toIso(e.x, e.y);
+    cx.fillStyle = `rgba(190,190,190,${0.5 * (1 - f)})`;
+    cx.beginPath(); cx.arc(p.x, p.y - 8, 2 + f * 4, 0, 7); cx.fill();
+  } else if(e.type === 'beam'){
+    const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
+    cx.strokeStyle = `rgba(150,230,255,${1 - f})`; cx.lineWidth = 4 * (1 - f) + 1;
+    cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
+    cx.strokeStyle = `rgba(255,255,255,${1 - f})`; cx.lineWidth = 1.5;
+    cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
+  } else if(e.type === 'arc'){
+    const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
+    const y1 = p1.y - e.z1, y2 = p2.y - 6;
+    cx.strokeStyle = `rgba(140,200,255,${1 - f})`; cx.lineWidth = 2.5;
+    cx.beginPath(); cx.moveTo(p1.x, y1);
+    const seg = 6;
+    for(let i = 1; i <= seg; i++){
+      const px = p1.x + (p2.x - p1.x) * i / seg + (i < seg ? (Math.random() - 0.5) * 16 : 0);
+      const py = y1 + (y2 - y1) * i / seg + (i < seg ? (Math.random() - 0.5) * 16 : 0);
+      cx.lineTo(px, py);
+    }
+    cx.stroke();
+  } else if(e.type === 'cmd'){
+    const p = toIso(e.x, e.y);
+    cx.strokeStyle = e.red ? `rgba(255,90,90,${1 - f})` : `rgba(120,255,120,${1 - f})`;
+    cx.lineWidth = 2;
+    cx.beginPath(); cx.ellipse(p.x, p.y, 16 * (1 - f) + 3, (16 * (1 - f) + 3) * 0.5, 0, 0, 7); cx.stroke();
+  }
+}
+
+// ---------- drawing: frame ----------
+function visibleTileBounds(){
+  // world-space bounding box of the 4 screen corners
+  const c = [
+    toWorld(state.camX, state.camY),
+    toWorld(state.camX + VW, state.camY),
+    toWorld(state.camX, state.camY + VH),
+    toWorld(state.camX + VW, state.camY + VH),
+  ];
+  const pad = 2;
+  return {
+    x0: clamp(Math.floor(Math.min(c[0].x, c[1].x, c[2].x, c[3].x) / T) - pad, 0, MW - 1),
+    x1: clamp(Math.ceil (Math.max(c[0].x, c[1].x, c[2].x, c[3].x) / T) + pad, 0, MW - 1),
+    y0: clamp(Math.floor(Math.min(c[0].y, c[1].y, c[2].y, c[3].y) / T) - pad, 0, MH - 1),
+    y1: clamp(Math.ceil (Math.max(c[0].y, c[1].y, c[2].y, c[3].y) / T) + pad, 0, MH - 1),
+  };
+}
+
+// screen-space bounds of an entity's visible pixels (for brackets / health bars)
+function screenBox(e){
+  const p = toIso(e.x, e.y);
+  const name = e.def.key + '_' + FACTION[e.team];
+  const fromSprite = (sp, bb, grow) => ({
+    x0: p.x + bb.x0, y0: p.y + bb.y0 - (grow || 0), x1: p.x + bb.x1, y1: p.y + bb.y1,
+  });
+  if(e.kind === 'building'){
+    const sp = Sprites.get(bName(e)), bb = Sprites.bbox(bName(e), 0);
+    if(sp && bb) return fromSprite(sp, bb);
+    const t = toIso(e.tx * T, e.ty * T), r = toIso((e.tx + e.w) * T, e.ty * T);
+    const b2 = toIso((e.tx + e.w) * T, (e.ty + e.h) * T), l = toIso(e.tx * T, (e.ty + e.h) * T);
+    return {x0: l.x, y0: t.y - e.def.z, x1: r.x, y1: b2.y};
+  }
+  const inf = Sprites.get(name), body = Sprites.get(name + '_body');
+  if(inf){ const bb = Sprites.bbox(name, infantryFrame(e, inf)); if(bb) return fromSprite(inf, bb); }
+  if(body){
+    const bb = Sprites.bbox(name + '_body', Sprites.facing(body, e.face));
+    if(bb) return fromSprite(body, bb, hasTurret(e.def) ? 7 : 0);
+  }
+  const r = e.def.r + 6;
+  return {x0: p.x - r, y0: p.y - r - 8, x1: p.x + r, y1: p.y + 4};
+}
+
+function drawOreFallback(x, y, a){
+  const n = Math.min(5, 1 + Math.floor(a / 120));
+  let hsh = (x * 73856093 ^ y * 19349663) >>> 0;
+  for(let i = 0; i < n; i++){
+    hsh = (hsh * 1103515245 + 12345) >>> 0;
+    const fx = (hsh % 100) / 100;
+    hsh = (hsh * 1103515245 + 12345) >>> 0;
+    const fy = (hsh % 100) / 100;
+    const p = toIso((x + 0.2 + fx * 0.6) * T, (y + 0.2 + fy * 0.6) * T);
+    cx.fillStyle = '#c8951c';
+    cx.beginPath();
+    cx.moveTo(p.x, p.y - 7); cx.lineTo(p.x + 3.5, p.y - 2); cx.lineTo(p.x, p.y + 1); cx.lineTo(p.x - 3.5, p.y - 2);
+    cx.closePath(); cx.fill();
+  }
+}
+
+// shroud texture: one pixel per tile, opaque where unexplored
+const shroudC = document.createElement('canvas');
+shroudC.width = MW; shroudC.height = MH;
+const shroudX = shroudC.getContext('2d');
+function updateShroud(){
+  const img = shroudX.createImageData(MW, MH);
+  for(let i = 0; i < MW * MH; i++){
+    img.data[i * 4] = 4; img.data[i * 4 + 1] = 7; img.data[i * 4 + 2] = 13;
+    img.data[i * 4 + 3] = explored[i] ? 0 : 255;
+  }
+  shroudX.putImageData(img, 0, 0);
+  shroudDirty = false;
+}
+
+function draw(){
+  cx.setTransform(DPR, 0, 0, DPR, 0, 0);
+  cx.fillStyle = '#04070d';
+  cx.fillRect(0, 0, CW, CH);
+  cx.save();
+  // device pixels per iso px; the art is rendered at 2 px per iso px, so an
+  // integer ratio of eff / 2 maps texels to whole device pixels (no smoothing)
+  const eff = DPR * ZOOM;
+  const texel = eff / TERRAIN_SCALE;
+  cx.imageSmoothingEnabled = !(texel >= 1 && Math.abs(texel - Math.round(texel)) < 1e-3);
+  cx.imageSmoothingQuality = 'high';
+  Sprites.snap = eff;
+  cx.scale(ZOOM, ZOOM);
+  cx.translate(-Math.round(state.camX * eff) / eff, -Math.round(state.camY * eff) / eff);
+
+  drawTerrain();
+
+  const vb = visibleTileBounds();
+
+  // ore (dynamic — depletes)
+  const oreSprite = Sprites.has('ore');
+  for(let y = vb.y0; y <= vb.y1; y++)
+    for(let x = vb.x0; x <= vb.x1; x++){
+      const a = ore[idx(x, y)];
+      if(a <= 0) continue;
+      if(oreSprite){
+        const level = a > 380 ? 3 : a > 250 ? 2 : a > 120 ? 1 : 0;
+        const p = toIso((x + 0.5) * T, (y + 0.5) * T);
+        Sprites.draw(cx, 'ore', 0, level * 2 + (hash2(x, y) < 0.5 ? 0 : 1), p.x, p.y);
+      } else drawOreFallback(x, y, a);
+    }
+
+  // corpses lie on the ground under everything else
+  for(const e of effects) if(e.type === 'corpse') drawEffect(e);
+
+  // entities + scenery, painter's order by world depth (x + y)
+  const renderables = [];
+  for(const b of buildings) if(!b.dead) renderables.push(b);
+  for(const u of units) if(!u.dead) renderables.push(u);
+  for(const d of doodads)
+    if(d.tx >= vb.x0 && d.tx <= vb.x1 && d.ty >= vb.y0 && d.ty <= vb.y1) renderables.push(d);
+  renderables.sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  for(const e of renderables){
+    if(e.kind === 'building') drawBuildingSprite(e);
+    else if(e.kind === 'unit') drawUnitSprite(e);
+    else { const p = toIso(e.x, e.y); Sprites.draw(cx, e.name, 0, e.frame, p.x, p.y); }
+  }
+
+  // rally points of selected factories
+  for(const b of selection){
+    if(b.dead || b.kind !== 'building' || !b.rally) continue;
+    const a = toIso(b.x, b.y), r = toIso(b.rally.x, b.rally.y);
+    cx.save();
+    cx.setLineDash([6, 5]); cx.lineDashOffset = -state.time * 20;
+    cx.strokeStyle = 'rgba(255,255,255,0.85)'; cx.lineWidth = 1.5;
+    cx.beginPath(); cx.moveTo(a.x, a.y); cx.lineTo(r.x, r.y); cx.stroke();
+    cx.restore();
+    drawFlag(r.x, r.y, TEAM_COLOR[b.team]);
+  }
+
+  // selection UI + health bars (above sprites)
+  for(const e of renderables){
+    if(e.kind === 'doodad') continue;
+    const sel = selection.includes(e);
+    const frac = clamp(e.hp / e.maxHp, 0, 1);
+    if(!sel && frac >= 1 && !e.vet) continue;
+    const box = screenBox(e);
+    if(e.kind === 'building'){
+      if(sel) drawBrackets(box.x0 - 3, box.y0 - 3, box.x1 - box.x0 + 6, box.y1 - box.y0 + 6);
+      drawHealthBar((box.x0 + box.x1) / 2, box.y0 - 10, Math.min(box.x1 - box.x0 - 10, 60), frac);
+      if(e.repairing && Math.floor(state.time * 3) % 2 === 0){
+        cx.font = '18px sans-serif'; cx.textAlign = 'center';
+        cx.fillText('🔧', (box.x0 + box.x1) / 2, (box.y0 + box.y1) / 2);
+      }
+    } else {
+      if(sel) drawBrackets(box.x0 - 3, box.y0 - 3, box.x1 - box.x0 + 6, box.y1 - box.y0 + 6);
+      drawHealthBar((box.x0 + box.x1) / 2, box.y0 - 9, e.def.armor === 'inf' ? 16 : 28, frac);
+      if(e.vet) drawChevrons(box.x1 + 2, box.y0 - 10, e.vet);
+    }
+  }
+
+  // projectiles + effects
+  for(const p of projectiles) if(!p.dead) drawProjectile(p);
+  for(const e of effects) if(e.type !== 'corpse') drawEffect(e);
+
+  // shroud: one texel per tile, stretched into iso space with smoothing for soft edges
+  if(shroudDirty) updateShroud();
+  cx.save();
+  cx.transform(T, T / 2, -T, T / 2, WPX, 0);
+  cx.imageSmoothingEnabled = true;
+  cx.drawImage(shroudC, 0, 0);
+  cx.drawImage(shroudC, 0, 0);
+  cx.restore();
+
+  // placement ghost
+  if(state.placing) drawGhost();
+
+  cx.restore();
+
+  // drag box (screen space)
+  if(mouse.dragging){
+    cx.strokeStyle = 'rgba(120,255,120,0.9)';
+    cx.lineWidth = 1;
+    cx.strokeRect(mouse.dragX + 0.5, mouse.dragY + 0.5, mouse.x - mouse.dragX, mouse.y - mouse.dragY);
+    cx.fillStyle = 'rgba(120,255,120,0.08)';
+    cx.fillRect(mouse.dragX, mouse.dragY, mouse.x - mouse.dragX, mouse.y - mouse.dragY);
+  }
+  drawCursor();
+}
+
+function drawGhost(){
+  const def = BUILD_DEFS[state.placing];
+  const tx = Math.floor(mouse.wx / T - def.w / 2 + 0.5);
+  const ty = Math.floor(mouse.wy / T - def.h / 2 + 0.5);
+  const ok = canPlace(state.placing, tx, ty, PLAYER);
+  for(let y = ty; y < ty + def.h; y++)
+    for(let x = tx; x < tx + def.w; x++){
+      const cellOk = inMap(x, y) && occ[idx(x, y)] === 0 && ore[idx(x, y)] <= 0;
+      cx.fillStyle = (ok && cellOk) ? 'rgba(80,255,80,0.4)' : 'rgba(255,60,60,0.45)';
+      tilePath(cx, x, y); cx.fill();
+      cx.strokeStyle = 'rgba(0,0,0,0.3)'; cx.lineWidth = 1; cx.stroke();
+    }
+}
+
+// ---------- minimap (diamond) ----------
+const mmBase = document.createElement('canvas');
+mmBase.width = Math.round(MMW * MM_RES); mmBase.height = Math.round(MMH * MM_RES);
+let mmBaseDirty = true;
+let radarOn = false, radarT = 0;
+
+// the radar only works with a powered radar building
+function drawMinimap(){
+  mmX.setTransform(MM_RES, 0, 0, MM_RES, 0, 0);
+  const on = hasBuilding(PLAYER, 'radar') && !state.lowPower;
+  if(on !== radarOn){
+    radarOn = on; radarT = 0;
+    if(state.started) announce(on ? 'Radar online' : 'Radar offline', !on, on ? 'Radar online' : 'Radar offline');
+  }
+  if(!on){
+    mmX.fillStyle = '#06090d';
+    mmX.fillRect(0, 0, MMW, MMH);
+    for(let i = 0; i < 260; i++){
+      const v = 30 + Math.random() * 50 | 0;
+      mmX.fillStyle = `rgb(${v},${v + 6},${v + 12})`;
+      mmX.fillRect(Math.random() * MMW, Math.random() * MMH, 1 + Math.random() * 2, 1);
+    }
+    mmX.font = 'bold 11px "Courier New", monospace'; mmX.textAlign = 'center';
+    mmX.fillStyle = '#4d6177';
+    mmX.fillText(hasBuilding(PLAYER, 'radar') ? 'LOW POWER' : 'RADAR OFFLINE', MMW / 2, MMH / 2 + 4);
+    return;
+  }
+  radarT = Math.min(1, radarT + 0.06);
+  if(mmBaseDirty){
+    const g = mmBase.getContext('2d');
+    g.setTransform(MM_RES, 0, 0, MM_RES, 0, 0);
+    g.imageSmoothingQuality = 'high';
+    g.drawImage(lowC, 0, 0, MMW, MMH);
+    g.fillStyle = '#28401c';
+    for(const d of doodads){
+      const p = toIso(d.x, d.y);
+      g.fillRect(p.x * mmSX - 1, p.y * mmSY - 0.8, 2.2, 1.6);
+    }
+    mmBaseDirty = false;
+  }
+  mmX.drawImage(mmBase, 0, 0, MMW, MMH);
+  for(let y = 0; y < MH; y++)
+    for(let x = 0; x < MW; x++){
+      if(!explored[idx(x, y)] || ore[idx(x, y)] <= 0) continue;
+      const p = toIso((x + 0.5) * T, (y + 0.5) * T);
+      mmX.fillStyle = '#d9a52a';
+      mmX.fillRect(p.x * mmSX - 1.2, p.y * mmSY - 0.6, 2.4, 1.2);
+    }
+  for(const b of buildings){
+    if(b.dead) continue;
+    if(b.team === PLAYER || explored[idx(b.tx, b.ty)]){
+      const p = toIso(b.x, b.y);
+      mmX.fillStyle = TEAM_COLOR[b.team];
+      mmX.fillRect(p.x * mmSX - b.w * 0.9, p.y * mmSY - b.h * 0.5, b.w * 1.8, b.h);
+    }
+  }
+  for(const u of units){
+    if(u.dead) continue;
+    const t = tileOf(u);
+    if(u.team === PLAYER || (inMap(t.x, t.y) && explored[idx(t.x, t.y)])){
+      const p = toIso(u.x, u.y);
+      mmX.fillStyle = u.team === PLAYER ? '#9cc4ff' : '#ff9a9a';
+      mmX.fillRect(p.x * mmSX - 1, p.y * mmSY - 0.8, 2, 1.6);
+    }
+  }
+  if(shroudDirty) updateShroud();
+  mmX.save();
+  mmX.transform(T * mmSX, T / 2 * mmSY, -T * mmSX, T / 2 * mmSY, WPX * mmSX, 0);
+  mmX.drawImage(shroudC, 0, 0);
+  mmX.restore();
+  mmX.strokeStyle = '#fff';
+  mmX.lineWidth = 1;
+  mmX.strokeRect(state.camX * mmSX, state.camY * mmSY, VW * mmSX, VH * mmSY);
+  if(radarT < 1){   // shutters sliding open
+    const h = MMH / 2 * (1 - radarT * radarT);
+    mmX.fillStyle = '#10161e';
+    mmX.fillRect(0, 0, MMW, h); mmX.fillRect(0, MMH - h, MMW, h);
+  }
+}
+
+// ---------- HUD ----------
+const creditsEl = document.getElementById('credits');
+const powerLbl = document.getElementById('powerlbl');
+const powerBar = document.getElementById('powerBar');
+const powerDrain = document.getElementById('powerDrain');
+const clockEl = document.getElementById('clock');
+let shownCredits = 0;
+function drawHUD(dt){
+  const target = Math.floor(state.credits[PLAYER]);
+  if(shownCredits !== target){
+    const diff = target - shownCredits;
+    shownCredits += Math.sign(diff) * Math.max(1, Math.min(Math.abs(diff), Math.ceil(Math.abs(diff) * dt * 6)));
+  }
+  creditsEl.textContent = shownCredits.toLocaleString();
+  const p = powerOf(PLAYER);
+  state.lowPower = p.used > p.prod;
+  powerLbl.textContent = `⚡ ${p.used}/${p.prod}`;
+  powerLbl.classList.toggle('low', state.lowPower);
+  const pScale = Math.max(p.prod, p.used, 100) * 1.15;
+  powerBar.style.height = (p.prod / pScale * 100) + '%';
+  powerDrain.style.bottom = (p.used / pScale * 100) + '%';
+  // flash a tab whose production is ready while another tab is open
+  tabsEl.forEach(t => {
+    const s = prodQ[t.dataset.tab][0];
+    t.classList.toggle('alert', !!s && s.ready && t.dataset.tab !== activeTab);
+  });
+  powerBar.classList.toggle('low', state.lowPower);
+  const m = Math.floor(state.time / 60), sec = Math.floor(state.time % 60);
+  clockEl.textContent = String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
+}
+
+// ---------- win / lose ----------
+let lowPowerWarned = false;
+function checkEnd(){
+  if(state.over) return;
+  const pB = buildings.some(b => !b.dead && b.team === PLAYER) || units.some(u => !u.dead && u.team === PLAYER && u.def.mcv);
+  const eB = buildings.some(b => !b.dead && b.team === ENEMY);
+  if(!eB || !pB){
+    state.over = true;
+    const win = !eB;
+    document.getElementById('endTitle').textContent = win ? 'VICTORY' : 'DEFEAT';
+    document.getElementById('endTitle').style.color = win ? '#39d353' : '#e04040';
+    document.getElementById('endText').textContent = win
+      ? `The Soviet base has been reduced to rubble in ${clockEl.textContent}. Outstanding, Commander!`
+      : 'Your base has fallen. The red banner flies over the ruins.';
+    document.getElementById('endScreen').style.display = 'flex';
+    speak(win ? 'Mission accomplished' : 'Command link lost');
+    sfx(win ? 'ready' : 'alert');
+  }
+}
+
+// ---------- map setup ----------
+function setupScenery(){
+  // lakes are impassable
+  for(let y = 0; y < MH; y++)
+    for(let x = 0; x < MW; x++)
+      if(lakeVal(x + 0.5, y + 0.5) > -0.04) occ[idx(x, y)] = BLOCKED;
+  // tree clumps and rocks, kept clear of bases, ore fields and the map edge
+  const keepClear = [[9, 51, 11], [53, 9, 11], [14, 47, 6], [49, 16, 6], [32, 32, 7], [50, 50, 5], [13, 13, 5],
+                     [TOWN.x, TOWN.y, 8]];
+  const clear = (x, y) => x > 1 && y > 1 && x < MW - 2 && y < MH - 2 && occ[idx(x, y)] === 0 && !onRoad(x, y) &&
+    keepClear.every(([cx, cy, r]) => Math.hypot(x - cx, y - cy) > r);
+  let s = 777;
+  const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
+  const trees = Sprites.get('tree'), rocks = Sprites.get('rock');
+  if(!trees) return;
+  for(let c = 0; c < 26; c++){
+    const cx0 = 2 + rnd() * (MW - 4), cy0 = 2 + rnd() * (MH - 4);
+    const n = 3 + Math.floor(rnd() * 7);
+    for(let i = 0; i < n; i++){
+      const x = Math.floor(cx0 + (rnd() - 0.5) * 5), y = Math.floor(cy0 + (rnd() - 0.5) * 5);
+      if(!clear(x, y)) continue;
+      occ[idx(x, y)] = BLOCKED;
+      doodads.push({kind: 'doodad', name: 'tree', frame: Math.floor(rnd() * trees.frames),
+                    tx: x, ty: y, x: (x + 0.3 + rnd() * 0.4) * T, y: (y + 0.3 + rnd() * 0.4) * T});
+    }
+  }
+  for(let i = 0; rocks && i < 14; i++){
+    const x = Math.floor(2 + rnd() * (MW - 4)), y = Math.floor(2 + rnd() * (MH - 4));
+    if(!clear(x, y)) continue;
+    occ[idx(x, y)] = BLOCKED;
+    doodads.push({kind: 'doodad', name: 'rock', frame: Math.floor(rnd() * rocks.frames),
+                  tx: x, ty: y, x: (x + 0.5) * T, y: (y + 0.5) * T});
+  }
+}
+
+// a small neutral town around the crossroads
+function setupTown(){
+  const lots = [[19, 36], [16, 36], [25, 36], [28, 36], [19, 42], [16, 42], [25, 42], [28, 42], [19, 45], [25, 33]];
+  lots.forEach(([x, y], i) => {
+    for(let yy = y; yy < y + 2; yy++) for(let xx = x; xx < x + 2; xx++) if(occ[idx(xx, yy)] !== 0) return;
+    const b = placeBuilding('civ', x, y, NEUTRAL, true);
+    b.variant = (i * 5 + 1) % 6;
+  });
+  if(!Sprites.get('lamp')) return;
+  for(const R of ROADS)
+    for(let a = R.from + 2; a < R.to - 1; a += 4){
+      const x = R.axis === 'x' ? a : R.c + 1.3, y = R.axis === 'x' ? R.c + 1.3 : a;
+      doodads.push({kind: 'doodad', name: 'lamp', frame: 0, tx: Math.floor(x), ty: Math.floor(y), x: x * T, y: y * T});
+    }
+}
+
+function setupMap(){
+  setupScenery();
+  setupTown();
+  seedOre(14, 47, 4, 500);
+  seedOre(49, 16, 4, 500);
+  seedOre(32, 32, 5, 650);
+  seedOre(50, 50, 3, 450);
+  seedOre(13, 13, 3, 450);
+
+  const mcv = spawnUnit('mcv', 9.5 * T, 51.5 * T, PLAYER);
+  mcv.face = -Math.PI / 4;
+  selection = [mcv];
+  for(const [x, y] of [[11.5, 48.5], [12.2, 49.2], [12.9, 49.9]]) spawnUnit('rifle', x * T, y * T, PLAYER);
+  spawnUnit('ltank', 13 * T, 52 * T, PLAYER);
+  revealAround(9.5 * T, 51.5 * T, 11);
+
+  placeBuilding('conyard', 52, 8, ENEMY, true);
+  placeBuilding('power', 49, 8, ENEMY, true);
+  placeBuilding('power', 49, 11, ENEMY, true);
+  placeBuilding('refinery', 55, 11, ENEMY, true);
+  placeBuilding('barracks', 52, 12, ENEMY, true);
+  placeBuilding('factory', 55, 6, ENEMY, true);
+  placeBuilding('radar', 58, 9, ENEMY, true);
+  placeBuilding('arctower', 50, 14, ENEMY, true);
+  placeBuilding('arctower', 54, 15, ENEMY, true);
+  const eh = spawnUnit('harv', 53 * T, 16 * T, ENEMY);
+  eh.hState = 'seek';
+  spawnUnit('rifle', 51 * T, 15 * T, ENEMY);
+  spawnUnit('rifle', 52 * T, 16 * T, ENEMY);
+  spawnUnit('ltank', 55 * T, 16.5 * T, ENEMY);
+
+  const home = toIso(9.5 * T, 51.5 * T);
+  state.camX = clamp(home.x - VW / 2, 0, Math.max(0, IW - VW));
+  state.camY = clamp(home.y - VH / 2, 0, Math.max(0, IH - VH));
+}
+
+// ---------- main loop ----------
+let last = performance.now();
+let fogT = 0, endT = 0, mmT = 0;
+function loop(now){
+  const dt = Math.min(0.05, (now - last) / 1000);
+  last = now;
+
+  if(state.started && !state.over){
+    tickCamera(dt);
+    tick(dt);
+  } else if(state.started){
+    tickCamera(dt);
+  }
+
+  draw();
+  drawHUD(dt);
+  mmT -= dt;
+  if(mmT <= 0){ mmT = radarT < 1 && radarOn ? 0.04 : 0.2; drawMinimap(); }
+
+  requestAnimationFrame(loop);
+}
+
+function tick(dt){
+    state.time += dt;
+    tickProduction(dt);
+    tickAI(dt);
+    for(const u of units) if(!u.dead) updateUnit(u, dt);
+    for(const b of buildings) if(!b.dead) updateBuilding(b, dt);
+    updateProjectiles(dt);
+
+    const spawned = [];
+    for(const e of effects){
+      e.t += dt;
+      if(e.type === 'spark'){ e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 300 * dt; }
+      else if(e.type === 'puff'){ e.z += dt * 14; }
+      else if(e.type === 'delay' && e.t >= e.dur){ spawned.push(e.then); }
+      else if(e.type === 'smokecol'){
+        e.acc += dt;
+        while(e.acc > 0.14){
+          e.acc -= 0.14;
+          spawned.push({puff: true, x: e.x + (Math.random() - .5) * 10, y: e.y + (Math.random() - .5) * 10,
+                        z: 6, r: 7 + Math.random() * 5, dur: 1.6 + Math.random() * 0.8, dark: true});
+        }
+      }
+    }
+    for(const s of spawned){
+      if(s.puff) effects.push({type:'puff', x: s.x, y: s.y, z: s.z, r: s.r, t: 0, dur: s.dur, dark: s.dark});
+      else { boom(s.x, s.y, s.size); sfx('explosion'); }
+    }
+    for(let i = effects.length - 1; i >= 0; i--) if(effects[i].t >= effects[i].dur) effects.splice(i, 1);
+    for(let i = projectiles.length - 1; i >= 0; i--) if(projectiles[i].dead) projectiles.splice(i, 1);
+    for(let i = units.length - 1; i >= 0; i--) if(units[i].dead) units.splice(i, 1);
+    for(let i = buildings.length - 1; i >= 0; i--) if(buildings[i].dead) buildings.splice(i, 1);
+    selection = selection.filter(s => !s.dead);
+
+    fogT -= dt;
+    if(fogT <= 0){
+      fogT = 0.4;
+      for(const u of units) if(!u.dead && u.team === PLAYER) revealAround(u.x, u.y, 6);
+      for(const b of buildings) if(!b.dead && b.team === PLAYER) revealAround(b.x, b.y, 7);
+    }
+    if(state.lowPower && !lowPowerWarned){ lowPowerWarned = true; announce('Low power', true, 'Low power'); }
+    if(!state.lowPower) lowPowerWarned = false;
+
+    endT -= dt;
+    if(endT <= 0){ endT = 1; checkEnd(); }
+}
+
+// ---------- boot ----------
+document.getElementById('startBtn').addEventListener('click', () => {
+  document.getElementById('help').style.display = 'none';
+  if(!state.started){
+    state.started = true;
+    audio();
+    announce('Command link established', false, 'Command link established');
+  }
+});
+document.getElementById('helpBtn').addEventListener('click', () => {
+  document.getElementById('help').style.display = 'flex';
+});
+document.getElementById('sndBtn').addEventListener('click', function(){
+  state.sndOn = !state.sndOn;
+  this.textContent = (state.sndOn ? '🔊' : '🔇') + ' SFX';
+});
+document.getElementById('voiceBtn').addEventListener('click', function(){
+  state.voiceOn = !state.voiceOn;
+  this.textContent = (state.voiceOn ? '🗣' : '🤐') + ' Voice';
+  if(!state.voiceOn && window.speechSynthesis) speechSynthesis.cancel();
+});
+
+// sprites first (the map scatters trees from the sheet), then the world
+Sprites.load(TEAM_COLOR)
+  .catch(err => console.warn('Sprite sheets unavailable, using fallback drawing:', err))
+  .finally(() => {
+    setupMap();
+    startTerrainWorkers(state.camX + VW / 2, state.camY + VH / 2);
+    buildSidebar();
+    requestAnimationFrame(loop);
+  });
+
+// debug/testing handle
+window.__RH = {
+  get units(){ return units; }, get buildings(){ return buildings; },
+  get selection(){ return selection; }, get state(){ return state; },
+  toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },
+  step(seconds){ // advance the simulation manually (testing / hidden-tab)
+    if(!state.started || state.over) return;
+    for(let t = 0; t < seconds; t += 0.05) tick(0.05);
+    draw(); drawMinimap(); drawHUD(0.05);
+  },
+};
+</script>
+</body>
+</html>

@@ -1,0 +1,844 @@
+{
+ "cameos": {
+  "arctower_soviet": {
+   "img": "assets/cameos/arctower_soviet.png",
+   "mask": "assets/cameos/arctower_soviet_mask.png",
+   "scale": 2
+  },
+  "barracks_allied": {
+   "img": "assets/cameos/barracks_allied.png",
+   "mask": "assets/cameos/barracks_allied_mask.png",
+   "scale": 2
+  },
+  "barracks_soviet": {
+   "img": "assets/cameos/barracks_soviet.png",
+   "mask": "assets/cameos/barracks_soviet_mask.png",
+   "scale": 2
+  },
+  "beamtower_allied": {
+   "img": "assets/cameos/beamtower_allied.png",
+   "mask": "assets/cameos/beamtower_allied_mask.png",
+   "scale": 2
+  },
+  "conyard_allied": {
+   "img": "assets/cameos/conyard_allied.png",
+   "mask": "assets/cameos/conyard_allied_mask.png",
+   "scale": 2
+  },
+  "conyard_soviet": {
+   "img": "assets/cameos/conyard_soviet.png",
+   "mask": "assets/cameos/conyard_soviet_mask.png",
+   "scale": 2
+  },
+  "factory_allied": {
+   "img": "assets/cameos/factory_allied.png",
+   "mask": "assets/cameos/factory_allied_mask.png",
+   "scale": 2
+  },
+  "factory_soviet": {
+   "img": "assets/cameos/factory_soviet.png",
+   "mask": "assets/cameos/factory_soviet_mask.png",
+   "scale": 2
+  },
+  "harv_allied": {
+   "img": "assets/cameos/harv_allied.png",
+   "mask": "assets/cameos/harv_allied_mask.png",
+   "scale": 2
+  },
+  "harv_soviet": {
+   "img": "assets/cameos/harv_soviet.png",
+   "mask": "assets/cameos/harv_soviet_mask.png",
+   "scale": 2
+  },
+  "htank_allied": {
+   "img": "assets/cameos/htank_allied.png",
+   "mask": "assets/cameos/htank_allied_mask.png",
+   "scale": 2
+  },
+  "htank_soviet": {
+   "img": "assets/cameos/htank_soviet.png",
+   "mask": "assets/cameos/htank_soviet_mask.png",
+   "scale": 2
+  },
+  "ltank_allied": {
+   "img": "assets/cameos/ltank_allied.png",
+   "mask": "assets/cameos/ltank_allied_mask.png",
+   "scale": 2
+  },
+  "ltank_soviet": {
+   "img": "assets/cameos/ltank_soviet.png",
+   "mask": "assets/cameos/ltank_soviet_mask.png",
+   "scale": 2
+  },
+  "mcv_allied": {
+   "img": "assets/cameos/mcv_allied.png",
+   "mask": "assets/cameos/mcv_allied_mask.png",
+   "scale": 2
+  },
+  "mcv_soviet": {
+   "img": "assets/cameos/mcv_soviet.png",
+   "mask": "assets/cameos/mcv_soviet_mask.png",
+   "scale": 2
+  },
+  "pillbox_allied": {
+   "img": "assets/cameos/pillbox_allied.png",
+   "mask": "assets/cameos/pillbox_allied_mask.png",
+   "scale": 2
+  },
+  "pillbox_soviet": {
+   "img": "assets/cameos/pillbox_soviet.png",
+   "mask": "assets/cameos/pillbox_soviet_mask.png",
+   "scale": 2
+  },
+  "power_allied": {
+   "img": "assets/cameos/power_allied.png",
+   "mask": "assets/cameos/power_allied_mask.png",
+   "scale": 2
+  },
+  "power_soviet": {
+   "img": "assets/cameos/power_soviet.png",
+   "mask": "assets/cameos/power_soviet_mask.png",
+   "scale": 2
+  },
+  "radar_allied": {
+   "img": "assets/cameos/radar_allied.png",
+   "mask": "assets/cameos/radar_allied_mask.png",
+   "scale": 2
+  },
+  "radar_soviet": {
+   "img": "assets/cameos/radar_soviet.png",
+   "mask": "assets/cameos/radar_soviet_mask.png",
+   "scale": 2
+  },
+  "refinery_allied": {
+   "img": "assets/cameos/refinery_allied.png",
+   "mask": "assets/cameos/refinery_allied_mask.png",
+   "scale": 2
+  },
+  "refinery_soviet": {
+   "img": "assets/cameos/refinery_soviet.png",
+   "mask": "assets/cameos/refinery_soviet_mask.png",
+   "scale": 2
+  },
+  "rifle_allied": {
+   "img": "assets/cameos/rifle_allied.png",
+   "mask": "assets/cameos/rifle_allied_mask.png",
+   "scale": 2
+  },
+  "rifle_soviet": {
+   "img": "assets/cameos/rifle_soviet.png",
+   "mask": "assets/cameos/rifle_soviet_mask.png",
+   "scale": 2
+  },
+  "rocket_allied": {
+   "img": "assets/cameos/rocket_allied.png",
+   "mask": "assets/cameos/rocket_allied_mask.png",
+   "scale": 2
+  },
+  "rocket_soviet": {
+   "img": "assets/cameos/rocket_soviet.png",
+   "mask": "assets/cameos/rocket_soviet_mask.png",
+   "scale": 2
+  }
+ },
+ "sprites": {
+  "arctower_soviet": {
+   "ax": 230,
+   "ay": 164,
+   "cols": 1,
+   "facings": 1,
+   "fh": 208,
+   "fp": [
+    1,
+    1
+   ],
+   "frames": 1,
+   "fw": 308,
+   "img": "assets/sprites/arctower_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/arctower_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "barracks_allied": {
+   "ax": 244,
+   "ay": 160,
+   "cols": 1,
+   "facings": 1,
+   "fh": 236,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 1,
+   "fw": 384,
+   "img": "assets/sprites/barracks_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/barracks_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "barracks_soviet": {
+   "ax": 244,
+   "ay": 160,
+   "cols": 1,
+   "facings": 1,
+   "fh": 236,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 1,
+   "fw": 384,
+   "img": "assets/sprites/barracks_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/barracks_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "beamtower_allied": {
+   "ax": 266,
+   "ay": 192,
+   "cols": 1,
+   "facings": 1,
+   "fh": 236,
+   "fp": [
+    1,
+    1
+   ],
+   "frames": 1,
+   "fw": 344,
+   "img": "assets/sprites/beamtower_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/beamtower_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "civ": {
+   "ax": 284,
+   "ay": 188,
+   "cols": 6,
+   "facings": 1,
+   "fh": 264,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 6,
+   "fw": 424,
+   "img": "assets/sprites/civ.png",
+   "kind": "building",
+   "mask": null,
+   "scale": 2,
+   "seq": 6
+  },
+  "conyard_allied": {
+   "ax": 388,
+   "ay": 252,
+   "cols": 1,
+   "facings": 1,
+   "fh": 360,
+   "fp": [
+    3,
+    3
+   ],
+   "frames": 1,
+   "fw": 592,
+   "img": "assets/sprites/conyard_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/conyard_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "conyard_soviet": {
+   "ax": 388,
+   "ay": 252,
+   "cols": 1,
+   "facings": 1,
+   "fh": 360,
+   "fp": [
+    3,
+    3
+   ],
+   "frames": 1,
+   "fw": 592,
+   "img": "assets/sprites/conyard_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/conyard_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "factory_allied": {
+   "ax": 354,
+   "ay": 224,
+   "cols": 5,
+   "facings": 1,
+   "fh": 332,
+   "fp": [
+    3,
+    3
+   ],
+   "frames": 5,
+   "fw": 560,
+   "img": "assets/sprites/factory_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/factory_allied_mask.png",
+   "scale": 2,
+   "seq": 5
+  },
+  "factory_soviet": {
+   "ax": 354,
+   "ay": 224,
+   "cols": 5,
+   "facings": 1,
+   "fh": 332,
+   "fp": [
+    3,
+    3
+   ],
+   "frames": 5,
+   "fw": 560,
+   "img": "assets/sprites/factory_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/factory_soviet_mask.png",
+   "scale": 2,
+   "seq": 5
+  },
+  "harv_allied_body": {
+   "ax": 136,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 248,
+   "img": "assets/sprites/harv_allied_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/harv_allied_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "harv_soviet_body": {
+   "ax": 136,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 248,
+   "img": "assets/sprites/harv_soviet_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/harv_soviet_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "htank_allied_body": {
+   "ax": 140,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 256,
+   "img": "assets/sprites/htank_allied_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/htank_allied_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "htank_allied_turret": {
+   "ax": 140,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 256,
+   "img": "assets/sprites/htank_allied_turret.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/htank_allied_turret_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "htank_soviet_body": {
+   "ax": 140,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 256,
+   "img": "assets/sprites/htank_soviet_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/htank_soviet_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "htank_soviet_turret": {
+   "ax": 140,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 256,
+   "img": "assets/sprites/htank_soviet_turret.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/htank_soviet_turret_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "lamp": {
+   "ax": 44,
+   "ay": 80,
+   "cols": 1,
+   "facings": 1,
+   "fh": 96,
+   "frames": 1,
+   "fw": 96,
+   "img": "assets/sprites/lamp.png",
+   "kind": "doodad",
+   "mask": null,
+   "scale": 2,
+   "seq": 1
+  },
+  "ltank_allied_body": {
+   "ax": 116,
+   "ay": 88,
+   "cols": 8,
+   "facings": 32,
+   "fh": 144,
+   "frames": 32,
+   "fw": 208,
+   "img": "assets/sprites/ltank_allied_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/ltank_allied_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "ltank_allied_turret": {
+   "ax": 116,
+   "ay": 88,
+   "cols": 8,
+   "facings": 32,
+   "fh": 144,
+   "frames": 32,
+   "fw": 208,
+   "img": "assets/sprites/ltank_allied_turret.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/ltank_allied_turret_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "ltank_soviet_body": {
+   "ax": 116,
+   "ay": 88,
+   "cols": 8,
+   "facings": 32,
+   "fh": 144,
+   "frames": 32,
+   "fw": 208,
+   "img": "assets/sprites/ltank_soviet_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/ltank_soviet_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "ltank_soviet_turret": {
+   "ax": 116,
+   "ay": 88,
+   "cols": 8,
+   "facings": 32,
+   "fh": 144,
+   "frames": 32,
+   "fw": 208,
+   "img": "assets/sprites/ltank_soviet_turret.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/ltank_soviet_turret_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "mcv_allied_body": {
+   "ax": 160,
+   "ay": 120,
+   "cols": 8,
+   "facings": 32,
+   "fh": 200,
+   "frames": 32,
+   "fw": 296,
+   "img": "assets/sprites/mcv_allied_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/mcv_allied_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "mcv_soviet_body": {
+   "ax": 160,
+   "ay": 120,
+   "cols": 8,
+   "facings": 32,
+   "fh": 200,
+   "frames": 32,
+   "fw": 296,
+   "img": "assets/sprites/mcv_soviet_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/mcv_soviet_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "ore": {
+   "ax": 76,
+   "ay": 48,
+   "cols": 8,
+   "facings": 1,
+   "fh": 88,
+   "frames": 8,
+   "fw": 144,
+   "img": "assets/sprites/ore.png",
+   "kind": "doodad",
+   "mask": null,
+   "scale": 2,
+   "seq": 8
+  },
+  "pillbox_allied": {
+   "ax": 120,
+   "ay": 80,
+   "cols": 1,
+   "facings": 1,
+   "fh": 124,
+   "fp": [
+    1,
+    1
+   ],
+   "frames": 1,
+   "fw": 196,
+   "img": "assets/sprites/pillbox_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/pillbox_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "pillbox_soviet": {
+   "ax": 120,
+   "ay": 80,
+   "cols": 1,
+   "facings": 1,
+   "fh": 124,
+   "fp": [
+    1,
+    1
+   ],
+   "frames": 1,
+   "fw": 196,
+   "img": "assets/sprites/pillbox_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/pillbox_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "power_allied": {
+   "ax": 284,
+   "ay": 188,
+   "cols": 1,
+   "facings": 1,
+   "fh": 264,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 1,
+   "fw": 424,
+   "img": "assets/sprites/power_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/power_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "power_soviet": {
+   "ax": 284,
+   "ay": 188,
+   "cols": 1,
+   "facings": 1,
+   "fh": 264,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 1,
+   "fw": 424,
+   "img": "assets/sprites/power_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/power_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "radar_allied": {
+   "ax": 330,
+   "ay": 224,
+   "cols": 8,
+   "facings": 1,
+   "fh": 300,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 8,
+   "fw": 472,
+   "img": "assets/sprites/radar_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/radar_allied_mask.png",
+   "scale": 2,
+   "seq": 8
+  },
+  "radar_soviet": {
+   "ax": 330,
+   "ay": 224,
+   "cols": 8,
+   "facings": 1,
+   "fh": 300,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 8,
+   "fw": 472,
+   "img": "assets/sprites/radar_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/radar_soviet_mask.png",
+   "scale": 2,
+   "seq": 8
+  },
+  "refinery_allied": {
+   "ax": 364,
+   "ay": 232,
+   "cols": 1,
+   "facings": 1,
+   "fh": 340,
+   "fp": [
+    3,
+    3
+   ],
+   "frames": 1,
+   "fw": 568,
+   "img": "assets/sprites/refinery_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/refinery_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "refinery_soviet": {
+   "ax": 364,
+   "ay": 232,
+   "cols": 1,
+   "facings": 1,
+   "fh": 340,
+   "fp": [
+    3,
+    3
+   ],
+   "frames": 1,
+   "fw": 568,
+   "img": "assets/sprites/refinery_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/refinery_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "rifle_allied": {
+   "anims": {
+    "fire": [
+     7,
+     2
+    ],
+    "stand": [
+     0,
+     1
+    ],
+    "walk": [
+     1,
+     6
+    ]
+   },
+   "ax": 76,
+   "ay": 76,
+   "cols": 9,
+   "facings": 8,
+   "fh": 96,
+   "frames": 72,
+   "fw": 128,
+   "img": "assets/sprites/rifle_allied.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rifle_allied_mask.png",
+   "scale": 2,
+   "seq": 9
+  },
+  "rifle_allied_die": {
+   "ax": 76,
+   "ay": 76,
+   "cols": 4,
+   "facings": 1,
+   "fh": 96,
+   "frames": 4,
+   "fw": 128,
+   "img": "assets/sprites/rifle_allied_die.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rifle_allied_die_mask.png",
+   "scale": 2,
+   "seq": 4
+  },
+  "rifle_soviet": {
+   "anims": {
+    "fire": [
+     7,
+     2
+    ],
+    "stand": [
+     0,
+     1
+    ],
+    "walk": [
+     1,
+     6
+    ]
+   },
+   "ax": 76,
+   "ay": 76,
+   "cols": 9,
+   "facings": 8,
+   "fh": 96,
+   "frames": 72,
+   "fw": 128,
+   "img": "assets/sprites/rifle_soviet.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rifle_soviet_mask.png",
+   "scale": 2,
+   "seq": 9
+  },
+  "rifle_soviet_die": {
+   "ax": 76,
+   "ay": 76,
+   "cols": 4,
+   "facings": 1,
+   "fh": 96,
+   "frames": 4,
+   "fw": 128,
+   "img": "assets/sprites/rifle_soviet_die.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rifle_soviet_die_mask.png",
+   "scale": 2,
+   "seq": 4
+  },
+  "rock": {
+   "ax": 96,
+   "ay": 68,
+   "cols": 3,
+   "facings": 1,
+   "fh": 104,
+   "frames": 3,
+   "fw": 168,
+   "img": "assets/sprites/rock.png",
+   "kind": "doodad",
+   "mask": null,
+   "scale": 2,
+   "seq": 3
+  },
+  "rocket_allied": {
+   "anims": {
+    "fire": [
+     7,
+     2
+    ],
+    "stand": [
+     0,
+     1
+    ],
+    "walk": [
+     1,
+     6
+    ]
+   },
+   "ax": 76,
+   "ay": 76,
+   "cols": 9,
+   "facings": 8,
+   "fh": 96,
+   "frames": 72,
+   "fw": 128,
+   "img": "assets/sprites/rocket_allied.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rocket_allied_mask.png",
+   "scale": 2,
+   "seq": 9
+  },
+  "rocket_allied_die": {
+   "ax": 76,
+   "ay": 76,
+   "cols": 4,
+   "facings": 1,
+   "fh": 96,
+   "frames": 4,
+   "fw": 128,
+   "img": "assets/sprites/rocket_allied_die.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rocket_allied_die_mask.png",
+   "scale": 2,
+   "seq": 4
+  },
+  "rocket_soviet": {
+   "anims": {
+    "fire": [
+     7,
+     2
+    ],
+    "stand": [
+     0,
+     1
+    ],
+    "walk": [
+     1,
+     6
+    ]
+   },
+   "ax": 76,
+   "ay": 76,
+   "cols": 9,
+   "facings": 8,
+   "fh": 96,
+   "frames": 72,
+   "fw": 128,
+   "img": "assets/sprites/rocket_soviet.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rocket_soviet_mask.png",
+   "scale": 2,
+   "seq": 9
+  },
+  "rocket_soviet_die": {
+   "ax": 76,
+   "ay": 76,
+   "cols": 4,
+   "facings": 1,
+   "fh": 96,
+   "frames": 4,
+   "fw": 128,
+   "img": "assets/sprites/rocket_soviet_die.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/rocket_soviet_die_mask.png",
+   "scale": 2,
+   "seq": 4
+  },
+  "tree": {
+   "ax": 120,
+   "ay": 160,
+   "cols": 6,
+   "facings": 1,
+   "fh": 192,
+   "frames": 6,
+   "fw": 208,
+   "img": "assets/sprites/tree.png",
+   "kind": "doodad",
+   "mask": null,
+   "scale": 2,
+   "seq": 6
+  }
+ }
+}
