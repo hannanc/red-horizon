@@ -30,6 +30,9 @@ Right-click gives orders.
 | Send jets home | Right-click an Airfield |
 | Garrison a town building | Right-click it with armed infantry selected (up to 5). Empty it with `D`, or by clicking or right-clicking the selected building |
 | Dig in behind sandbags (Riflemen / Troopers) | `D` with them selected: more range, half damage taken, they hold position. `D` or a move order climbs out |
+| Sabotage with an Infiltrator | Right-click an enemy building: a Refinery loses half its credits to you, a Power Plant blacks out their power for 45 s, a Radar reveals the map |
+| Blow up a building with the Striker | Right-click it (the Striker only shoots infantry on its own) |
+| Switch on an Isotope Trooper's radiation field | `D` |
 | Repair vehicles | Right-click your Service Depot with vehicles selected; they park on it and are fixed for credits (a latched Leech Drone is removed) |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
@@ -50,7 +53,7 @@ Each side has its own roster.
 
 | | Allied | Soviet |
 | --- | --- | --- |
-| Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry), Skytrooper (jetpack; hovers over obstacles, needs an Airfield) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour) |
+| Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry), Skytrooper (jetpack; hovers over obstacles, needs an Airfield), Striker (elite commando, one at a time: kills infantry in one shot, demolishes buildings), Infiltrator (the enemy ignores it; sabotages buildings), Blink Trooper (teleports instead of walking) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour), Sapper (timed charges on buildings and vehicles), Psion (takes over one enemy unit until it dies), Isotope Trooper (shots leave radiation; deploys to irradiate the area) |
 | Vehicles | Warden Tank, Ranger IFV (carries 1; its weapon changes with the passenger, and an Engineer inside repairs nearby vehicles), Lancer Tank (beam that arcs to nearby enemies), Paladin Tank, Ore Hauler, Construction Vehicle | Bison Tank, Bulwark Halftrack (carries 5, flak gun), Siege Launcher (long-range missile artillery), Leech Drone (crawls into vehicles and eats them from within), Ironclad Tank, Ore Truck, Construction Vehicle |
 | Aircraft | Talon Jet (one bomb run, then rearms on an Airfield pad; two jets per Airfield), Shade Transport (helicopter for 5 infantry; the enemy can't see it in flight unless something is close) | Tempest Airship (very slow and tough, bombs what's below it, repairs itself) |
 | Structures | Airfield (builds jets and the helicopter, and rearms jets), Service Depot | Repair Bay (the same depot) |

@@ -209,6 +209,7 @@
       <li><b>Army:</b> Barracks trains infantry, the Vehicle Factory builds tanks. Select with left-click / drag, command with right-click.</li>
       <li><b>Transports:</b> Right-click a friendly IFV or Halftrack with infantry selected to board. Click the transport again (or press <b>D</b>) to unload.</li>
       <li><b>Engineers:</b> Right-click an enemy structure to capture it, or one of yours to repair it fully. The engineer is used up.</li>
+      <li><b>Specialists:</b> Infiltrators walk into enemy buildings (right-click) to steal credits, cut power or expose their radar. The Striker blows up buildings you right-click. Blink Troopers teleport where you send them.</li>
       <li><b>Town:</b> Right-click a civilian building with infantry to garrison it; they shoot out of it. Riflemen dig in behind sandbags with <b>D</b>.</li>
       <li><b>Repairs:</b> Right-click a <b>Service Depot</b> with vehicles selected to park them on it; it fixes them for credits and pulls out a latched drone.</li>
       <li><b>Aircraft:</b> Jets make one bomb run on a right-clicked target, then fly back to the <b>Airfield</b> to rearm (right-click the Airfield to send them home). Only rockets and flak can hit aircraft.</li>
@@ -373,6 +374,23 @@ const UNIT_DEFS = {
   drone  : {name:'Leech Drone',   cost:400,  hp:90,  speed:122, r:8,  armor:'heavy',time:5,  tab:'vehicle',  from:'factory', side:'soviet',
             turret:false, drain:45,   // damage per second once latched inside a vehicle
             weapon:{dmg:150,rof:1.0,  range:0.8, kind:'latch', vs:{inf:1, heavy:1, building:0}}},
+  // special infantry
+  sapper : {name:'Sapper',        cost:500,  hp:120, speed:55,  r:8,  armor:'inf',  time:6,  tab:'infantry', from:'barracks', side:'soviet',
+            weapon:{dmg:420,rof:5.0,  range:0.8, kind:'charge', fuse:3.5, vs:{inf:0, heavy:1, building:1.8}}},   // timed charge
+  striker: {name:'Striker',       cost:1500, hp:160, speed:64,  r:8,  armor:'inf',  time:14, tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
+            unique:true,   // one at a time; shoots infantry dead, blows up buildings (demolish) but ignores vehicles
+            weapon:{dmg:180,rof:1.0,  range:5.5, kind:'snipe', vs:{inf:1, heavy:0, building:0}},
+            demolish:{dmg:5000,rof:3.0, range:0.8, kind:'charge', fuse:1.5, vs:{inf:0, heavy:0, building:1}}},
+  psion  : {name:'Psion',         cost:1200, hp:100, speed:50,  r:8,  armor:'inf',  time:12, tab:'infantry', from:'barracks', side:'soviet', prereq:['radar'],
+            weapon:{dmg:0,  rof:2.0,  range:6,   kind:'mind', vs:{inf:1, heavy:1, building:0}}},   // takes over one enemy unit
+  isotope: {name:'Isotope Trooper', cost:700, hp:150, speed:46, r:9,  armor:'inf',  time:8,  tab:'infantry', from:'barracks', side:'soviet', prereq:['radar'],
+            deploy:true, radiate:2.6,   // D: irradiates everything within `radiate` tiles while deployed
+            weapon:{dmg:30, rof:1.2,  range:4.2, kind:'rad', vs:{inf:1.5, heavy:0.3, building:0}}},
+  infiltrator:{name:'Infiltrator', cost:1000, hp:60, speed:60,  r:8,  armor:'inf',  time:8,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
+            spy:true, disguise:true},   // enemies ignore it (hounds excepted); walks into enemy buildings
+  blink  : {name:'Blink Trooper', cost:900,  hp:110, speed:50,  r:8,  armor:'inf',  time:9,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
+            blink:true,   // teleports to where it is sent instead of walking
+            weapon:{dmg:40, rof:1.5,  range:5,   kind:'beam', vs:{inf:1, heavy:0.8, building:0.6}}},
   // aircraft (air: true) fly straight over anything at altitude `alt` px and only take AA fire
   jet    : {name:'Talon Jet',     cost:1200, hp:180, speed:230, r:12, armor:'air',  time:12, tab:'vehicle',  from:'airfield', side:'allied',
             air:true, alt:64, turret:false, jet:true, ammo:1, rearm:8,   // one bomb run, then back to a pad
@@ -404,6 +422,7 @@ function weaponOf(e){
     if(k in IFV_WEAPONS) return IFV_WEAPONS[k];
   }
   if(e.deployed && e.def.deployWeapon) return e.def.deployWeapon;
+  if(e.def.key === 'psion' && e.controlled && !e.controlled.dead) return null;   // busy holding a mind
   return e.def.weapon || null;
 }
 // unit-specific voice lines (null: no speech, just a sound)
@@ -423,6 +442,12 @@ UNIT_DEFS.airship.voice = {select: ['Airship holding altitude', 'Engines steady'
                            attack: ['Payload armed', 'Target below']};
 UNIT_DEFS.jetpack.voice = {select: ['Skytrooper ready', 'Fuel topped off'], move: ['Taking to the air', 'Flying'],
                            attack: ['Strafing', 'Engaging from above']};
+UNIT_DEFS.sapper.voice = {select: ['Charges ready', 'Sapper here'], move: ['Moving', 'Quietly now'], attack: ['Setting the fuse', 'Stand clear']};
+UNIT_DEFS.striker.voice = {select: ['Striker ready', 'Point me at them'], move: ['On the move', 'Going'], attack: ['Clean shot', 'This one is mine']};
+UNIT_DEFS.psion.voice = {select: ['I hear your thoughts', 'Psion listening'], move: ['I drift', 'As you wish'], attack: ['Your will is mine', 'Kneel']};
+UNIT_DEFS.isotope.voice = {select: ['Isotope ready', 'Counter is clicking'], move: ['Moving the hot zone', 'Moving'], attack: ['Glow for me', 'Exposure started']};
+UNIT_DEFS.infiltrator.voice = {select: ['Papers in order', 'Nobody saw me'], move: ['Blending in', 'On my way'], attack: ['Going inside', 'Leave it to me']};
+UNIT_DEFS.blink.voice = {select: ['Blink trooper ready', 'Coordinates?'], move: ['Jumping', 'See you there'], attack: ['Phasing in', 'Engaging']};
 UNIT_DEFS.dog.voice = null;
 UNIT_DEFS.drone.voice = null;
 
@@ -445,7 +470,9 @@ const hasTurret = def => def.armor !== 'inf' && !def.harvester && !def.mcv && !d
 const isInf = def => def.armor === 'inf' || !!def.flyInf;
 // damage multiplier of a weapon against an armor class (0 = can't hurt it at all); only listed weapons reach aircraft
 const vsMult = (vs, armor) => vs && vs[armor] != null ? vs[armor] : armor === 'air' && vs ? 0 : 1;
-const canHurt = (e, t) => { const w = weaponOf(e); return !!(w && vsMult(w.vs, t.def.armor) > 0); };
+// the weapon a unit uses on this particular target (the Striker blows up buildings with a charge)
+const weaponFor = (e, t) => t && t.kind === 'building' && e.def.demolish ? e.def.demolish : weaponOf(e);
+const canHurt = (e, t) => { const w = weaponFor(e, t); return !!(w && vsMult(w.vs, t.def.armor) > 0) && !(w.kind === 'mind' && !mindable(e, t)); };
 // latched drones are inside their victim: not on the map as far as anyone else is concerned
 const onMap = u => !u.dead && !u.latched && !u.inside;
 // sprite sheet prefix: units keep the look of the side that built them, captured buildings too
@@ -581,7 +608,7 @@ function findPath(sx, sy, txx, tyy){
 }
 
 function orderMove(u, wx, wy){
-  if(u.def.air){   // aircraft fly straight to the spot
+  if(u.def.air || u.def.blink){   // aircraft fly straight to the spot, blink troopers jump there
     u.path = [{x: clamp(wx, T / 2, WPX - T / 2), y: clamp(wy, T / 2, HPX - T / 2)}]; u.pathI = 0;
     return;
   }
@@ -621,6 +648,7 @@ function gainXp(u, victim){
 
 function kill(e){
   e.dead = true;
+  if(e.controlled) releaseMind(e);
   if(e.cargo && e.kind === 'building'){                // a garrison bails out of a falling building, hurt
     for(const p of unloadTransport(e)) p.hp = Math.max(1, p.hp * 0.5);
   } else if(e.cargo) for(const p of e.cargo) p.dead = true;   // nobody gets out of a burning transport
@@ -689,6 +717,7 @@ const state = {
   placing: null,
   mode: null,          // 'sell' | 'repair' | null
   lowPower: false,
+  blackout: [0, 0, 0],   // power sabotaged until this time, per team
   sndOn: true, voiceOn: true,
 };
 
@@ -698,6 +727,7 @@ function powerOf(team){
     if(b.dead || b.team !== team) continue;
     if(b.def.power > 0) prod += b.def.power; else used -= b.def.power;
   }
+  if(state.blackout[team] > state.time) prod = 0;   // sabotaged by an infiltrator
   return {prod, used};
 }
 
@@ -851,6 +881,7 @@ function updateHarvester(u, dt){
 // ---------- movement & combat ----------
 function followPath(u, dt){
   if(!u.path || u.pathI >= u.path.length) return true;
+  if(u.def.blink) return blinkStep(u, dt);
   const wp = u.path[u.pathI];
   const dx = wp.x - u.x, dy = wp.y - u.y;
   const d = Math.hypot(dx, dy);
@@ -890,11 +921,11 @@ function findEnemyInRange(e, rangeTiles){
   let best = null, bd = 1e9;
   const rp = rangeTiles * T;
   for(const u of units){
-    if(!onMap(u) || u.team === e.team || u.team === NEUTRAL || !canHurt(e, u) || hiddenFrom(u, e.team)) continue;
+    if(!onMap(u) || u.team === e.team || u.team === NEUTRAL || !canHurt(e, u) || hiddenFrom(u, e.team) || fooledBy(e, u)) continue;
     const d = dist(e, u);
     if(d <= rp && d < bd){ bd = d; best = u; }
   }
-  if(!best) for(const b of buildings){
+  if(!best && !e.def.demolish) for(const b of buildings){
     if(b.dead || b.team === e.team || b.team === NEUTRAL || !canHurt(e, b)) continue;
     const d = dist(e, b) - Math.max(b.w, b.h) * T * 0.35;
     if(d <= rp && d < bd){ bd = d; best = b; }
@@ -903,7 +934,7 @@ function findEnemyInRange(e, rangeTiles){
 }
 
 function fireWeapon(e, target){
-  const w = weaponOf(e);
+  const w = weaponFor(e, target);
   e.cool = w.rof / (1 + (e.vet || 0) * 0.2);
   e.fireT = 0;
   if(e.kind === 'unit'){
@@ -947,6 +978,23 @@ function fireWeapon(e, target){
     sfx('latch');
     if(target.team === PLAYER) announce('Vehicle infested!', true, 'Vehicle infested');
     return;
+  } else if(w.kind === 'charge'){
+    // a timed charge stuck to the target; it goes off after `fuse` seconds
+    effects.push({type:'charge', target, x: target.x, y: target.y, t: 0, dur: w.fuse, dmg: w.dmg, vs: w.vs, src: e, team: e.team});
+    sfx('click');
+    if(target.team === PLAYER) announce('Explosive charge planted!', true);
+    return;
+  } else if(w.kind === 'mind'){
+    effects.push({type:'arc', x1: e.x, y1: e.y, z1: zSrc, x2: target.x, y2: target.y, t: 0, dur: 0.35, col: '200,120,255'});
+    mindControl(e, target);
+    sfx('zap');
+    return;
+  } else if(w.kind === 'rad'){
+    effects.push({type:'beam', x1: e.x, y1: e.y, z1: zSrc, x2: target.x, y2: target.y, t: 0, dur: 0.2, col: '140,255,90'});
+    applyDamage(target, w.dmg, w.vs, e);
+    radPuddles.push({x: target.x, y: target.y, r: T, team: e.team, until: state.time + 5, dps: 18, src: e});
+    sfx('zap');
+    return;
   } else if(w.kind === 'bomb'){
     // dropped from altitude: a jet lays a pair across its path, the airship one at a time
     const n = e.def.jet ? 2 : 1, side = e.face + Math.PI / 2;
@@ -980,9 +1028,12 @@ function fireWeapon(e, target){
 }
 
 function combatStep(u, target, dt){
-  const w = weaponOf(u);
+  const w = weaponFor(u, target);
   const pad = target.kind === 'building' ? Math.max(target.w, target.h) * T * 0.4 : 0;
-  const d = dist(u, target) - pad;
+  // hand-placed charges and bombs reach a building's walls, not just near its middle
+  const d = target.kind === 'building' && w.range <= 1 ? Math.hypot(u.x - clamp(u.x, target.tx * T, (target.tx + target.w) * T),
+                                                                   u.y - clamp(u.y, target.ty * T, (target.ty + target.h) * T))
+                                                        : dist(u, target) - pad;
   if(d <= w.range * T){
     u.path = null;
     const a = Math.atan2(target.y - u.y, target.x - u.x);
@@ -1020,7 +1071,7 @@ function updateUnit(u, dt){
   if(u.deployed && (u.order.type === 'move' || u.order.type === 'attackmove' || u.order.type === 'board')) u.deployed = false;
   if(u.order.type === 'board'){ updateBoarding(u, dt); applySeparation(u, dt); return; }
   if(u.def.harvester){ updateHarvester(u, dt); applySeparation(u, dt); return; }
-  if(u.def.engineer){ updateEngineer(u, dt); applySeparation(u, dt); return; }
+  if(u.def.engineer || u.def.spy){ updateEngineer(u, dt); applySeparation(u, dt); return; }
   let o = u.order;
   // turrets drift back to the hull's heading when not engaging
   if(hasTurret(u.def) && o.type !== 'attack') u.tface = turnToward(u.tface, u.face, 3 * dt);
@@ -1152,6 +1203,99 @@ function updateHeli(u, dt){
   applySeparation(u, dt);
 }
 
+// ---------- special infantry ----------
+// disguised spies fool everyone except hounds
+function fooledBy(e, u){
+  if(!u.def.disguise) return false;
+  const w = weaponOf(e);
+  return !(w && w.kind === 'bite');
+}
+
+// Psion: takes over one enemy ground unit (not another psion) until the psion dies.
+function mindable(e, t){ return t.kind === 'unit' && !t.def.air && t.def.key !== 'psion' && !t.mindOwner; }
+function mindControl(e, t){
+  if(!mindable(e, t) || t.team === e.team) return;
+  if(t.cargo && t.cargo.length) unloadTransport(t, true);
+  t.mindOwner = e; t.origTeam = t.team;
+  t.team = e.team; t.order = {type:'idle'}; t.path = null; t.role = 'attacker'; t.deployed = false;
+  e.controlled = t;
+  if(t.origTeam === PLAYER){
+    announce('Unit lost to mind control!', true, 'Unit mind controlled');
+    selection = selection.filter(s => s !== t);
+    for(const k in groups) groups[k] = groups[k].filter(s => s !== t);
+  }
+}
+// a dead psion lets go
+function releaseMind(e){
+  const t = e.controlled;
+  e.controlled = null;
+  if(!t || t.dead) return;
+  t.team = t.origTeam; t.mindOwner = null; t.order = {type:'idle'}; t.path = null; t.role = 'defend';
+  if(t.team === PLAYER) announce('Unit freed', false);
+}
+
+// Radiation: puddles left by isotope shots, and a field round each deployed isotope trooper.
+const radPuddles = [];
+const RAD_VS = {inf:1, heavy:0.2, building:0};
+function radSources(){
+  const out = radPuddles.slice();
+  for(const u of units) if(onMap(u) && u.deployed && u.def.radiate) out.push({x: u.x, y: u.y, r: u.def.radiate * T, team: u.team, dps: 32, src: u});
+  return out;
+}
+function tickRadiation(dt){
+  for(let i = radPuddles.length - 1; i >= 0; i--) if(radPuddles[i].until <= state.time) radPuddles.splice(i, 1);
+  for(const z of radSources())
+    for(const u of units){
+      if(!onMap(u) || u.team === z.team || u.team === NEUTRAL || u.def.air) continue;
+      if(Math.hypot(u.x - z.x, u.y - z.y) < z.r) applyDamage(u, z.dps * dt, RAD_VS, z.src.dead ? null : z.src);
+    }
+}
+
+// Blink trooper: instead of walking, charges up and appears at the end of its path.
+function blinkStep(u, dt){
+  const dest = u.path[u.path.length - 1];
+  if(u.blinkT == null){
+    u.blinkT = 0.5 + Math.hypot(dest.x - u.x, dest.y - u.y) / 500;
+    effects.push({type:'blink', x: u.x, y: u.y, t: 0, dur: u.blinkT});
+  }
+  u.blinkT -= dt;
+  if(u.blinkT > 0) return false;
+  u.blinkT = null;
+  let x = dest.x, y = dest.y;
+  if(!passable(Math.floor(x / T), Math.floor(y / T))){
+    const f = freeTileNear(Math.floor(x / T), Math.floor(y / T), 4);
+    if(f){ x = f.x * T + T / 2; y = f.y * T + T / 2; }
+  }
+  u.face = Math.atan2(y - u.y, x - u.x);
+  u.x = x; u.y = y;
+  u.pathI = u.path.length;
+  effects.push({type:'blink', x, y, t: 0, dur: 0.4, arrive: true});
+  sfx('zap');
+  if(u.team === PLAYER) revealAround(x, y, 6);
+  return true;
+}
+
+// Infiltrator: walks into an enemy building and sabotages it
+function spyCan(b, team){ return !!b && b.kind === 'building' && !b.dead && b.team !== team && b.team !== NEUTRAL && !b.def.garrison; }
+function spyEnter(u, b){
+  u.dead = true;
+  const was = b.team, mine = u.team === PLAYER;
+  let msg = 'Building infiltrated';
+  if(b.def.key === 'refinery'){
+    const take = Math.min(3000, Math.floor(state.credits[was] * 0.5));
+    state.credits[was] -= take; state.credits[u.team] += take;
+    msg = 'Credits stolen: $' + take;
+  } else if(b.def.key === 'power'){
+    state.blackout[was] = state.time + 45;
+    msg = 'Enemy power sabotaged';
+  } else if(b.def.key === 'radar' && mine){
+    explored.fill(1); shroudDirty = true;
+    msg = 'Enemy radar compromised';
+  }
+  if(mine){ revealAround(b.x, b.y, 10); announce(msg, false, msg); sfx('cash'); }
+  else if(was === PLAYER) announce('Our base has been infiltrated!', true, 'Base infiltrated');
+}
+
 // ---------- transports ----------
 // infantry board friendly transports, or garrison a town building that is empty or already theirs
 const capacity = t => t.def.transport || t.def.garrison || 0;
@@ -1247,10 +1391,9 @@ function updateEngineer(u, dt){
     return;
   }
   const b = o.target;
-  if(!engineerCan(b, u.team)){ u.order = {type:'idle'}; u.path = null; return; }
+  if(!(u.def.spy ? spyCan(b, u.team) : engineerCan(b, u.team))){ u.order = {type:'idle'}; u.path = null; return; }
   // close enough to the footprint's edge to walk in?
-  const ex = clamp(u.x, b.tx * T, (b.tx + b.w) * T), ey = clamp(u.y, b.ty * T, (b.ty + b.h) * T);
-  if(Math.hypot(u.x - ex, u.y - ey) < T * 0.8){ engineerEnter(u, b); return; }
+  if(atDoor(u, b)){ if(u.def.spy) spyEnter(u, b); else engineerEnter(u, b); return; }
   u.repathT -= dt;
   if(!u.path || u.pathI >= u.path.length || u.repathT <= 0){ u.repathT = 1; orderMove(u, b.x, b.y); }
   followPath(u, dt);
@@ -1425,14 +1568,14 @@ function setDifficulty(key){
 const ai = {
   waveTimer: 80,
   waveSize: 3,
-  prodQ: ['rifle','arctrooper','ltank','rifle','halftrack','drone','rocket','ltank','arctrooper','launcher','rifle','drone'],
+  prodQ: ['rifle','arctrooper','ltank','rifle','halftrack','drone','sapper','rocket','ltank','arctrooper','isotope','launcher','rifle','drone'],
   prodI: 0, prodProgress: 0, prodKey: null, airT: 0,
 };
 
 // an airship every few minutes once the AI has the tech, a couple at a time at most
 function airshipDue(){
   const ships = units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'airship').length;
-  return state.time > 270 * diff.tech && state.time > ai.airT && ships < (diff === DIFFICULTY.hard ? 3 : 2);
+  return state.time > 240 * diff.tech && state.time > ai.airT && ships < (diff === DIFFICULTY.hard ? 3 : 2);
 }
 
 function tickAI(dt){
@@ -1442,6 +1585,7 @@ function tickAI(dt){
     ai.prodKey = ai.prodQ[ai.prodI % ai.prodQ.length];
     if(state.time > 240 * diff.tech && Math.random() < 0.25) ai.prodKey = 'htank';
     if(state.time > 150 * diff.tech && Math.random() < 0.3) ai.prodKey = 'ltank';
+    if(state.time > 200 * diff.tech && Math.random() < 0.12 && units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'psion').length < 2) ai.prodKey = 'psion';
     if(airshipDue()){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
     ai.prodI++;
     ai.prodProgress = 0;
@@ -1552,7 +1696,12 @@ function aiTransports(){
 function aiInfantry(){
   for(const u of units){
     if(!onMap(u) || u.team !== ENEMY || u.def.armor !== 'inf') continue;
-    if(u.def.deploy && u.role !== 'attacker' && u.order.type === 'idle') u.deployed = true;
+    if(u.def.deployWeapon && u.role !== 'attacker' && u.order.type === 'idle') u.deployed = true;
+    if(u.def.radiate){   // isotope troopers switch their field on when enemy infantry comes close
+      const near = r => units.some(v => onMap(v) && v.team === PLAYER && isInf(v.def) && !v.def.air && dist(u, v) < r * T);
+      if(!u.deployed && near(2.5)) u.deployed = true;
+      else if(u.deployed && !near(4)) u.deployed = false;
+    }
     if(u.role !== 'attacker' || !canGarrison(u.def) || (u.order.type !== 'attack' && u.order.type !== 'attackmove') || Math.random() > 0.3) continue;
     const b = buildings.find(b => !b.dead && b.def.garrison && (b.team === NEUTRAL || b.team === ENEMY) && b.cargo.length < 3 &&
                                   dist(u, b) < 5 * T && units.some(v => onMap(v) && v.team === PLAYER && dist(v, b) < 8 * T));
@@ -1585,7 +1734,7 @@ function nearestPlayerTarget(from){
     if(d < bd){ bd = d; best = b; }
   }
   if(!best) for(const u of units){
-    if(!onMap(u) || u.team !== PLAYER || !canHurt(from, u) || hiddenFrom(u, from.team)) continue;
+    if(!onMap(u) || u.team !== PLAYER || !canHurt(from, u) || hiddenFrom(u, from.team) || fooledBy(from, u)) continue;
     const d = dist(from, u);
     if(d < bd){ bd = d; best = u; }
   }
@@ -1709,7 +1858,7 @@ const cameoEls = {};
 const TAB_ITEMS = {
   structure: ['power','refinery','barracks','factory','radar','depot','airfield'],
   defense:   ['pillbox','beamtower'],
-  infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','jetpack'],
+  infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','sapper','isotope','psion','jetpack','blink','infiltrator','striker'],
   vehicle:   ['ltank','ifv','halftrack','beamtank','launcher','drone','htank','jet','heli','airship','harv','mcv'],
 };
 
@@ -1787,6 +1936,9 @@ function onCameoClick(key, isUnit){
     if(head && head.key === key && head.ready){ state.placing = key; setMode(null); return; }
     if(head){ announce('Construction already in progress', false, 'Construction in progress'); return; }
   } else if(q.length >= MAX_QUEUE){ announce('Queue full'); return; }
+  if(def.unique && (units.some(u => !u.dead && u.team === PLAYER && u.def === def) || q.some(s => s.key === key))){
+    announce('Only one ' + def.name + ' at a time'); return;
+  }
   if(def.jet && units.filter(u => !u.dead && u.team === PLAYER && u.def.jet).length + q.filter(s => s.key === key).length >= padCount(PLAYER)){
     announce(padCount(PLAYER) ? 'All landing pads are in use' : 'Requires: Airfield'); return;
   }
@@ -1993,6 +2145,15 @@ function issueCommand(ev){
     }
     sfx('click'); ack('move', jets[0]);
     selUnits = selUnits.filter(u => !u.def.jet);
+    if(!selUnits.length) return;
+  }
+  // infiltrators walk into enemy buildings
+  const spies = selUnits.filter(u => u.def.spy);
+  if(spies.length && spyCan(target, PLAYER)){
+    for(const u of spies){ u.order = {type:'capture', target}; u.path = null; u.repathT = 0; }
+    effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4, red: true});
+    sfx('click'); ack('attack', spies[0]);
+    selUnits = selUnits.filter(u => !u.def.spy);
     if(!selUnits.length) return;
   }
   // engineers walk into a building: capture it if it's the enemy's, fix it if it's ours
@@ -2683,6 +2844,10 @@ function infantryFrame(u, e){
   return f;
 }
 
+// fallback uniform colours of the special infantry
+const UNIFORM = {sapper: '#7a5a3a', striker: '#3d4238', psion: '#5a3a6a', isotope: '#b8b43a', infiltrator: '#2c3440', blink: '#6e9ec8',
+                 jetpack: '#4e6a8c', engineer: '#c9a23a', sniper: '#4f5f3a', arctrooper: '#6d5b4c'};
+
 // a ring of sandbags round a dug-in rifleman
 function drawSandbags(p){
   for(let i = 0; i < 9; i++){
@@ -2708,28 +2873,29 @@ function drawUnitSprite(u){
   const inf = Sprites.get(name);
   const body = Sprites.get(name + '_body');
   const ghost = u.def.stealth && !u.revealed;         // our own stealth units show faintly
-  if(u.deployed) drawSandbags(p);
+  const tint = u.def.disguise && u.team === PLAYER ? ENEMY : u.team;   // an infiltrator wears the enemy's colours
+  if(u.deployed && u.def.deployWeapon) drawSandbags(p);
   if(inf || body){
     cx.save();
     if(u.flash > 0) cx.filter = 'brightness(1.9)';
     if(ghost) cx.globalAlpha = 0.45;
-    if(inf) Sprites.draw(cx, name, u.team, infantryFrame(u, inf), p.x, p.y);
+    if(inf) Sprites.draw(cx, name, tint, infantryFrame(u, inf), p.x, p.y);
     else {
-      Sprites.draw(cx, name + '_body', u.team, Sprites.facing(body, u.face), p.x, p.y);
+      Sprites.draw(cx, name + '_body', tint, Sprites.facing(body, u.face), p.x, p.y);
       const tur = Sprites.get(name + '_turret');
-      if(tur) Sprites.draw(cx, name + '_turret', u.team, Sprites.facing(tur, u.tface), p.x, p.y);
+      if(tur) Sprites.draw(cx, name + '_turret', tint, Sprites.facing(tur, u.tface), p.x, p.y);
       const msl = Sprites.get(name + '_missile');       // reloaded when the cooldown is nearly over
-      if(msl && u.cool < 1.5) Sprites.draw(cx, name + '_missile', u.team, Sprites.facing(msl, u.face), p.x, p.y);
+      if(msl && u.cool < 1.5) Sprites.draw(cx, name + '_missile', tint, Sprites.facing(msl, u.face), p.x, p.y);
       const bombs = Sprites.get(name + '_bombs');       // a jet's bombs hang under it until dropped
-      if(bombs && u.ammo > 0) Sprites.draw(cx, name + '_bombs', u.team, Sprites.facing(bombs, u.face), p.x, p.y);
+      if(bombs && u.ammo > 0) Sprites.draw(cx, name + '_bombs', tint, Sprites.facing(bombs, u.face), p.x, p.y);
       const rotor = Sprites.get(name + '_rotor');
-      if(rotor) Sprites.draw(cx, name + '_rotor', u.team, u.moving ? Math.floor(state.time * 24) % rotor.frames : 0, p.x, p.y);
+      if(rotor) Sprites.draw(cx, name + '_rotor', tint, u.moving ? Math.floor(state.time * 24) % rotor.frames : 0, p.x, p.y);
     }
     cx.restore();
     return;
   }
   const k = u.def.key;
-  const tc = TEAM_COLOR[u.team];
+  const tc = TEAM_COLOR[tint];
   const allied = u.team === PLAYER;
 
   cx.save();
@@ -2745,7 +2911,7 @@ function drawUnitSprite(u){
   if(u.def.air && !isInf(u.def)) drawAircraftFallback(u, p, tc);
   else if(isInf(u.def)){
     const d = isoDir(u.face);
-    const uni = k === 'rifle' ? (allied ? '#5d7244' : '#8a7a5a') : (allied ? '#4e6a8c' : '#6d5b4c');
+    const uni = UNIFORM[k] || (k === 'rifle' ? (allied ? '#5d7244' : '#8a7a5a') : (allied ? '#4e6a8c' : '#6d5b4c'));
     // legs
     cx.strokeStyle = '#2e3324'; cx.lineWidth = 2;
     cx.beginPath(); cx.moveTo(p.x - 2, p.y); cx.lineTo(p.x - 2, p.y - 5); cx.moveTo(p.x + 2, p.y); cx.lineTo(p.x + 2, p.y - 5); cx.stroke();
@@ -2938,6 +3104,7 @@ function cursorType(){
     if(t && t.def.transport && su.length === 1 && su[0] === t) return t.cargo.length ? 'deploy' : 'select';
     if(t && t.cargo && su.some(u => canBoard(u, t))) return 'enter';
     if(t && t.kind === 'building' && t.def.flat && t.team === PLAYER && su.some(u => u.def.armor === 'heavy' && !u.def.air)) return 'enter';
+    if(su.some(u => u.def.spy) && spyCan(t, PLAYER)) return 'capture';
     if(su.some(u => u.def.engineer) && engineerCan(t, PLAYER) && !keys['control'] && !keys['meta'])
       return t.team === PLAYER ? 'fix' : 'capture';
     if(t && t.team === ENEMY && su.some(u => canHurt(u, t))) return 'attack';
@@ -3161,14 +3328,14 @@ function drawEffect(e){
     cx.beginPath(); cx.moveTo(p1.x, p1.y - 10); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
   } else if(e.type === 'beam'){
     const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
-    cx.strokeStyle = e.heal ? `rgba(120,255,140,${1 - f})` : `rgba(150,230,255,${1 - f})`; cx.lineWidth = (4 * (1 - f) + 1) * (e.thin ? 0.5 : 1);
+    cx.strokeStyle = e.heal ? `rgba(120,255,140,${1 - f})` : `rgba(${e.col || '150,230,255'},${1 - f})`; cx.lineWidth = (4 * (1 - f) + 1) * (e.thin ? 0.5 : 1);
     cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
     cx.strokeStyle = `rgba(255,255,255,${1 - f})`; cx.lineWidth = 1.5;
     cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
   } else if(e.type === 'arc'){
     const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
     const y1 = p1.y - e.z1, y2 = p2.y - 6;
-    cx.strokeStyle = `rgba(140,200,255,${1 - f})`; cx.lineWidth = 2.5;
+    cx.strokeStyle = `rgba(${e.col || '140,200,255'},${1 - f})`; cx.lineWidth = 2.5;
     cx.beginPath(); cx.moveTo(p1.x, y1);
     const seg = 6;
     for(let i = 1; i <= seg; i++){
@@ -3177,6 +3344,18 @@ function drawEffect(e){
       cx.lineTo(px, py);
     }
     cx.stroke();
+  } else if(e.type === 'charge'){
+    const p = toIso(e.x, e.y);
+    if(Math.floor(e.t * (e.dur - e.t < 1 ? 10 : 4)) % 2 === 0){
+      cx.fillStyle = '#ff3a2a';
+      cx.beginPath(); cx.arc(p.x, p.y - 10 - (e.target.z || 0), 3, 0, 7); cx.fill();
+    }
+  } else if(e.type === 'blink'){
+    const p = toIso(e.x, e.y);
+    const r = e.arrive ? 6 + f * 18 : 18 * (1 - f) + 4;
+    cx.strokeStyle = `rgba(150,215,255,${e.arrive ? 1 - f : 0.4 + f * 0.6})`; cx.lineWidth = 2;
+    cx.beginPath(); cx.ellipse(p.x, p.y - 2, r, r * 0.5, 0, 0, 7); cx.stroke();
+    cx.beginPath(); cx.moveTo(p.x, p.y - 2); cx.lineTo(p.x, p.y - 26 * (e.arrive ? 1 - f : f)); cx.stroke();
   } else if(e.type === 'cmd'){
     const p = toIso(e.x, e.y);
     cx.strokeStyle = e.red ? `rgba(255,90,90,${1 - f})` : `rgba(120,255,120,${1 - f})`;
@@ -3290,6 +3469,15 @@ function draw(){
       } else drawOreFallback(x, y, a);
     }
 
+  // radiation glows on the ground
+  for(const z of radSources()){
+    const p = toIso(z.x, z.y), a = 0.16 + Math.sin(state.time * 5 + z.x) * 0.05;
+    const g = cx.createRadialGradient(p.x, p.y, 0, p.x, p.y, z.r * 1.4);
+    g.addColorStop(0, `rgba(120,255,80,${a * 1.6})`); g.addColorStop(1, 'rgba(120,255,80,0)');
+    cx.fillStyle = g;
+    cx.beginPath(); cx.ellipse(p.x, p.y, z.r * 1.4, z.r * 0.7, 0, 0, 7); cx.fill();
+  }
+
   // corpses lie on the ground under everything else
   for(const e of effects) if(e.type === 'corpse') drawEffect(e);
 
@@ -3356,6 +3544,16 @@ function draw(){
       }
       if(e.vet) drawChevrons(box.x1 + 2, box.y0 - 10, e.vet);
     }
+  }
+
+  // mind-controlled units wear a purple ring; our disguised infiltrators a blue dot
+  for(const u of units){
+    if(!onMap(u) || !(u.mindOwner || (u.def.disguise && u.team === PLAYER))) continue;
+    const b = screenBox(u), x = (b.x0 + b.x1) / 2, y = b.y0 - 14;
+    if(u.mindOwner){
+      cx.strokeStyle = `rgba(200,120,255,${0.6 + Math.sin(state.time * 6) * 0.3})`; cx.lineWidth = 2;
+      cx.beginPath(); cx.ellipse(x, y, 7, 3, 0, 0, 7); cx.stroke();
+    } else { cx.fillStyle = TEAM_COLOR[PLAYER]; cx.beginPath(); cx.arc(x, y + 4, 2.5, 0, 7); cx.fill(); }
   }
 
   // projectiles + effects
@@ -3649,6 +3847,7 @@ function tick(dt){
     for(const u of units) if(!u.dead) updateUnit(u, dt);
     for(const b of buildings) if(!b.dead) updateBuilding(b, dt);
     updateProjectiles(dt);
+    tickRadiation(dt);
 
     const spawned = [];
     for(const e of effects){
@@ -3656,6 +3855,10 @@ function tick(dt){
       if(e.type === 'spark'){ e.x += e.vx * dt; e.y += e.vy * dt; e.vy += 300 * dt; }
       else if(e.type === 'puff'){ e.z += dt * 14; }
       else if(e.type === 'delay' && e.t >= e.dur){ spawned.push(e.then); }
+      else if(e.type === 'charge'){
+        if(e.target.dead) e.t = e.dur;
+        else { e.x = e.target.x; e.y = e.target.y; if(e.t >= e.dur) spawned.push({charge: e}); }
+      }
       else if(e.type === 'smokecol'){
         e.acc += dt;
         while(e.acc > 0.14){
@@ -3666,6 +3869,12 @@ function tick(dt){
       }
     }
     for(const s of spawned){
+      if(s.charge){
+        const c = s.charge;
+        applyDamage(c.target, c.dmg, c.vs, c.src.dead ? null : c.src);
+        boom(c.x, c.y, 34); scorch(c.x, c.y, 26); sfx('explosion');
+        continue;
+      }
       if(s.puff) effects.push({type:'puff', x: s.x, y: s.y, z: s.z, r: s.r, t: 0, dur: s.dur, dark: s.dark});
       else { boom(s.x, s.y, s.size); sfx('explosion'); }
     }
@@ -3750,7 +3959,7 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
-  canPlace, canBoard, applyDamage,
+  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(),
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },
