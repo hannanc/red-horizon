@@ -34,6 +34,10 @@ This file covers how the code works, the rules, and what to build next.
   `occ[]` holds the building id on each tile, 0 for free, or `BLOCKED` for
   water, trees and rocks. `walk[]` marks tiles of flat buildings (`def.flat`, the depot) that
   units may drive over; always test movement with `passable()`, placement with `occ`.
+  `water[]` marks sea and lake tiles (they are `BLOCKED` in `occ` unless a Dockyard stands on them); ships move where
+  `sailable()` is true. `canMove(u, x, y)` picks the right test, `findPath` and `freeTileNear` take one as an argument,
+  and `bareOcc(i)` is what a tile reverts to when a building on it goes.
+  The sea is a band along the west and north edges (`TerrainGen.seaVal` in `js/terrain.js`, folded into `lakeVal`).
 - **Teams:** `PLAYER = 0` (Allied), `ENEMY = 1` (Soviet AI), `NEUTRAL = 2` (civilian town).
   `FACTION[team]` picks the sprite set.
 - **Definitions:**
@@ -71,6 +75,12 @@ This file covers how the code works, the rules, and what to build next.
   - Isotope Trooper: `rad` shots leave `radPuddles`; deployed (`def.radiate`) it is a radiation source too. `tickRadiation` damages with `RAD_VS`.
   - Infiltrator (`def.spy`, `def.disguise`): ignored by enemy targeting except hounds (`fooledBy`); walks in like an engineer (`updateEngineer` → `spyEnter`). Power sabotage sets `state.blackout[team]`, which `powerOf` honours.
   - Blink Trooper (`def.blink`): `orderMove` gives it a straight waypoint and `followPath` hands off to `blinkStep`, which charges and jumps.
+- **Naval** (`def.naval`): ships path on water only and don't push land units. Armour `sub` (like `air`) takes damage
+  only from weapons that list it (the Frigate). `seaOnly` weapons (torpedoes) only hit ships and `onWater` buildings,
+  and melee weapons can't reach ships. The Landing Craft (`carriesVehicles`) boards any ground unit from the shore
+  (`atDoor`); `unloadTransport` refuses without a beach within 2 tiles. The Dockyard (`onWater`) must be placed on open
+  water. AI: a dockyard in its base, `navyDue()` for a few ships outside the army cap, `aiNavy()` sends idle ships at the
+  player's ships and dockyards; ships never join land waves.
 - **Veil Tank** (`def.treeDisguise`): `fooledBy` keeps enemy scans off it until it has fired in the last 3 s;
   `treeDisguised(u)` (parked for 1 s and quiet) draws it as a tree from the `tree` sheet.
 - **Sandbags**: units with `def.deploy` (the rifleman) toggle `u.deployed` with `D`: `weaponOf` returns `def.deployWeapon`,
@@ -119,13 +129,14 @@ so code-only work can land first and the art can follow.
   - `tests/garrison.spec.js`: garrisons and sandbags.
   - `tests/infantry.spec.js`: the special infantry.
   - `tests/veiltank.spec.js`: the stealth tank.
+  - `tests/naval.spec.js`: the sea, the Dockyard and ships.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
-  (opens a patch of ground for a test arena), `select([...])`, `look(tx, ty)`,
+  (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
   Tests call `start()` then `pause(true)`, so the real-time clock is stopped and only `step()` moves the game.
 - **Syntax only:** extract the main `<script>` and run `node --check` on it.
@@ -173,7 +184,7 @@ fallback drawing.
    - teleporting infantry
 5. **Done: Stealth tank (code plus art).** The Veil Tank; model `veiltank` written, not rendered yet. It looks like a tree while stationary and
    can't be auto-targeted until it fires.
-6. **Naval (code plus art).** Needs a map with a real sea (terrain generation,
+6. **Done: Naval (code plus art).** Models `shipyard`, `lander`, `frigate`, `picket`, `sub`, `flakboat` written, not rendered yet. Needs a map with a real sea (terrain generation,
    plus water pathing for ships), a Shipyard, transports that carry vehicles,
    destroyers, subs and AA cruisers. This is the biggest item.
 7. **Polish:**

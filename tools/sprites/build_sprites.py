@@ -63,7 +63,7 @@ VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom, factions)
     'frigate':  (M.frigate, (148, 100, 80, 60), 1.2, ('allied',)),
     'picket':   (M.picket, (148, 100, 80, 60), 1.2, ('allied',)),
     'sub':      (M.sub, (148, 100, 80, 60), 1.2, ('soviet',)),
-    'gunboat':  (M.gunboat, (124, 84, 68, 50), 1.5, ('soviet',)),
+    'flakboat': (M.flakboat, (124, 84, 68, 50), 1.5, ('soviet',)),
 }
 INFANTRY = {  # key: (kind, frame, cameo zoom, factions)
     'rifle':      ('rifle', (64, 48, 38, 38), 3.4, FACTIONS),

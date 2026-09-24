@@ -27,7 +27,7 @@ const TerrainGen = (() => {
 
   // ---------- map features ----------
   // roads: 'x' roads run along game x at centre line y = c, 'y' roads along game y
-  const ROADS = [{axis: 'x', c: 40, from: 3, to: 44}, {axis: 'y', c: 23, from: 20, to: 61}];
+  const ROADS = [{axis: 'x', c: 40, from: 8, to: 44}, {axis: 'y', c: 23, from: 20, to: 61}];
   const TOWN = {x: 23, y: 40};
   function roadHits(u, v){
     const hits = [];
@@ -49,10 +49,14 @@ const TerrainGen = (() => {
 
   // lakes: > 0 is water, a thin band below 0 is the sandy shore
   const LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}];
+  // the sea: a band SEA tiles wide (give or take) along the west (u = 0) and north (v = 0) edges,
+  // joined at the top corner, so both bases have a coast
+  const SEA = 4.5;
+  function seaVal(u, v){ return (SEA - Math.min(u, v)) / 2 + (vnoise(u * 0.35 + 13, v * 0.35 + 17) - 0.5) * 0.8; }
   function lakeVal(u, v){
     let m = -9;
     for(const l of LAKES) m = Math.max(m, 1 - Math.hypot(u - l.x, v - l.y) / l.r);
-    return m + (vnoise(u * 0.45 + 7, v * 0.45 + 3) - 0.5) * 0.45;
+    return Math.max(m + (vnoise(u * 0.45 + 7, v * 0.45 + 3) - 0.5) * 0.45, seaVal(u, v));
   }
 
   // ---------- painter ----------
@@ -150,5 +154,5 @@ const TerrainGen = (() => {
       }
   }
 
-  return {T, MW, MH, hash2, vnoise, fbm, ROADS, TOWN, roadHits, nearRoad, LAKES, lakeVal, paint};
+  return {T, MW, MH, hash2, vnoise, fbm, ROADS, TOWN, roadHits, nearRoad, LAKES, SEA, seaVal, lakeVal, paint};
 })();

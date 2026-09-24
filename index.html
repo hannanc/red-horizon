@@ -211,6 +211,7 @@
       <li><b>Engineers:</b> Right-click an enemy structure to capture it, or one of yours to repair it fully. The engineer is used up.</li>
       <li><b>Specialists:</b> Infiltrators walk into enemy buildings (right-click) to steal credits, cut power or expose their radar. The Striker blows up buildings you right-click. Blink Troopers teleport where you send them.</li>
       <li><b>Town:</b> Right-click a civilian building with infantry to garrison it; they shoot out of it. Riflemen dig in behind sandbags with <b>D</b>.</li>
+      <li><b>Navy:</b> Build a <b>Dockyard</b> on the coast for ships. Load a Landing Craft at the shore by right-clicking it; press <b>D</b> next to a beach to unload.</li>
       <li><b>Repairs:</b> Right-click a <b>Service Depot</b> with vehicles selected to park them on it; it fixes them for credits and pulls out a latched drone.</li>
       <li><b>Aircraft:</b> Jets make one bomb run on a right-clicked target, then fly back to the <b>Airfield</b> to rearm (right-click the Airfield to send them home). Only rockets and flak can hit aircraft.</li>
       <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
@@ -285,11 +286,17 @@ resize();
 const ore      = new Float32Array(MW * MH);
 const occ      = new Int16Array(MW * MH);   // building id, 0 = free, BLOCKED = water / trees / rocks
 const walk     = new Uint8Array(MW * MH);   // 1 = occupied by a flat building units can drive over (depot)
+const water    = new Uint8Array(MW * MH);   // 1 = sea or lake (also BLOCKED in occ unless a dockyard stands on it)
 const explored = new Uint8Array(MW * MH);
 const BLOCKED = -1;
 const idx = (x, y) => y * MW + x;
 const inMap = (x, y) => x >= 0 && y >= 0 && x < MW && y < MH;
 const passable = (x, y) => inMap(x, y) && (occ[idx(x, y)] === 0 || walk[idx(x, y)] === 1);
+const sailable = (x, y) => inMap(x, y) && water[idx(x, y)] === 1 && occ[idx(x, y)] === BLOCKED;   // open water
+// what a tile goes back to when a building on it is gone
+const bareOcc = i => water[i] ? BLOCKED : 0;
+// ships move on water, everything else on land
+const canMove = (u, x, y) => u.def.naval ? sailable(x, y) : passable(x, y);
 const doodads = [];                          // trees and rocks: {x, y, name, frame}
 let shroudDirty = true;
 
@@ -314,7 +321,7 @@ const units = [];
 const projectiles = [];
 const effects = [];
 
-// armor: inf | heavy | building | air (aircraft and jetpack troops: most weapons can't reach them)
+// armor: inf | heavy | building | air (aircraft and jetpack troops) | sub: most weapons can't reach the last two
 const BUILD_DEFS = {
   conyard : {name:'Construction Hub',  cost:3000, power:0,    w:3, h:3, hp:1500, time:0,  tab:null, z:36},
   power   : {name:'Power Plant',       cost:800,  power:100,  w:2, h:2, hp:600,  time:10, tab:'structure', prereq:[], z:34},
@@ -331,6 +338,8 @@ const BUILD_DEFS = {
              weapon:{dmg:110, rof:3.2, range:7.2, kind:'arc', vs:{inf:1.4, heavy:1, building:0.8}}},
   // vehicles drive onto it (flat: its tiles stay passable) to be repaired; it also pulls out latched drones
   depot   : {name:'Service Depot',     cost:800,  power:-20,  w:3, h:3, hp:900,  time:12, tab:'structure', prereq:['factory'], z:12, flat:true},
+  // built on water; ships come out of it
+  shipyard: {name:'Dockyard',          cost:1000, power:-30,  w:3, h:3, hp:1200, time:14, tab:'structure', prereq:['refinery'], z:20, onWater:true},
   // jets land on its two pads to rearm; the helicopter is built here too
   airfield: {name:'Airfield',          cost:1200, power:-40,  w:3, h:3, hp:1000, time:15, tab:'structure', prereq:['radar'], z:30, side:'allied',
              pads: [[-0.62, 0.55], [0.55, -0.62]]},   // pad centres, tiles from the footprint centre
@@ -394,6 +403,18 @@ const UNIT_DEFS = {
   blink  : {name:'Blink Trooper', cost:900,  hp:110, speed:50,  r:8,  armor:'inf',  time:9,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
             blink:true,   // teleports to where it is sent instead of walking
             weapon:{dmg:40, rof:1.5,  range:5,   kind:'beam', vs:{inf:1, heavy:0.8, building:0.6}}},
+  // ships (naval: true) move only on open water and come out of a Dockyard
+  lander : {name:'Landing Craft', cost:900,  hp:500, speed:70,  r:18, armor:'heavy',time:10, tab:'vehicle',  from:'shipyard',
+            naval:true, turret:false, transport:5, carriesVehicles:true},   // loads and unloads at a shore
+  frigate: {name:'Frigate',       cost:1000, hp:600, speed:70,  r:18, armor:'heavy',time:12, tab:'vehicle',  from:'shipyard', side:'allied',
+            naval:true, weapon:{dmg:55, rof:2.2,  range:7,   kind:'shell', vs:{inf:0.8, heavy:1.1, building:1.1, sub:2.5}}},   // the sub hunter
+  picket : {name:'Picket Cruiser', cost:1100, hp:650, speed:60, r:18, armor:'heavy',time:13, tab:'vehicle',  from:'shipyard', side:'allied', prereq:['radar'],
+            naval:true, weapon:{dmg:40, rof:1.2,  range:8,   kind:'rocket', vs:{inf:0.2, heavy:0.4, building:0.2, air:2}}},
+  sub    : {name:'Barracuda Sub', cost:1000, hp:550, speed:60,  r:16, armor:'sub',  time:12, tab:'vehicle',  from:'shipyard', side:'soviet',
+            naval:true, turret:false,   // armour 'sub': only frigates can hurt it
+            weapon:{dmg:110,rof:3.0,  range:6,   kind:'torpedo', seaOnly:true, vs:{heavy:1.4, building:1.2, sub:1}}},
+  flakboat:{name:'Hornet Flak Boat', cost:700, hp:350, speed:110, r:14, armor:'heavy',time:8, tab:'vehicle',  from:'shipyard', side:'soviet',
+            naval:true, weapon:{dmg:22, rof:0.7,  range:6,   kind:'flak', vs:{inf:1.2, heavy:0.4, building:0.3, air:1.6}}},
   // aircraft (air: true) fly straight over anything at altitude `alt` px and only take AA fire
   jet    : {name:'Talon Jet',     cost:1200, hp:180, speed:230, r:12, armor:'air',  time:12, tab:'vehicle',  from:'airfield', side:'allied',
             air:true, alt:64, turret:false, jet:true, ammo:1, rearm:8,   // one bomb run, then back to a pad
@@ -452,12 +473,17 @@ UNIT_DEFS.isotope.voice = {select: ['Isotope ready', 'Counter is clicking'], mov
 UNIT_DEFS.infiltrator.voice = {select: ['Papers in order', 'Nobody saw me'], move: ['Blending in', 'On my way'], attack: ['Going inside', 'Leave it to me']};
 UNIT_DEFS.blink.voice = {select: ['Blink trooper ready', 'Coordinates?'], move: ['Jumping', 'See you there'], attack: ['Phasing in', 'Engaging']};
 UNIT_DEFS.veiltank.voice = {select: ['Veil ready', 'Nobody sees us'], move: ['Moving quietly', 'Changing cover'], attack: ['Dropping the veil', 'Firing']};
+UNIT_DEFS.lander.voice = {select: ['Landing craft ready', 'Ramp is up'], move: ['Under way', 'Making for shore']};
+UNIT_DEFS.frigate.voice = {select: ['Frigate on station', 'Guns ready'], move: ['Full ahead', 'Changing heading'], attack: ['Fire for effect', 'Engaging']};
+UNIT_DEFS.picket.voice = {select: ['Picket cruiser watching the skies', 'Radar sweeping'], move: ['Under way', 'Aye'], attack: ['Missiles away', 'Tracking']};
+UNIT_DEFS.sub.voice = {select: ['Running silent', 'Barracuda here'], move: ['Diving', 'Moving under'], attack: ['Torpedo in the water', 'Firing tubes']};
+UNIT_DEFS.flakboat.voice = {select: ['Hornet ready', 'Flak loaded'], move: ['Full throttle', 'Moving'], attack: ['Filling the sky', 'Open fire']};
 UNIT_DEFS.dog.voice = null;
 UNIT_DEFS.drone.voice = null;
 
 // enemy flavor names (same stats, soviet skin)
 const SOV_NAME = {rifle:'Trooper', rocket:'AT Trooper', ltank:'Bison Tank', htank:'Ironclad Tank', harv:'Ore Truck',
-                  radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant', depot:'Repair Bay'};
+                  radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant', depot:'Repair Bay', shipyard:'Sea Works'};
 
 function dispName(def, team){ return team === ENEMY && SOV_NAME[def.key] ? SOV_NAME[def.key] : def.name; }
 
@@ -473,10 +499,16 @@ const hasTurret = def => def.armor !== 'inf' && !def.harvester && !def.mcv && !d
 // foot soldiers, including the ones with jetpacks
 const isInf = def => def.armor === 'inf' || !!def.flyInf;
 // damage multiplier of a weapon against an armor class (0 = can't hurt it at all); only listed weapons reach aircraft
-const vsMult = (vs, armor) => vs && vs[armor] != null ? vs[armor] : armor === 'air' && vs ? 0 : 1;
+const vsMult = (vs, armor) => vs && vs[armor] != null ? vs[armor] : (armor === 'air' || armor === 'sub') && vs ? 0 : 1;
 // the weapon a unit uses on this particular target (the Striker blows up buildings with a charge)
 const weaponFor = (e, t) => t && t.kind === 'building' && e.def.demolish ? e.def.demolish : weaponOf(e);
-const canHurt = (e, t) => { const w = weaponFor(e, t); return !!(w && vsMult(w.vs, t.def.armor) > 0) && !(w.kind === 'mind' && !mindable(e, t)); };
+const canHurt = (e, t) => {
+  const w = weaponFor(e, t);
+  if(!w || vsMult(w.vs, t.def.armor) <= 0 || (w.kind === 'mind' && !mindable(e, t))) return false;
+  if(w.seaOnly && !t.def.naval && !t.def.onWater) return false;   // torpedoes need water
+  if(t.def.naval && w.range < 1.5 && !e.def.air) return false;     // nobody wades out to a ship
+  return true;
+};
 // latched drones are inside their victim: not on the map as far as anyone else is concerned
 const onMap = u => !u.dead && !u.latched && !u.inside;
 // sprite sheet prefix: units keep the look of the side that built them, captured buildings too
@@ -507,7 +539,8 @@ function canPlace(key, tx, ty, team){
   const def = BUILD_DEFS[key];
   for(let y = ty; y < ty + def.h; y++)
     for(let x = tx; x < tx + def.w; x++){
-      if(!inMap(x, y) || occ[idx(x, y)] !== 0 || ore[idx(x, y)] > 0) return false;
+      if(!inMap(x, y) || ore[idx(x, y)] > 0) return false;
+      if(def.onWater ? !sailable(x, y) : occ[idx(x, y)] !== 0) return false;   // a dockyard needs open water
       if(team === PLAYER && !explored[idx(x, y)]) return false;
     }
   for(const u of units){
@@ -543,13 +576,13 @@ function spawnUnit(key, px, py, team){
   return u;
 }
 
-function freeTileNear(tx, ty, maxR){
+function freeTileNear(tx, ty, maxR, pass = passable){
   for(let r = 0; r <= maxR; r++)
     for(let dy = -r; dy <= r; dy++)
       for(let dx = -r; dx <= r; dx++){
         if(Math.max(Math.abs(dx), Math.abs(dy)) !== r) continue;
         const x = tx + dx, y = ty + dy;
-        if(passable(x, y)) return {x, y};
+        if(pass(x, y)) return {x, y};
       }
   return null;
 }
@@ -558,10 +591,10 @@ function freeTileNear(tx, ty, maxR){
 const pfG = new Float32Array(MW * MH);
 const pfFrom = new Int32Array(MW * MH);
 const pfClosed = new Uint8Array(MW * MH);
-function findPath(sx, sy, txx, tyy){
+function findPath(sx, sy, txx, tyy, pass = passable){
   if(!inMap(sx, sy)) return null;
-  if(!passable(txx, tyy)){
-    const f = freeTileNear(txx, tyy, 6);
+  if(!pass(txx, tyy)){
+    const f = freeTileNear(txx, tyy, 6, pass);
     if(!f) return null;
     txx = f.x; tyy = f.y;
   }
@@ -589,8 +622,8 @@ function findPath(sx, sy, txx, tyy){
     const cxT = ci % MW, cyT = (ci / MW) | 0;
     for(const [dx, dy, c] of DIRS){
       const nx = cxT + dx, ny = cyT + dy;
-      if(!passable(nx, ny)) continue;
-      if(dx && dy && (!passable(cxT + dx, cyT) || !passable(cxT, cyT + dy))) continue;
+      if(!pass(nx, ny)) continue;
+      if(dx && dy && (!pass(cxT + dx, cyT) || !pass(cxT, cyT + dy))) continue;
       const ni = idx(nx, ny);
       if(pfClosed[ni]) continue;
       const g = pfG[ci] + c;
@@ -617,9 +650,10 @@ function orderMove(u, wx, wy){
     return;
   }
   const t = tileOf(u);
-  u.path = findPath(t.x, t.y, Math.floor(wx / T), Math.floor(wy / T));
+  const pass = u.def.naval ? sailable : passable;
+  u.path = findPath(t.x, t.y, Math.floor(wx / T), Math.floor(wy / T), pass);
   u.pathI = 0;
-  if(u.path && passable(Math.floor(wx / T), Math.floor(wy / T))) u.path.push({x: wx, y: wy});
+  if(u.path && pass(Math.floor(wx / T), Math.floor(wy / T))) u.path.push({x: wx, y: wy});
 }
 
 // ---------- damage / death ----------
@@ -677,7 +711,7 @@ function kill(e){
   if(e.kind === 'building'){
     for(let y = e.ty; y < e.ty + e.h; y++)
       for(let x = e.tx; x < e.tx + e.w; x++)
-        if(occ[idx(x, y)] === e.id){ occ[idx(x, y)] = 0; walk[idx(x, y)] = 0; }
+        if(occ[idx(x, y)] === e.id){ occ[idx(x, y)] = bareOcc(idx(x, y)); walk[idx(x, y)] = 0; }
     if(e.team === PLAYER) announce('Structure lost', true);
   }
 }
@@ -795,14 +829,14 @@ function deliverUnit(key, team){
   const srcs = buildings.filter(b => !b.dead && b.team === team && b.def.key === def.from && b.buildUp >= 1);
   const src = srcs.find(b => b.primary) || srcs[0];
   if(!src) return null;
-  const spot = freeTileNear(src.tx + Math.floor(src.w / 2), src.ty + src.h, 5);
+  const spot = def.naval ? freeTileNear(src.tx + 1, src.ty + 1, 5, sailable) : freeTileNear(src.tx + Math.floor(src.w / 2), src.ty + src.h, 5);
   if(!spot) return null;
   const u = spawnUnit(key, spot.x * T + T / 2, spot.y * T + T / 2, team);
   u.face = u.tface = Math.PI / 2;              // rolling out of the door
   if(src.def.key === 'factory') src.doorT = 0;
   u.order = {type: 'move'};
   if(src.rally) orderMove(u, src.rally.x, src.rally.y);
-  else orderMove(u, u.x + (Math.random() - .5) * 40, u.y + T * 1.5);
+  else if(!def.naval) orderMove(u, u.x + (Math.random() - .5) * 40, u.y + T * 1.5);
   return u;
 }
 
@@ -909,7 +943,7 @@ function followPath(u, dt){
   u.moving = true;
   u.walkPhase += dt * u.def.speed / 7;
   const nx = u.x + dx / d * sp, ny = u.y + dy / d * sp;
-  if(passable(Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
+  if(canMove(u, Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
   else {
     u.repathT -= dt;
     if(u.repathT <= 0){
@@ -1023,10 +1057,10 @@ function fireWeapon(e, target){
     projectiles.push({
       x: e.x, y: e.y, target, tx: target.x, ty: target.y,
       z0: e.z || 0, zt: target.z || 0, total: Math.max(1, dist(e, target)),
-      speed: w.kind === 'rocket' ? 210 : 380,
+      speed: w.kind === 'rocket' ? 210 : w.kind === 'torpedo' ? 160 : 380,
       dmg: w.dmg, vs: w.vs, kind: w.kind, team: e.team, src: e, life: 3,
     });
-    sfx(w.kind === 'shell' ? 'cannon' : w.kind === 'rocket' ? 'rocket' : 'shoot');
+    sfx(w.kind === 'shell' || w.kind === 'torpedo' ? 'cannon' : w.kind === 'rocket' ? 'rocket' : 'shoot');
   }
   effects.push({type:'muzzle', x: e.x, y: e.y, z: zSrc, a: Math.atan2(target.y - e.y, target.x - e.x), t: 0, dur: 0.07});
 }
@@ -1309,12 +1343,16 @@ function spyEnter(u, b){
 const capacity = t => t.def.transport || t.def.garrison || 0;
 const canGarrison = def => def.armor === 'inf' && !!def.weapon && def.weapon.kind !== 'bite';
 function canBoard(u, t){
-  if(!t || t.dead || t === u || u.def.armor !== 'inf' || !t.cargo || t.cargo.length >= capacity(t)) return false;
+  if(!t || t.dead || t === u || !t.cargo || t.cargo.length >= capacity(t)) return false;
+  if(t.def.carriesVehicles)   // landing craft: any ground unit that isn't carrying anyone itself
+    return t.team === u.team && !u.def.air && !u.def.naval && !(u.cargo && u.cargo.length);
+  if(u.def.armor !== 'inf') return false;
   if(t.kind === 'building') return (t.team === NEUTRAL || t.team === u.team) && canGarrison(u.def) && t.buildUp >= 1;
   return t.team === u.team && !!t.def.transport;
 }
 // a building's edge (or a unit's centre) is close enough to step in
 function atDoor(u, t){
+  if(t.def.naval) return dist(u, t) < T * 1.8;   // step aboard from the shore
   if(t.kind !== 'building') return dist(u, t) < T * 0.9;
   const ex = clamp(u.x, t.tx * T, (t.tx + t.w) * T), ey = clamp(u.y, t.ty * T, (t.ty + t.h) * T);
   return Math.hypot(u.x - ex, u.y - ey) < T * 0.8;
@@ -1341,11 +1379,15 @@ function unloadTransport(t, now){
     t.unloadLanded = true; t.order = {type:'idle'}; t.path = null;
     return [];
   }
-  const out = t.cargo.splice(0);
   const tt = tileOf(t);
+  if(t.def.naval && !freeTileNear(tt.x, tt.y, 2)){   // a landing craft needs a beach
+    if(t.team === PLAYER) announce('Move closer to the shore', false, 'Move closer to the shore');
+    return [];
+  }
+  const out = t.cargo.splice(0);
   out.forEach((u, i) => {
     const a = i / out.length * Math.PI * 2 + 0.6;
-    const spot = freeTileNear(Math.round(tt.x + Math.cos(a) * 1.2), Math.round(tt.y + Math.sin(a) * 1.2), 3) || tt;
+    const spot = freeTileNear(Math.round(tt.x + Math.cos(a) * 1.2), Math.round(tt.y + Math.sin(a) * 1.2), 3) || freeTileNear(tt.x, tt.y, 3) || tt;
     u.inside = null;
     u.x = spot.x * T + T / 2 + (Math.random() - 0.5) * 10; u.y = spot.y * T + T / 2 + (Math.random() - 0.5) * 10;
     u.order = {type:'idle'}; u.path = null;
@@ -1425,7 +1467,7 @@ function engineerEnter(u, b){
 function applySeparation(u, dt){
   if(u.def.jet) return;
   for(const v of units){
-    if(v === u || !onMap(v) || !!v.def.air !== !!u.def.air || v.def.jet) continue;
+    if(v === u || !onMap(v) || !!v.def.air !== !!u.def.air || !!v.def.naval !== !!u.def.naval || v.def.jet) continue;
     if(u.def.harvester && !v.def.harvester) continue;   // everyone makes way for the ore trucks
     const dx = u.x - v.x, dy = u.y - v.y;
     const d = Math.hypot(dx, dy);
@@ -1433,7 +1475,7 @@ function applySeparation(u, dt){
     if(d > 0.01 && d < min){
       const push = (min - d) * 2.4 * dt * 10;
       const nx = u.x + dx / d * push, ny = u.y + dy / d * push;
-      if(u.def.air || passable(Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
+      if(u.def.air || canMove(u, Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
     }
   }
   u.x = clamp(u.x, T/2, WPX - T/2);
@@ -1577,13 +1619,35 @@ const ai = {
   waveTimer: 80,
   waveSize: 3,
   prodQ: ['rifle','arctrooper','ltank','rifle','halftrack','drone','sapper','rocket','ltank','arctrooper','isotope','launcher','rifle','drone'],
-  prodI: 0, prodProgress: 0, prodKey: null, airT: 0,
+  prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0,
 };
 
 // an airship every few minutes once the AI has the tech, a couple at a time at most
 function airshipDue(){
   const ships = units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'airship').length;
   return state.time > 240 * diff.tech && state.time > ai.airT && ships < (diff === DIFFICULTY.hard ? 3 : 2);
+}
+
+// a couple of ships once the AI has had time to build up, only while it has a dockyard
+function navyDue(){
+  if(!buildings.some(b => !b.dead && b.team === ENEMY && b.def.key === 'shipyard')) return false;
+  const ships = units.filter(u => u.team === ENEMY && !u.dead && u.def.naval).length;
+  return state.time > 200 * diff.tech && state.time > ai.navT && ships < (diff === DIFFICULTY.hard ? 3 : diff === DIFFICULTY.easy ? 1 : 2);
+}
+
+// Ships can't join land waves: they go after the player's ships and dockyards when
+// there are any they can reach, and otherwise guard the coast at home.
+function aiNavy(){
+  for(const u of units){
+    if(!onMap(u) || u.team !== ENEMY || !u.def.naval || u.order.type !== 'idle') continue;
+    let best = null, bd = 60 * T;
+    for(const t of [...units, ...buildings]){
+      if(t.dead || t.team !== PLAYER || !(t.def.naval || t.def.onWater) || (t.kind === 'unit' && !onMap(t)) || !canHurt(u, t)) continue;
+      const d = dist(u, t);
+      if(d < bd){ bd = d; best = t; }
+    }
+    if(best) u.order = {type: 'attack', target: best};
+  }
 }
 
 function tickAI(dt){
@@ -1595,6 +1659,7 @@ function tickAI(dt){
     if(state.time > 150 * diff.tech && Math.random() < 0.3) ai.prodKey = 'ltank';
     if(state.time > 200 * diff.tech && Math.random() < 0.12 && units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'psion').length < 2) ai.prodKey = 'psion';
     if(airshipDue()){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
+    else if(navyDue()){ ai.prodKey = ai.navI++ % 2 ? 'flakboat' : 'sub'; ai.navT = state.time + 90; }
     ai.prodI++;
     ai.prodProgress = 0;
   } else {
@@ -1603,15 +1668,15 @@ function tickAI(dt){
     // airships have their own limit, and one that's due jumps a unit waiting for room in the army
     if(armyCount >= armyCap && ai.prodProgress === 0 && !UNIT_DEFS[ai.prodKey].air && airshipDue()){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
     const def = UNIT_DEFS[ai.prodKey];
-    if(armyCount < armyCap || def.air){
+    if(armyCount < armyCap || def.air || def.naval){
       const rate = dt / def.time;
       const cost = def.cost * rate;
       if(state.credits[ENEMY] >= cost){
         state.credits[ENEMY] -= cost;
         ai.prodProgress += rate;
         if(ai.prodProgress >= 1){
-          deliverUnit(ai.prodKey, ENEMY);
-          ai.prodKey = null;
+          // no dockyard or no room at the door: drop a ship, retry anything else
+          if(deliverUnit(ai.prodKey, ENEMY) || def.naval) ai.prodKey = null;
         }
       }
     }
@@ -1621,7 +1686,7 @@ function tickAI(dt){
   if(ai.waveTimer <= 0){
     // a halftrack sits out waves for a while so it can fill up first
     const filling = u => u.def.transport && u.cargo.length < u.def.transport && state.time - u.born < 40;
-    const army = units.filter(u => u.team === ENEMY && onMap(u) && !u.def.harvester && u.role !== 'attacker' &&
+    const army = units.filter(u => u.team === ENEMY && onMap(u) && !u.def.harvester && !u.def.naval && u.role !== 'attacker' &&
                                    u.order.type !== 'board' && !filling(u));
     if(army.length >= Math.min(ai.waveSize, 4)){
       army.sort((a, b) => (b.def.air ? 1 : 0) - (a.def.air ? 1 : 0));   // airships lead (they are slow to arrive)
@@ -1723,10 +1788,11 @@ function aiRepairs(dt){
   if(ai.repT > 0) return;
   ai.repT = 2;
   aiInfantry();
+  aiNavy();
   const depot = buildings.find(b => !b.dead && b.team === ENEMY && b.def.flat);
   if(!depot) return;
   for(const u of units){
-    if(!onMap(u) || u.team !== ENEMY || u.def.armor !== 'heavy' || u.def.air || u.def.harvester || u.role === 'attacker') continue;
+    if(!onMap(u) || u.team !== ENEMY || u.def.armor !== 'heavy' || u.def.air || u.def.naval || u.def.harvester || u.role === 'attacker') continue;
     if(u.order.type === 'idle' && u.hp < u.maxHp * 0.6 && !onFootprint(u, depot)){
       u.order = {type: 'move'};
       orderMove(u, depot.x + (Math.random() - 0.5) * T, depot.y + (Math.random() - 0.5) * T);
@@ -1864,10 +1930,11 @@ let activeTab = 'structure';
 const cameoEls = {};
 
 const TAB_ITEMS = {
-  structure: ['power','refinery','barracks','factory','radar','depot','airfield'],
+  structure: ['power','refinery','barracks','factory','radar','depot','airfield','shipyard'],
   defense:   ['pillbox','beamtower'],
   infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','sapper','isotope','psion','jetpack','blink','infiltrator','striker'],
-  vehicle:   ['ltank','ifv','halftrack','beamtank','veiltank','launcher','drone','htank','jet','heli','airship','harv','mcv'],
+  vehicle:   ['ltank','ifv','halftrack','beamtank','veiltank','launcher','drone','htank','jet','heli','airship',
+              'lander','frigate','picket','sub','flakboat','harv','mcv'],
 };
 
 function makeCameoIcon(key, isUnit){
@@ -2091,7 +2158,7 @@ function pickEntity(wx, wy){
   return null;
 }
 
-const PRODUCERS = new Set(['barracks', 'factory', 'airfield']);
+const PRODUCERS = new Set(['barracks', 'factory', 'airfield', 'shipyard']);
 
 // Right-click orders. Ctrl forces fire on anything / attack-moves on ground.
 function issueCommand(ev){
@@ -2288,7 +2355,7 @@ function sellBuilding(b){
   b.dead = true;
   for(let y = b.ty; y < b.ty + b.h; y++)
     for(let x = b.tx; x < b.tx + b.w; x++)
-      if(occ[idx(x, y)] === b.id){ occ[idx(x, y)] = 0; walk[idx(x, y)] = 0; }
+      if(occ[idx(x, y)] === b.id){ occ[idx(x, y)] = bareOcc(idx(x, y)); walk[idx(x, y)] = 0; }
   state.credits[b.team] += Math.floor(b.def.cost * 0.5 * b.hp / b.maxHp);
   const n = b.w * b.h >= 9 ? 3 : b.w * b.h >= 4 ? 2 : 1;
   for(let i = 0; i < n; i++){
@@ -2728,6 +2795,15 @@ function drawBuildingSprite(b){
     cylinder(ctr.x - 14, ctr.y - z + 2, 4.5, 24, '#5b626e');
     cx.strokeStyle = tc; cx.lineWidth = 2.5;
     cx.beginPath(); cx.moveTo(c.t.x, c.t.y - z); cx.lineTo(c.l.x, c.l.y - z); cx.stroke();
+  } else if(k === 'shipyard'){
+    // piers round a channel that opens to the east
+    isoBox(b.tx, b.ty, b.w, 1, 5 * up, '#8f8c84', '#a19e96');
+    isoBox(b.tx, b.ty + b.h - 1, b.w, 1, 5 * up, '#8f8c84', '#a19e96');
+    isoBox(b.tx, b.ty + 1, 1, 1, 5 * up, '#8f8c84', '#a19e96');
+    const g1 = toIso((b.tx + 1.2) * T, b.ty * T + 16), g2 = toIso((b.tx + 1.2) * T, (b.ty + b.h) * T - 16);
+    cx.strokeStyle = '#e9b83a'; cx.lineWidth = 3;
+    cx.beginPath(); cx.moveTo(g1.x, g1.y - 5); cx.lineTo(g1.x, g1.y - 34 * up); cx.lineTo(g2.x, g2.y - 34 * up); cx.lineTo(g2.x, g2.y - 5); cx.stroke();
+    cx.fillStyle = tc; const f = toIso(b.tx * T + 16, b.ty * T + 16); cx.fillRect(f.x - 4, f.y - 16 * up, 8, 6);
   } else if(k === 'depot'){
     isoBox(b.tx, b.ty, b.w, b.h, 3 * up, '#6d737c', '#5d636b');
     const pc = toIso(wxc, wyc);
@@ -2881,6 +2957,7 @@ function drawUnitSprite(u){
   const inf = Sprites.get(name);
   const body = Sprites.get(name + '_body');
   const ghost = u.def.stealth && !u.revealed;         // our own stealth units show faintly
+  if(u.def.naval && u.moving) drawWake(u, p);
   const tint = u.def.disguise && u.team === PLAYER ? ENEMY : u.team;   // an infiltrator wears the enemy's colours
   if(u.deployed && u.def.deployWeapon) drawSandbags(p);
   if(treeDisguised(u)){
@@ -2920,13 +2997,14 @@ function drawUnitSprite(u){
   if(u.flash > 0) cx.filter = 'brightness(1.9)';
   if(ghost) cx.globalAlpha = 0.45;
 
-  // shadow (aircraft get theirs from drawAirShadow)
-  if(!u.def.air){
+  // shadow (aircraft get theirs from drawAirShadow; ships sit in the water)
+  if(!u.def.air && !u.def.naval){
     cx.fillStyle = 'rgba(0,0,0,0.3)';
     cx.beginPath(); cx.ellipse(p.x, p.y + 1, u.def.r + 2, (u.def.r + 2) * 0.5, 0, 0, 7); cx.fill();
   }
 
-  if(u.def.air && !isInf(u.def)) drawAircraftFallback(u, p, tc);
+  if(u.def.naval) drawShipFallback(u, p, tc);
+  else if(u.def.air && !isInf(u.def)) drawAircraftFallback(u, p, tc);
   else if(isInf(u.def)){
     const d = isoDir(u.face);
     const uni = UNIFORM[k] || (k === 'rifle' ? (allied ? '#5d7244' : '#8a7a5a') : (allied ? '#4e6a8c' : '#6d5b4c'));
@@ -3038,6 +3116,46 @@ function drawUnitSprite(u){
   cx.restore();
 }
 
+// foam behind a moving ship
+function drawWake(u, p){
+  const d = isoDir(u.face);
+  cx.strokeStyle = 'rgba(235,245,255,0.45)'; cx.lineWidth = 2;
+  for(const s of [-1, 1]){
+    cx.beginPath();
+    cx.moveTo(p.x - d.x * u.def.r * 0.6, p.y - d.y * u.def.r * 0.6);
+    cx.lineTo(p.x - d.x * u.def.r * 1.8 - d.y * s * 9, p.y - d.y * u.def.r * 1.8 + d.x * s * 4.5);
+    cx.stroke();
+  }
+}
+
+// simple hull shapes for ships without a sprite sheet
+function drawShipFallback(u, p, tc){
+  const k = u.def.key, L = u.def.r * 1.3, W = u.def.r * 0.45;
+  const hull = k === 'sub' ? '#2e343a' : u.team === PLAYER ? '#7d8894' : '#80786a';
+  cx.save();
+  cx.translate(p.x, p.y);
+  cx.save();
+  cx.scale(1, 0.5);
+  cx.rotate(u.face + Math.PI / 4);
+  cx.fillStyle = shade(hull, 0.7);
+  cx.beginPath(); cx.moveTo(L + 6, 0); cx.lineTo(L - 6, -W); cx.lineTo(-L, -W); cx.lineTo(-L, W); cx.lineTo(L - 6, W); cx.closePath(); cx.fill();
+  cx.fillStyle = hull;
+  cx.beginPath(); cx.moveTo(L + 2, 0); cx.lineTo(L - 7, -W + 2); cx.lineTo(-L + 2, -W + 2); cx.lineTo(-L + 2, W - 2); cx.lineTo(L - 7, W - 2); cx.closePath(); cx.fill();
+  cx.fillStyle = tc; cx.fillRect(-L + 4, -2, 6, 4);
+  if(k === 'lander'){ cx.fillStyle = '#5a6068'; cx.fillRect(L - 8, -W + 2, 4, W * 2 - 4); }   // bow ramp
+  cx.restore();
+  // superstructure / conning tower, raised above the deck
+  if(k === 'sub'){ cx.fillStyle = '#23282d'; cx.fillRect(-3, -9, 6, 7); }
+  else if(k === 'lander'){ const d = isoDir(u.face); cx.fillStyle = shade(hull, 1.2); cx.fillRect(-d.x * L * 0.7 - 4, -d.y * L * 0.7 - 10, 8, 8); }
+  else {
+    cx.fillStyle = shade(hull, 1.15); cx.fillRect(-5, -10, 10, 8);
+    const d = isoDir(u.tface);
+    cx.strokeStyle = '#23272e'; cx.lineWidth = 2.5;
+    cx.beginPath(); cx.moveTo(0, -8); cx.lineTo(d.x * 14, -8 + d.y * 14); cx.stroke();
+  }
+  cx.restore();
+}
+
 // simple shapes for aircraft without a sprite sheet
 function drawAircraftFallback(u, p, tc){
   const k = u.def.key;
@@ -3128,7 +3246,9 @@ function cursorType(){
     if(t && t.team === ENEMY && su.some(u => canHurt(u, t))) return 'attack';
     if(t && t.team === PLAYER) return 'select';
     const tx = Math.floor(mouse.wx / T), ty = Math.floor(mouse.wy / T);
-    if(!inMap(tx, ty) || (!passable(tx, ty) && explored[idx(tx, ty)] && !su.every(u => u.def.air))) return 'nomove';
+    if(!inMap(tx, ty)) return 'nomove';
+    if(su.every(u => u.def.naval)){ if(!sailable(tx, ty) && explored[idx(tx, ty)]) return 'nomove'; }
+    else if(!passable(tx, ty) && explored[idx(tx, ty)] && !su.every(u => u.def.air)) return 'nomove';
     return 'move';
   }
   if(t && t.cargo && t.cargo.length && t.team === PLAYER && sel.includes(t)) return 'deploy';
@@ -3263,6 +3383,13 @@ function drawProjectile(p){
   const k = p.total ? clamp(1 - Math.hypot(p.tx - p.x, p.ty - p.y) / p.total, 0, 1) : 1;
   s.y -= 8 + (p.z0 || 0) * (1 - k) + (p.zt || 0) * k; t.y -= 6 + (p.zt || 0);
   const a = Math.atan2(t.y - s.y, t.x - s.x);
+  if(p.kind === 'torpedo'){   // a dark streak just under the surface, with a foam trail
+    const g = toIso(p.x, p.y), a2 = Math.atan2(t.y + 6 - g.y, t.x - g.x);
+    cx.strokeStyle = 'rgba(230,245,255,0.6)'; cx.lineWidth = 2;
+    cx.beginPath(); cx.moveTo(g.x, g.y); cx.lineTo(g.x - Math.cos(a2) * 14, g.y - Math.sin(a2) * 14); cx.stroke();
+    cx.fillStyle = '#20262c'; cx.beginPath(); cx.ellipse(g.x, g.y, 4, 2, a2, 0, 7); cx.fill();
+    return;
+  }
   if(p.kind === 'bullet'){
     cx.strokeStyle = '#ffe9a0'; cx.lineWidth = 1.5;
     cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(s.x - Math.cos(a) * 8, s.y - Math.sin(a) * 8); cx.stroke();
@@ -3610,7 +3737,7 @@ function drawGhost(){
   const ok = canPlace(state.placing, tx, ty, PLAYER);
   for(let y = ty; y < ty + def.h; y++)
     for(let x = tx; x < tx + def.w; x++){
-      const cellOk = inMap(x, y) && occ[idx(x, y)] === 0 && ore[idx(x, y)] <= 0;
+      const cellOk = inMap(x, y) && (def.onWater ? sailable(x, y) : occ[idx(x, y)] === 0) && ore[idx(x, y)] <= 0;
       cx.fillStyle = (ok && cellOk) ? 'rgba(80,255,80,0.4)' : 'rgba(255,60,60,0.45)';
       tilePath(cx, x, y); cx.fill();
       cx.strokeStyle = 'rgba(0,0,0,0.3)'; cx.lineWidth = 1; cx.stroke();
@@ -3753,7 +3880,7 @@ function setupScenery(){
   // lakes are impassable
   for(let y = 0; y < MH; y++)
     for(let x = 0; x < MW; x++)
-      if(lakeVal(x + 0.5, y + 0.5) > -0.04) occ[idx(x, y)] = BLOCKED;
+      if(lakeVal(x + 0.5, y + 0.5) > -0.04){ occ[idx(x, y)] = BLOCKED; water[idx(x, y)] = 1; }
   // tree clumps and rocks, kept clear of bases, ore fields and the map edge
   const keepClear = [[9, 51, 11], [53, 9, 11], [14, 47, 6], [49, 16, 6], [32, 32, 7], [50, 50, 5], [13, 13, 5],
                      [TOWN.x, TOWN.y, 8]];
@@ -3825,6 +3952,7 @@ function setupMap(){
   placeBuilding('arctower', 50, 14, ENEMY, true);
   placeBuilding('arctower', 54, 15, ENEMY, true);
   placeBuilding('depot', 57, 15, ENEMY, true);
+  placeBuilding('shipyard', 54, 0, ENEMY, true);
   const eh = spawnUnit('harv', 53 * T, 16 * T, ENEMY);
   eh.hState = 'seek';
   spawnUnit('rifle', 51 * T, 15 * T, ENEMY);
@@ -3977,14 +4105,15 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
-  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised,
+  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised, sailable, passable, unload: t => unloadTransport(t), reveal: (tx, ty, r) => revealAround(tx * T, ty * T, r),
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },
   select(list){ selection = list; },
   // make a patch of ground open (no trees, rocks or water) so a test arena is predictable
-  clear(tx, ty, w, h){
-    for(let y = ty; y < ty + h; y++) for(let x = tx; x < tx + w; x++) if(inMap(x, y) && occ[idx(x, y)] === BLOCKED) occ[idx(x, y)] = 0;
+  clear(tx, ty, w, h, keepWater){
+    for(let y = ty; y < ty + h; y++) for(let x = tx; x < tx + w; x++)
+      if(inMap(x, y) && occ[idx(x, y)] === BLOCKED && !(keepWater && water[idx(x, y)])){ occ[idx(x, y)] = 0; water[idx(x, y)] = 0; }
     for(let i = doodads.length - 1; i >= 0; i--){ const d = doodads[i]; if(d.tx >= tx && d.tx < tx + w && d.ty >= ty && d.ty < ty + h) doodads.splice(i, 1); }
   },
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
