@@ -2600,7 +2600,12 @@ function drawCursor(){
     const glyph = type === 'sell' ? '$' : '🔧';
     cx.fillStyle = ok ? '#ffd24a' : '#ff5b5b';
     cx.strokeText(glyph, x, y); cx.fillText(glyph, x, y);
-    if(!ok) stroke2('#ff4a3a', 2, () => { cx.moveTo(x - 10, y - 10); cx.lineTo(x + 10, y + 10); });
+    if(!ok){   // small "no" badge in the corner, so the glyph itself stays readable
+      const bx = x + 11, by = y + 10;
+      cx.fillStyle = 'rgba(0,0,0,0.55)'; cx.beginPath(); cx.arc(bx, by, 6.5, 0, Math.PI * 2); cx.fill();
+      stroke2('#ff4a3a', 1.8, () => { cx.arc(bx, by, 5, 0, Math.PI * 2); });
+      stroke2('#ff4a3a', 1.8, () => { cx.moveTo(bx - 3.5, by - 3.5); cx.lineTo(bx + 3.5, by + 3.5); });
+    }
   }
   cx.restore();
 }
