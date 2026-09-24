@@ -537,6 +537,64 @@ def leech_drone(f):
             body.box((fx, fy, 0), (0.02, 0.02, kz), C['dark'], bevel=0, shift=(kx - fx, ky - fy))
     return {'body': body}
 
+def ifv(f):
+    """Fast 4x4 infantry fighting vehicle with a twin missile pod turret."""
+    C = palette(f)
+    body, tur = Part('body'), Part('turret')
+    L, W = 0.98, 0.56
+    for x in (-0.3, 0.3):
+        for s in (-1, 1):
+            body.cyl((x, -0.31 if s < 0 else 0.22, 0.11), 0.11, 0.09, C['tread'], axis='Y', seg=16)
+            body.cyl((x, -0.315 if s < 0 else 0.31, 0.11), 0.055, 0.005, C['steel'], axis='Y', seg=10)
+    body.hull((0, 0, 0.09), L, W - 0.1, 0.2, C['hull'], nose=0.28, tail=0.06, top_w=0.82)
+    for s in (-1, 1):
+        body.box((0, s * 0.22, 0.2), (0.86, 0.1, 0.03), C['hull2'], bevel=0.01)      # fenders
+    body.box((-0.1, 0, 0.29), (0.42, 0.3, 0.018), C['team'], bevel=0.004)
+    body.box((-L / 2 + 0.005, 0, 0.12), (0.02, 0.22, 0.14), C['dark'], bevel=0)   # rear door
+    body.box((0.27, 0, 0.27), (0.07, 0.26, 0.012), C['glass'], bevel=0)             # vision block
+    tur.cyl((0.02, 0, 0.29), 0.13, 0.06, C['hull2'], seg=14)
+    tur.box((0.02, 0, 0.35), (0.16, 0.12, 0.08), C['team'], bevel=0.01)
+    for s in (-1, 1):
+        tur.box((0.04, s * 0.11, 0.33), (0.24, 0.08, 0.1), C['hull'], bevel=0.01)
+        for dy in (-0.02, 0.02):
+            tur.cyl((0.16, s * 0.11 + dy, 0.38), 0.016, 0.01, C['dark'], axis='X', seg=8)
+    tur.cyl((-0.08, 0.05, 0.43), 0.006, 0.18, C['dark'], seg=4)
+    return {'body': body, 'turret': tur}
+
+
+def halftrack(f):
+    """Half-track troop carrier: wheels up front, tracks behind, open troop bed
+    with a twin flak gun on a pedestal."""
+    C = palette(f)
+    body, tur = Part('body'), Part('turret')
+    W = 0.6
+    for s in (-1, 1):   # rear tracks
+        body.box((-0.2, s * 0.21, 0), (0.62, 0.16, 0.17), C['tread'], bevel=0.035)
+        for i in range(4):
+            body.cyl((-0.44 + i * 0.16, -0.3 if s < 0 else 0.28, 0.08), 0.06, 0.02, C['steel'], axis='Y', seg=10)
+    for s in (-1, 1):   # front wheels
+        body.cyl((0.4, -0.3 if s < 0 else 0.21, 0.1), 0.1, 0.09, C['tread'], axis='Y', seg=16)
+    body.box((0.0, 0, 0.1), (1.12, W - 0.14, 0.1), C['hull2'])
+    # engine bay and cab
+    body.box((0.44, 0, 0.18), (0.26, 0.4, 0.14), C['hull'], taper=(0.85, 0.9), shift=(-0.02, 0))
+    body.box((0.24, 0, 0.18), (0.16, W - 0.06, 0.22), C['hull'])
+    body.box((0.325, 0, 0.3), (0.012, W - 0.16, 0.08), C['glass'], bevel=0)
+    body.box((0.24, 0, 0.4), (0.12, W - 0.1, 0.018), C['team'], bevel=0.004)
+    # open troop bed: floor and side walls
+    body.box((-0.25, 0, 0.2), (0.78, W - 0.06, 0.03), C['dark'], bevel=0)
+    for s in (-1, 1):
+        body.box((-0.25, s * (W / 2 - 0.04), 0.2), (0.78, 0.035, 0.17), C['hull'], bevel=0.008)
+        body.box((-0.25, s * (W / 2 - 0.035), 0.3), (0.5, 0.04, 0.04), C['team'], bevel=0.004)
+    body.box((-0.63, 0, 0.2), (0.035, W - 0.06, 0.17), C['hull'], bevel=0.008)
+    # twin flak gun on the rear pedestal
+    tur.cyl((-0.3, 0, 0.23), 0.06, 0.14, C['steel'], seg=10)
+    tur.box((-0.3, 0, 0.35), (0.16, 0.16, 0.08), C['hull2'], bevel=0.01)
+    tur.box((-0.34, 0, 0.36), (0.03, 0.2, 0.12), C['steel'], bevel=0.005)          # gun shield
+    for dy in (-0.035, 0.035):
+        tur.cyl((-0.25, dy, 0.4), 0.018, 0.4, C['dark'], axis='X', seg=8)
+        tur.cyl((0.1, dy, 0.4), 0.026, 0.05, C['dark'], axis='X', seg=8)
+    return {'body': body, 'turret': tur}
+
 # ================================================================ infantry
 
 class Soldier:

@@ -70,6 +70,11 @@
    "mask": "assets/cameos/factory_soviet_mask.png",
    "scale": 2
   },
+  "halftrack_soviet": {
+   "img": "assets/cameos/halftrack_soviet.png",
+   "mask": "assets/cameos/halftrack_soviet_mask.png",
+   "scale": 2
+  },
   "harv_allied": {
    "img": "assets/cameos/harv_allied.png",
    "mask": "assets/cameos/harv_allied_mask.png",
@@ -88,6 +93,11 @@
   "htank_soviet": {
    "img": "assets/cameos/htank_soviet.png",
    "mask": "assets/cameos/htank_soviet_mask.png",
+   "scale": 2
+  },
+  "ifv_allied": {
+   "img": "assets/cameos/ifv_allied.png",
+   "mask": "assets/cameos/ifv_allied_mask.png",
    "scale": 2
   },
   "launcher_soviet": {
@@ -554,6 +564,34 @@
    "scale": 2,
    "seq": 5
   },
+  "halftrack_soviet_body": {
+   "ax": 136,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 248,
+   "img": "assets/sprites/halftrack_soviet_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/halftrack_soviet_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "halftrack_soviet_turret": {
+   "ax": 136,
+   "ay": 100,
+   "cols": 8,
+   "facings": 32,
+   "fh": 168,
+   "frames": 32,
+   "fw": 248,
+   "img": "assets/sprites/halftrack_soviet_turret.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/halftrack_soviet_turret_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
   "harv_allied_body": {
    "ax": 136,
    "ay": 100,
@@ -635,6 +673,34 @@
    "img": "assets/sprites/htank_soviet_turret.png",
    "kind": "vehicle",
    "mask": "assets/sprites/htank_soviet_turret_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "ifv_allied_body": {
+   "ax": 120,
+   "ay": 92,
+   "cols": 8,
+   "facings": 32,
+   "fh": 152,
+   "frames": 32,
+   "fw": 216,
+   "img": "assets/sprites/ifv_allied_body.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/ifv_allied_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "ifv_allied_turret": {
+   "ax": 120,
+   "ay": 92,
+   "cols": 8,
+   "facings": 32,
+   "fh": 152,
+   "frames": 32,
+   "fw": 216,
+   "img": "assets/sprites/ifv_allied_turret.png",
+   "kind": "vehicle",
+   "mask": "assets/sprites/ifv_allied_turret_mask.png",
    "scale": 2,
    "seq": 1
   },

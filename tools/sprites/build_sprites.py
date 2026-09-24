@@ -52,6 +52,8 @@ VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom, factions)
     'beamtank': (M.beam_tank, (104, 80, 58, 50), 1.8, ('allied',)),
     'launcher': (M.siege_launcher, (136, 92, 74, 56), 1.35, ('soviet',)),
     'drone':    (M.leech_drone, (72, 52, 40, 32), 3.0, ('soviet',)),
+    'ifv':      (M.ifv, (108, 76, 60, 46), 1.8, ('allied',)),
+    'halftrack': (M.halftrack, (124, 84, 68, 50), 1.5, ('soviet',)),
 }
 INFANTRY = {  # key: (kind, frame, cameo zoom, factions)
     'rifle':      ('rifle', (64, 48, 38, 38), 3.4, FACTIONS),

@@ -23,6 +23,7 @@ Right-click gives orders.
 | Force-fire, or attack-move on open ground | Ctrl + right-click |
 | Deploy the Construction Vehicle | `D`, or click the selected vehicle again |
 | Capture an enemy building, or fully repair your own | Right-click it with an Engineer selected |
+| Board a transport / unload it | Right-click the transport with infantry selected / `D`, or click the selected transport again |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
@@ -40,7 +41,7 @@ Each side has its own roster.
 | | Allied | Soviet |
 | --- | --- | --- |
 | Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour) |
-| Vehicles | Warden Tank, Lancer Tank (beam that arcs to nearby enemies), Paladin Tank, Ore Hauler, Construction Vehicle | Bison Tank, Siege Launcher (long-range missile artillery), Leech Drone (crawls into vehicles and eats them from within), Ironclad Tank, Ore Truck, Construction Vehicle |
+| Vehicles | Warden Tank, Ranger IFV (carries 1; its weapon changes with the passenger, and an Engineer inside repairs nearby vehicles), Lancer Tank (beam that arcs to nearby enemies), Paladin Tank, Ore Hauler, Construction Vehicle | Bison Tank, Bulwark Halftrack (carries 5, flak gun), Siege Launcher (long-range missile artillery), Leech Drone (crawls into vehicles and eats them from within), Ironclad Tank, Ore Truck, Construction Vehicle |
 
 ## Display
 

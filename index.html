@@ -202,6 +202,7 @@
       <li><b>Power:</b> Keep power positive or production slows and defenses shut down.</li>
       <li><b>Sidebar:</b> Click a picture to start building. Structures show <b>READY</b> — then click the map to place them (near your base).</li>
       <li><b>Army:</b> Barracks trains infantry, the Vehicle Factory builds tanks. Select with left-click / drag, command with right-click.</li>
+      <li><b>Transports:</b> Right-click a friendly IFV or Halftrack with infantry selected to board. Click the transport again (or press <b>D</b>) to unload.</li>
       <li><b>Engineers:</b> Right-click an enemy structure to capture it, or one of yours to repair it fully. The engineer is used up.</li>
       <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
     </ul>
@@ -343,12 +344,35 @@ const UNIT_DEFS = {
   launcher:{name:'Siege Launcher',cost:800,  hp:160, speed:56,  r:15, armor:'heavy',time:12, tab:'vehicle',  from:'factory', side:'soviet', prereq:['radar'],
             turret:false, scan:9,
             weapon:{dmg:220,rof:8.0,  range:14,  kind:'missile', splash:1.6, vs:{inf:1, heavy:0.8, building:1.5}}},
+  // transports: infantry board with a right-click, unload with D (or by clicking the transport again)
+  ifv    : {name:'Ranger IFV',    cost:600,  hp:220, speed:104, r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory', side:'allied',
+            transport:1, ifv:true,     // its weapon depends on who rides in it (IFV_WEAPONS)
+            weapon:{dmg:30, rof:1.4,  range:6,   kind:'rocket', vs:{inf:0.5, heavy:1.3, building:0.6}}},
+  halftrack:{name:'Bulwark Halftrack', cost:500, hp:200, speed:90, r:14, armor:'heavy',time:8, tab:'vehicle',  from:'factory', side:'soviet',
+            transport:5,
+            weapon:{dmg:20, rof:0.8,  range:5.5, kind:'flak', vs:{inf:1.3, heavy:0.5, building:0.4}}},
   drone  : {name:'Leech Drone',   cost:500,  hp:90,  speed:122, r:8,  armor:'heavy',time:5,  tab:'vehicle',  from:'factory', side:'soviet',
             turret:false, drain:45,   // damage per second once latched inside a vehicle
             weapon:{dmg:150,rof:1.0,  range:0.8, kind:'latch', vs:{inf:1, heavy:1, building:0}}},
 };
 for(const k in UNIT_DEFS) UNIT_DEFS[k].key = k;
 const available = (def, team) => !def.side || def.side === FACTION[team];
+
+// The IFV swaps its missile pod for its passenger's speciality. An engineer inside
+// turns it into a field repair vehicle (no weapon, fixes nearby vehicles).
+const IFV_WEAPONS = {
+  rifle:    {dmg:14,  rof:0.35, range:5.5, kind:'bullet', vs:{inf:1.6, heavy:0.35, building:0.4}},
+  rocket:   {dmg:48,  rof:1.6,  range:6.5, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.3}},
+  sniper:   {dmg:125, rof:2.5,  range:10,  kind:'snipe',  vs:{inf:1, heavy:0, building:0}},
+  engineer: null,
+};
+function weaponOf(e){
+  if(e.def.ifv && e.cargo && e.cargo.length){
+    const k = e.cargo[0].def.key;
+    if(k in IFV_WEAPONS) return IFV_WEAPONS[k];
+  }
+  return e.def.weapon || null;
+}
 // unit-specific voice lines (null: no speech, just a sound)
 UNIT_DEFS.engineer.voice = {select: ['Engineer reporting', 'Tools ready', 'Need something fixed?'],
                             move: ['On my way', 'Moving'], attack: ['I will take it over', 'Going in']};
@@ -380,9 +404,9 @@ const turnToward = (a, b, max) => { const d = angDiff(a, b); return a + (d > max
 const hasTurret = def => def.armor !== 'inf' && !def.harvester && !def.mcv && !def.engineer && def.turret !== false;
 // damage multiplier of a weapon against an armor class (0 = can't hurt it at all)
 const vsMult = (vs, armor) => vs && vs[armor] != null ? vs[armor] : 1;
-const canHurt = (e, t) => !!(e.def.weapon && vsMult(e.def.weapon.vs, t.def.armor) > 0);
+const canHurt = (e, t) => { const w = weaponOf(e); return !!(w && vsMult(w.vs, t.def.armor) > 0); };
 // latched drones are inside their victim: not on the map as far as anyone else is concerned
-const onMap = u => !u.dead && !u.latched;
+const onMap = u => !u.dead && !u.latched && !u.inside;
 // sprite sheet prefix: units keep the look of the side that built them, captured buildings too
 const uName = u => u.def.key + '_' + u.fac;
 function tileOf(e){ return {x: Math.floor(e.x / T), y: Math.floor(e.y / T)}; }
@@ -437,6 +461,7 @@ function spawnUnit(key, px, py, team){
     order: {type:'idle'}, path: null, pathI: 0, repathT: 0,
     dead: false, flash: 0, role: 'defend', fac: def.side || FACTION[team],
     carry: 0, hState: 'seek', hTimer: 0, oreTile: null,
+    cargo: def.transport ? [] : null, born: state.time,
   };
   units.push(u);
   if(team === PLAYER) revealAround(px, py, 6);
@@ -527,7 +552,7 @@ function applyDamage(target, dmg, vs, attacker){
   target.hp -= dmg * mult * (1 + vet * 0.25) * armor;
   target.flash = 0.12;
   if(target.team === PLAYER) underAttackAlert(target);
-  if(target.kind === 'unit' && target.def.weapon && target.order.type === 'idle' && attacker && onMap(attacker)
+  if(target.kind === 'unit' && weaponOf(target) && target.order.type === 'idle' && attacker && onMap(attacker)
      && attacker.team !== NEUTRAL && canHurt(target, attacker))
     target.order = {type:'attack', target: attacker, auto:true};
   if(target.hp <= 0){
@@ -548,6 +573,7 @@ function gainXp(u, victim){
 
 function kill(e){
   e.dead = true;
+  if(e.cargo) for(const p of e.cargo) p.dead = true;   // nobody gets out of a burning transport
   sfx('explosion');
   const dieSprite = e.kind === 'unit' ? uName(e) + '_die' : null;
   if(e.kind === 'unit' && e.def.armor === 'inf' && Sprites.has(dieSprite)){
@@ -807,7 +833,7 @@ function findEnemyInRange(e, rangeTiles){
 }
 
 function fireWeapon(e, target){
-  const w = e.def.weapon;
+  const w = weaponOf(e);
   e.cool = w.rof / (1 + (e.vet || 0) * 0.2);
   e.fireT = 0;
   if(e.kind === 'unit'){
@@ -872,7 +898,7 @@ function fireWeapon(e, target){
 }
 
 function combatStep(u, target, dt){
-  const w = u.def.weapon;
+  const w = weaponOf(u);
   const pad = target.kind === 'building' ? Math.max(target.w, target.h) * T * 0.4 : 0;
   const d = dist(u, target) - pad;
   if(d <= w.range * T){
@@ -900,13 +926,18 @@ function combatStep(u, target, dt){
 function updateUnit(u, dt){
   u.cool -= dt; u.scanT -= dt; u.flash -= dt;
   u.fireT += dt; u.moving = false;
+  if(u.inside){ u.x = u.inside.x; u.y = u.inside.y; return; }
   if(u.latched){ updateLatched(u, dt); return; }
+  if(u.order.type === 'board'){ updateBoarding(u, dt); applySeparation(u, dt); return; }
   if(u.def.harvester){ updateHarvester(u, dt); applySeparation(u, dt); return; }
   if(u.def.engineer){ updateEngineer(u, dt); applySeparation(u, dt); return; }
-  const o = u.order;
+  let o = u.order;
   // turrets drift back to the hull's heading when not engaging
   if(hasTurret(u.def) && o.type !== 'attack') u.tface = turnToward(u.tface, u.face, 3 * dt);
-  if(!u.def.weapon){
+  const w = weaponOf(u);
+  if(u.def.ifv && !w) ifvRepair(u, dt);
+  if(!w){
+    if(o.type === 'attack' || o.type === 'attackmove') u.order = o = {type: o.type === 'attackmove' ? 'move' : 'idle'};
     if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
   } else if(o.type === 'attack'){
     if(!o.target || !onMap(o.target) || o.target.team === u.team){
@@ -917,7 +948,7 @@ function updateUnit(u, dt){
   } else if(o.type === 'move' || o.type === 'attackmove'){
     if(o.type === 'attackmove' && u.scanT <= 0){
       u.scanT = 0.4;
-      const t = findEnemyInRange(u, u.def.weapon.range + 1.5);
+      const t = findEnemyInRange(u, w.range + 1.5);
       if(t){ u.order = {type:'attack', target: t, resume: {x: o.x, y: o.y}}; return; }
     }
     const done = followPath(u, dt);
@@ -925,7 +956,7 @@ function updateUnit(u, dt){
   } else {
     if(u.scanT <= 0){
       u.scanT = 0.45;
-      const t = findEnemyInRange(u, u.def.scan || u.def.weapon.range + 2.2);
+      const t = findEnemyInRange(u, u.def.scan || w.range + 2.2);
       if(t) u.order = {type:'attack', target: t, auto: true};
     }
   }
@@ -940,6 +971,57 @@ function updateLatched(u, dt){
   applyDamage(h, u.def.drain * dt, null, u);
   if(Math.random() < dt * 5)
     effects.push({type:'spark', x: h.x, y: h.y, vx:(Math.random()-.5)*90, vy:(Math.random()-.5)*90 - 30, t:0, dur:.35});
+}
+
+// ---------- transports ----------
+function canBoard(u, t){
+  return !!t && !t.dead && t.kind === 'unit' && t.def.transport && t.team === u.team && t !== u &&
+    u.def.armor === 'inf' && t.cargo.length < t.def.transport;
+}
+function updateBoarding(u, dt){
+  const t = u.order.target;
+  if(!canBoard(u, t)){ u.order = {type:'idle'}; u.path = null; return; }
+  if(dist(u, t) < T * 0.9){
+    u.inside = t; u.order = {type:'idle'}; u.path = null;
+    t.cargo.push(u);
+    if(u.team === PLAYER){ selection = selection.filter(s => s !== u); sfx('click'); }
+    return;
+  }
+  u.repathT -= dt;
+  if(!u.path || u.pathI >= u.path.length || u.repathT <= 0){ u.repathT = 0.6; orderMove(u, t.x, t.y); }
+  followPath(u, dt);
+}
+// everyone out, spread over the free tiles around the transport
+function unloadTransport(t){
+  if(!t.cargo || !t.cargo.length) return [];
+  const out = t.cargo.splice(0);
+  const tt = tileOf(t);
+  out.forEach((u, i) => {
+    const a = i / out.length * Math.PI * 2 + 0.6;
+    const spot = freeTileNear(Math.round(tt.x + Math.cos(a) * 1.2), Math.round(tt.y + Math.sin(a) * 1.2), 3) || tt;
+    u.inside = null;
+    u.x = spot.x * T + T / 2 + (Math.random() - 0.5) * 10; u.y = spot.y * T + T / 2 + (Math.random() - 0.5) * 10;
+    u.order = {type:'idle'}; u.path = null;
+  });
+  t.order = {type:'idle'}; t.path = null;
+  if(t.team === PLAYER) sfx('click');
+  return out;
+}
+// an IFV carrying an engineer patches up the nearest damaged friendly vehicle
+function ifvRepair(u, dt){
+  let best = null, bd = 4 * T;
+  for(const v of units){
+    if(!onMap(v) || v.team !== u.team || v === u || v.def.armor === 'inf' || v.hp >= v.maxHp) continue;
+    const d = dist(u, v);
+    if(d < bd){ bd = d; best = v; }
+  }
+  if(!best) return;
+  best.hp = Math.min(best.maxHp, best.hp + 18 * dt);
+  u.face = turnToward(u.face, Math.atan2(best.y - u.y, best.x - u.x), 3 * dt);
+  if(u.cool <= 0){
+    u.cool = 0.5;
+    effects.push({type:'beam', x1: u.x, y1: u.y, z1: 12, x2: best.x, y2: best.y, t: 0, dur: 0.25, thin: true, heal: true});
+  }
 }
 
 // ---------- engineers ----------
@@ -1073,7 +1155,7 @@ function splashDamage(x, y, r, dmg, vs, src, team){
 const ai = {
   waveTimer: 80,
   waveSize: 3,
-  prodQ: ['rifle','arctrooper','ltank','rifle','drone','rocket','ltank','arctrooper','launcher','drone'],
+  prodQ: ['rifle','arctrooper','ltank','rifle','halftrack','drone','rocket','ltank','arctrooper','launcher','rifle','drone'],
   prodI: 0, prodProgress: 0, prodKey: null,
 };
 
@@ -1106,7 +1188,10 @@ function tickAI(dt){
 
   ai.waveTimer -= dt;
   if(ai.waveTimer <= 0){
-    const army = units.filter(u => u.team === ENEMY && !u.dead && !u.def.harvester && u.role !== 'attacker');
+    // a halftrack sits out waves for a while so it can fill up first
+    const filling = u => u.def.transport && u.cargo.length < u.def.transport && state.time - u.born < 40;
+    const army = units.filter(u => u.team === ENEMY && onMap(u) && !u.def.harvester && u.role !== 'attacker' &&
+                                   u.order.type !== 'board' && !filling(u));
     if(army.length >= Math.min(ai.waveSize, 4)){
       const squad = army.slice(0, ai.waveSize + 2);
       const target = nearestPlayerTarget(squad[0]);
@@ -1116,6 +1201,15 @@ function tickAI(dt){
           const t = canHurt(u, target) ? target : nearestPlayerTarget(u);
           if(t) u.order = {type:'attack', target: t};
           else { u.order = {type:'attackmove', x: target.x, y: target.y}; orderMove(u, target.x, target.y); }
+        }
+        // the squad's infantry ride in its halftracks; the halftrack waits for them to climb in
+        for(const tr of squad.filter(u => u.def.transport)){
+          const room = tr.def.transport - tr.cargo.length;
+          const riders = squad.filter(u => u.order.type !== 'board' && canBoard(u, tr)).slice(0, room);
+          if(!riders.length) continue;
+          for(const u of riders){ u.order = {type:'board', target: tr}; u.repathT = 0; }
+          tr.order = {type:'idle'}; tr.path = null;
+          tr.holdT = state.time + 10; tr.goal = target;
         }
         announce('Warning: Soviet forces inbound!', true, 'Warning');
         sfx('alert');
@@ -1127,12 +1221,47 @@ function tickAI(dt){
     }
   }
 
+  aiTransports();
   for(const u of units){
-    if(u.dead || u.team !== ENEMY || u.role !== 'attacker') continue;
+    if(!onMap(u) || u.team !== ENEMY || u.role !== 'attacker' || u.holdT) continue;
     if(u.order.type === 'idle'){
       const t = nearestPlayerTarget(u);
       if(t) u.order = {type:'attack', target: t};
       else u.role = 'defend';
+    }
+  }
+}
+
+// Halftracks at home fill up with idle infantry; on the attack they drop them off
+// once they get close to their target.
+function aiTransports(){
+  for(const t of units){
+    if(!onMap(t) || t.team !== ENEMY || !t.def.transport) continue;
+    if(t.role !== 'attacker'){
+      let room = t.def.transport - t.cargo.length - units.filter(u => u.order.type === 'board' && u.order.target === t).length;
+      for(const u of units){
+        if(room <= 0) break;
+        if(!onMap(u) || u.team !== ENEMY || u.role === 'attacker' || u.order.type !== 'idle' || !canBoard(u, t) || dist(u, t) > 14 * T) continue;
+        u.order = {type:'board', target: t}; u.repathT = 0;
+        room--;
+      }
+    } else if(t.holdT){
+      const boarding = units.some(u => !u.dead && u.order.type === 'board' && u.order.target === t);
+      if(!boarding || state.time > t.holdT || t.cargo.length >= t.def.transport){
+        t.holdT = 0;
+        const g = t.goal && !t.goal.dead ? t.goal : nearestPlayerTarget(t);
+        if(g) t.order = {type:'attack', target: g};
+      }
+    } else if(t.cargo.length){
+      const goal = t.order.target || nearestPlayerTarget(t);
+      if(!goal || dist(t, goal) < 7 * T || t.hp < t.maxHp * 0.35){
+        for(const u of unloadTransport(t)){
+          u.role = 'attacker';
+          const tg = nearestPlayerTarget(u);
+          if(tg) u.order = {type:'attack', target: tg};
+        }
+        if(goal && canHurt(t, goal)) t.order = {type:'attack', target: goal};
+      }
     }
   }
 }
@@ -1266,7 +1395,7 @@ const TAB_ITEMS = {
   structure: ['power','refinery','barracks','factory','radar'],
   defense:   ['pillbox','beamtower'],
   infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper'],
-  vehicle:   ['ltank','beamtank','launcher','drone','htank','harv','mcv'],
+  vehicle:   ['ltank','ifv','halftrack','beamtank','launcher','drone','htank','harv','mcv'],
 };
 
 function makeCameoIcon(key, isUnit){
@@ -1455,6 +1584,8 @@ window.addEventListener('mouseup', e => {
     const e2 = pickEntity(mouse.wx, mouse.wy);
     if(e2 && e2.def.mcv && e2.team === PLAYER && selection.length === 1 && selection[0] === e2){
       deployMcv(e2);
+    } else if(e2 && e2.def.transport && e2.team === PLAYER && selection.length === 1 && selection[0] === e2 && e2.cargo.length){
+      unloadTransport(e2);
     } else if(e2 && e2.team === PLAYER){
       if(!selection.includes(e2)) ack('select', e2);
       if(e.shiftKey){ if(!selection.includes(e2)) selection.push(e2); }
@@ -1499,6 +1630,19 @@ function issueCommand(ev){
   }
   const target = pickEntity(mouse.wx, mouse.wy);
   if(target && target.def.mcv && selUnits.length === 1 && selUnits[0] === target){ deployMcv(target); return; }
+  // infantry climb into a friendly transport
+  if(target && target.def.transport && target.team === PLAYER && !selUnits.includes(target)){
+    const riders = selUnits.filter(u => canBoard(u, target)).slice(0, target.def.transport - target.cargo.length);
+    if(riders.length){
+      for(const u of riders){ u.order = {type:'board', target}; u.path = null; u.repathT = 0; }
+      effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4});
+      sfx('click');
+      ack('move', riders[0]);
+      selUnits = selUnits.filter(u => !riders.includes(u));
+      if(!selUnits.length) return;
+    }
+  }
+  if(target && target.def.transport && selUnits.length === 1 && selUnits[0] === target && target.cargo.length){ unloadTransport(target); return; }
   // engineers walk into a building: capture it if it's the enemy's, fix it if it's ours
   const eng = selUnits.filter(u => u.def.engineer);
   if(eng.length && engineerCan(target, PLAYER) && !force){
@@ -1534,7 +1678,7 @@ function issueCommand(ev){
       if(inMap(tx, ty) && ore[idx(tx, ty)] > 0){ u.hState = 'seek'; u.oreTile = {x: tx, y: ty}; u.order = {type:'idle'}; orderMove(u, tx*T+T/2, ty*T+T/2); }
       else { u.order = {type:'move'}; orderMove(u, wx, wy); }
     } else {
-      u.order = force && u.def.weapon ? {type:'attackmove', x: wx, y: wy} : {type:'move'};
+      u.order = force && weaponOf(u) ? {type:'attackmove', x: wx, y: wy} : {type:'move'};
       orderMove(u, wx, wy);
     }
   });
@@ -1668,6 +1812,7 @@ window.addEventListener('keydown', e => {
   if(e.key.toLowerCase() === 'd'){
     const m = selection.find(u => !u.dead && u.kind === 'unit' && u.def.mcv);
     if(m) deployMcv(m);
+    for(const t of selection) if(!t.dead && t.kind === 'unit' && t.def.transport) unloadTransport(t);
   }
   if(e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey){
     for(const u of selection) if(u.kind === 'unit'){ u.order = {type:'idle'}; u.path = null; }
@@ -1675,7 +1820,7 @@ window.addEventListener('keydown', e => {
   const d = parseInt(e.key);
   if(d >= 1 && d <= 9){
     if(e.ctrlKey || e.metaKey){ groups[d] = selection.slice(); e.preventDefault(); }
-    else if(groups[d]){ selection = groups[d].filter(u => !u.dead); }
+    else if(groups[d]){ selection = groups[d].filter(u => !u.dead && !u.inside && !u.latched); }
   }
 });
 window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
@@ -2345,6 +2490,8 @@ function cursorType(){
   const t = pickEntity(mouse.wx, mouse.wy);
   if(su.length){
     if(t && t.def.mcv && su.length === 1 && su[0] === t) return canDeploy(t) ? 'deploy' : 'nodeploy';
+    if(t && t.def.transport && su.length === 1 && su[0] === t) return t.cargo.length ? 'deploy' : 'select';
+    if(t && t.def.transport && su.some(u => canBoard(u, t))) return 'enter';
     if(su.some(u => u.def.engineer) && engineerCan(t, PLAYER) && !keys['control'] && !keys['meta'])
       return t.team === PLAYER ? 'fix' : 'capture';
     if(t && t.team === ENEMY && su.some(u => canHurt(u, t))) return 'attack';
@@ -2411,9 +2558,9 @@ function drawCursor(){
   } else if(type === 'nomove' || type === 'nodeploy'){
     stroke2('#ff4a3a', 2.2, () => { cx.arc(x, y, 9, 0, Math.PI * 2); });
     stroke2('#ff4a3a', 2.2, () => { cx.moveTo(x - 6, y - 6); cx.lineTo(x + 6, y + 6); });
-  } else if(type === 'capture' || type === 'fix'){
-    // engineer: a building outline with an arrow walking into it
-    const col = type === 'capture' ? '#ffd24a' : '#55f06a';
+  } else if(type === 'capture' || type === 'fix' || type === 'enter'){
+    // engineer / passenger: an outline with an arrow walking into it
+    const col = type === 'capture' ? '#ffd24a' : type === 'enter' ? '#6ec8ff' : '#55f06a';
     stroke2(col, 2, () => {
       cx.moveTo(x - 10, y + 8); cx.lineTo(x - 10, y - 4); cx.lineTo(x, y - 11); cx.lineTo(x + 10, y - 4); cx.lineTo(x + 10, y + 8); cx.closePath();
     });
@@ -2472,6 +2619,9 @@ function drawProjectile(p){
   if(p.kind === 'bullet'){
     cx.strokeStyle = '#ffe9a0'; cx.lineWidth = 1.5;
     cx.beginPath(); cx.moveTo(s.x, s.y); cx.lineTo(s.x - Math.cos(a) * 8, s.y - Math.sin(a) * 8); cx.stroke();
+  } else if(p.kind === 'flak'){
+    cx.fillStyle = '#ffe08a';
+    cx.fillRect(s.x - 1.5, s.y - 1.5, 3, 3);
   } else if(p.kind === 'shell'){
     cx.fillStyle = '#ffcf5a';
     cx.beginPath(); cx.arc(s.x, s.y, 2.5, 0, 7); cx.fill();
@@ -2549,7 +2699,7 @@ function drawEffect(e){
     cx.beginPath(); cx.moveTo(p1.x, p1.y - 10); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
   } else if(e.type === 'beam'){
     const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
-    cx.strokeStyle = `rgba(150,230,255,${1 - f})`; cx.lineWidth = (4 * (1 - f) + 1) * (e.thin ? 0.5 : 1);
+    cx.strokeStyle = e.heal ? `rgba(120,255,140,${1 - f})` : `rgba(150,230,255,${1 - f})`; cx.lineWidth = (4 * (1 - f) + 1) * (e.thin ? 0.5 : 1);
     cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
     cx.strokeStyle = `rgba(255,255,255,${1 - f})`; cx.lineWidth = 1.5;
     cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
@@ -2722,6 +2872,13 @@ function draw(){
     } else {
       if(sel) drawBrackets(box.x0 - 3, box.y0 - 3, box.x1 - box.x0 + 6, box.y1 - box.y0 + 6);
       drawHealthBar((box.x0 + box.x1) / 2, box.y0 - 9, e.def.armor === 'inf' ? 16 : 28, frac);
+      if(e.cargo && sel){
+        const n = e.def.transport, x0 = (box.x0 + box.x1) / 2 - n * 3;
+        for(let i = 0; i < n; i++){
+          cx.fillStyle = 'rgba(6,8,12,0.85)'; cx.fillRect(x0 + i * 6 - 0.5, box.y0 - 3.5, 5, 5);
+          cx.fillStyle = i < e.cargo.length ? '#6ec8ff' : '#2a3140'; cx.fillRect(x0 + i * 6, box.y0 - 3, 4, 4);
+        }
+      }
       if(e.vet) drawChevrons(box.x1 + 2, box.y0 - 10, e.vet);
     }
   }
@@ -2973,7 +3130,7 @@ function setupMap(){
   placeBuilding('refinery', 55, 11, ENEMY, true);
   placeBuilding('barracks', 52, 12, ENEMY, true);
   placeBuilding('factory', 55, 6, ENEMY, true);
-  placeBuilding('radar', 58, 9, ENEMY, true);
+  placeBuilding('radar', 58, 12, ENEMY, true);     // keeps the factory yard open to the east
   placeBuilding('arctower', 50, 14, ENEMY, true);
   placeBuilding('arctower', 54, 15, ENEMY, true);
   const eh = spawnUnit('harv', 53 * T, 16 * T, ENEMY);
@@ -3040,7 +3197,7 @@ function tick(dt){
     for(let i = projectiles.length - 1; i >= 0; i--) if(projectiles[i].dead) projectiles.splice(i, 1);
     for(let i = units.length - 1; i >= 0; i--) if(units[i].dead) units.splice(i, 1);
     for(let i = buildings.length - 1; i >= 0; i--) if(buildings[i].dead) buildings.splice(i, 1);
-    selection = selection.filter(s => !s.dead && !s.latched);
+    selection = selection.filter(s => !s.dead && !s.latched && !s.inside);
 
     fogT -= dt;
     if(fogT <= 0){
