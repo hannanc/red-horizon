@@ -597,7 +597,7 @@ export function initUI(){
   window.addEventListener('keyup', e => { keys[e.key.toLowerCase()] = false; });
   cv.addEventListener('wheel', e => {
     e.preventDefault();
-    wheelAcc += e.deltaY;
+    wheelAcc += e.deltaY * (e.deltaMode === 1 ? 33 : e.deltaMode === 2 ? 400 : 1);   // Firefox counts a mouse notch in lines
     if(Math.abs(wheelAcc) < 40) return;            // trackpads send many tiny deltas
     updateMouseWorld(e);
     stepZoom(wheelAcc < 0 ? 1 : -1, mouse.x, mouse.y);

@@ -12,7 +12,7 @@ export function audio(){
     AC = new (window.AudioContext || window.webkitAudioContext)();
     bus = makeBus(AC);
   }
-  if(AC.state === 'suspended') AC.resume();
+  if(AC.state === 'suspended') AC.resume().catch(() => {});   // Safari rejects it outside a user gesture
   return AC;
 }
 function makeBus(ac){
