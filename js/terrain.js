@@ -16,7 +16,10 @@ const TerrainGen = (() => {
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   }
+  // map seed: shifts every noise field; seed 1 is the classic map
+  let SX = 0, SY = 0;
   function vnoise(x, y){
+    x += SX; y += SY;
     const xi = Math.floor(x), yi = Math.floor(y);
     const xf = x - xi, yf = y - yi;
     const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
@@ -25,9 +28,11 @@ const TerrainGen = (() => {
   }
   function fbm(x, y){ return vnoise(x, y) * 0.55 + vnoise(x * 2.1, y * 2.1) * 0.3 + vnoise(x * 4.3, y * 4.3) * 0.15; }
 
+  let F = null;   // painter fields, rebuilt when the seed changes
+
   // ---------- map features ----------
   // roads: 'x' roads run along game x at centre line y = c, 'y' roads along game y
-  const ROADS = [{axis: 'x', c: 40, from: 3, to: 44}, {axis: 'y', c: 23, from: 20, to: 61}];
+  const ROADS = [{axis: 'x', c: 40, from: 8, to: 44}, {axis: 'y', c: 23, from: 20, to: 61}];
   const TOWN = {x: 23, y: 40};
   function roadHits(u, v){
     const hits = [];
@@ -48,21 +53,51 @@ const TerrainGen = (() => {
   }
 
   // lakes: > 0 is water, a thin band below 0 is the sandy shore
-  const LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}];
+  let LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}];
+  // lake sites that keep clear of the bases, the town, the roads and the ore
+  const LAKE_SITES = [[24, 12], [40, 52], [31, 22], [16, 28], [46, 45], [36, 14]];
+  function setSeed(seed){
+    seed = Math.max(1, Math.floor(seed) || 1);
+    if(seed === 1){ SX = SY = 0; LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}]; }
+    else {
+      SX = (seed * 7919) % 10007; SY = (seed * 104729) % 10009;
+      const sites = LAKE_SITES.slice().sort((a, b) => hash2(seed, a[0] * 64 + a[1]) - hash2(seed, b[0] * 64 + b[1]));
+      LAKES = sites.slice(0, 2 + (seed % 2)).map(([x, y], i) => ({x, y, r: 3.4 + hash2(seed, i) * 1.4}));
+    }
+    F = null;   // repaint the low-frequency fields
+  }
+  // the sea: a band SEA tiles wide (give or take) along the west (u = 0) and north (v = 0) edges,
+  // joined at the top corner, so both bases have a coast
+  const SEA = 4.5;
+  function seaVal(u, v){ return (SEA - Math.min(u, v)) / 2 + (vnoise(u * 0.35 + 13, v * 0.35 + 17) - 0.5) * 0.8; }
   function lakeVal(u, v){
     let m = -9;
     for(const l of LAKES) m = Math.max(m, 1 - Math.hypot(u - l.x, v - l.y) / l.r);
-    return m + (vnoise(u * 0.45 + 7, v * 0.45 + 3) - 0.5) * 0.45;
+    return Math.max(m + (vnoise(u * 0.45 + 7, v * 0.45 + 3) - 0.5) * 0.45, seaVal(u, v));
   }
+
+  // plateau: a raised table of land with cliff sides, climbed by two ramps.
+  // platVal > 0 is the top; elevation() is 0 on the ground, 1 on top, in between on ramps and cliff faces.
+  const PLATEAU = {x: 44, y: 29, r: 5.5, ramps: [Math.PI, Math.PI / 2]};   // ramps face west and south
+  const CLIFF_H = 26;                        // iso px from the ground to the top
+  function platVal(u, v){ return 1 - Math.hypot(u - PLATEAU.x, v - PLATEAU.y) / PLATEAU.r + (vnoise(u * 0.5 + 31, v * 0.5 + 47) - 0.5) * 0.25; }
+  function onRamp(u, v){
+    const a = Math.atan2(v - PLATEAU.y, u - PLATEAU.x);
+    return PLATEAU.ramps.some(r => Math.abs(Math.atan2(Math.sin(a - r), Math.cos(a - r))) < 0.3);
+  }
+  function elevation(u, v, p = platVal(u, v)){
+    const [lo, hi] = onRamp(u, v) ? [-0.35, 0.15] : [-0.03, 0.03];   // a long ramp, or a sheer face
+    return Math.min(1, Math.max(0, (p - lo) / (hi - lo)));
+  }
+  const nearPlateau = (u, v) => Math.abs(u - PLATEAU.x) < PLATEAU.r + 3 && Math.abs(v - PLATEAU.y) < PLATEAU.r + 3;
 
   // ---------- painter ----------
   // Low-frequency fields (dirt, tone, relief, lakes) on a 1/4-tile grid.
   const FR = 4, GW = MW * FR + 2, GH = MH * FR + 2;
-  let F = null;
   function fields(){
     if(F) return F;
     F = {dirt: new Float32Array(GW * GH), tone: new Float32Array(GW * GH),
-         rel: new Float32Array(GW * GH), lake: new Float32Array(GW * GH)};
+         rel: new Float32Array(GW * GH), lake: new Float32Array(GW * GH), plat: new Float32Array(GW * GH)};
     for(let j = 0; j < GH; j++)
       for(let i = 0; i < GW; i++){
         const u = i / FR, v = j / FR, k = j * GW + i;
@@ -73,6 +108,7 @@ const TerrainGen = (() => {
         // relief lit from the east (+u), matching the sprites' key light
         F.rel[k] = (vnoise((u + 0.35) * 0.4, v * 0.4) - vnoise(u * 0.4, (v + 0.35) * 0.4)) * 1.3;
         F.lake[k] = lakeVal(u, v);
+        F.plat[k] = platVal(u, v);
       }
     return F;
   }
@@ -93,7 +129,22 @@ const TerrainGen = (() => {
         d[o + 3] = 255;
         const ix = ix0 + (px + 0.5) / scale, iy = iy0 + (py + 0.5) / scale;
         const a = ix - WPX;
-        const u = (iy + a * 0.5) / T, v = (iy - a * 0.5) / T;
+        let u = (iy + a * 0.5) / T, v = (iy - a * 0.5) / T;
+        // near the plateau, march down the screen column to find the raised surface this pixel shows
+        let face = 0, lift = 0, pTop = -9;
+        if(nearPlateau(u, v) || nearPlateau(u + CLIFF_H / T, v + CLIFF_H / T)){
+          for(let dy = CLIFF_H; dy >= 0; dy -= 1.5){
+            const uu = (iy + dy + a * 0.5) / T, vv = (iy + dy - a * 0.5) / T;
+            const p = sample(f.plat, Math.min(MW - 0.01, Math.max(0, uu)), Math.min(MH - 0.01, Math.max(0, vv)));
+            const e = elevation(uu, vv, p);
+            if(e * CLIFF_H >= dy - 0.01 && e > 0){
+              u = uu; v = vv; lift = e; pTop = p;
+              // a steep bit that isn't a ramp is rock
+              if(e < 0.97 && !onRamp(uu, vv)) face = 1 + (Math.cos(Math.atan2(vv - PLATEAU.y, uu - PLATEAU.x)) + 1) * 0.3;
+              break;
+            }
+          }
+        }
         if(u < 0 || v < 0 || u >= MW || v >= MH){ d[o] = 4; d[o + 1] = 7; d[o + 2] = 13; continue; }
         const tone = sample(f.tone, u, v), dirt = sample(f.dirt, u, v);
         const grain = hash2(Math.floor(ix0 * scale) + px, Math.floor(iy0 * scale) + py);
@@ -146,9 +197,24 @@ const TerrainGen = (() => {
             }
           }
         }
+        if(face){   // cliff face: layered dark rock, lit from the east, darker towards the foot
+          const band = 0.8 + vnoise(ix * 0.12, iy * 0.7) * 0.35 + grain * 0.1;
+          const foot = 0.7 + lift * 0.3;
+          r = 92 * band * foot; gg = 82 * band * foot; b = 70 * band * foot; shade = face * 0.9;
+        } else if(lift > 0.97){
+          // the top: drier grass, a pale rim along the edge
+          r = lerp(r, 150, 0.22); gg = lerp(gg, 138, 0.22); b = lerp(b, 92, 0.22);
+          shade *= pTop < 0.06 && !onRamp(u, v) ? 1.25 : 1.05;
+        } else if(nearPlateau(u, v)){
+          // shadow pooled at the foot of the cliffs
+          const p0 = sample(f.plat, u, v);
+          if(p0 > -0.25 && p0 < 0 && !onRamp(u, v)) shade *= 0.72 + (-p0 / 0.25) * 0.28;
+        }
         d[o] = r * shade; d[o + 1] = gg * shade; d[o + 2] = b * shade;
       }
   }
 
-  return {T, MW, MH, hash2, vnoise, fbm, ROADS, TOWN, roadHits, nearRoad, LAKES, lakeVal, paint};
+  return {T, MW, MH, hash2, vnoise, fbm, ROADS, TOWN, roadHits, nearRoad, SEA, seaVal, lakeVal, paint, setSeed,
+          PLATEAU, CLIFF_H, platVal, onRamp, elevation,
+          get LAKES(){ return LAKES; }};
 })();

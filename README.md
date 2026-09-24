@@ -10,9 +10,12 @@ pre-rendered 3D sprites.
 python3 tools/serve.py 8347
 ```
 
-Then open http://localhost:8347. Pick Easy, Normal or Hard on the start screen;
-the level sets the Soviet AI's starting credits, income, army size and how
-often and how hard it attacks.
+Then open http://localhost:8347. The start screen sets up the skirmish:
+
+- **Side:** play the Allies or the Soviets; the AI takes the other side.
+- **Credits:** 5,000, 8,000 or 12,000 to start with (the AI's start scales with it).
+- **Map seed:** any number gives its own lakes, coastline and woods; 1 (Classic) is the original map.
+- **Difficulty:** Easy, Normal or Hard sets the AI's income, army size and how often and how hard it attacks.
 
 ## Controls
 
@@ -25,7 +28,16 @@ Right-click gives orders.
 | Force-fire, or attack-move on open ground | Ctrl + right-click |
 | Deploy the Construction Vehicle | `D`, or click the selected vehicle again |
 | Capture an enemy building, or fully repair your own | Right-click it with an Engineer selected |
-| Board a transport / unload it | Right-click the transport with infantry selected / `D`, or click the selected transport again |
+| Board a transport / unload it | Right-click the transport with infantry selected / `D`, or click the selected transport again (a helicopter lands first) |
+| Bomb run with a Talon Jet | Right-click a ground target; the jet drops its bombs, flies back to a free Airfield pad and rearms |
+| Send jets home | Right-click an Airfield |
+| Garrison a town building | Right-click it with armed infantry selected (up to 5). Empty it with `D`, or by clicking or right-clicking the selected building |
+| Dig in behind sandbags (Riflemen / Troopers) | `D` with them selected: more range, half damage taken, they hold position. `D` or a move order climbs out |
+| Sabotage with an Infiltrator | Right-click an enemy building: a Refinery loses half its credits to you, a Power Plant blacks out their power for 45 s, a Radar reveals the map |
+| Blow up a building with the Striker | Right-click it (the Striker only shoots infantry on its own) |
+| Switch on an Isotope Trooper's radiation field | `D` |
+| Load a Landing Craft | Bring it to the shore and right-click it with infantry or vehicles selected; unload with `D` (it must be next to a beach) |
+| Repair vehicles | Right-click your Service Depot with vehicles selected; they park on it and are fixed for credits (a latched Leech Drone is removed) |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
@@ -36,14 +48,27 @@ Right-click gives orders.
 
 The minimap only works while you have a powered Radar.
 
+The map has a sea along its west and north edges, so both bases have a coast.
+Ships only move on water. East of the centre stands a plateau: its cliffs can only
+be climbed by two ramps, nothing can be built on it, and units up there shoot one
+tile further at targets below. East of the centre stands a plateau: its cliffs can only
+be climbed by two ramps, nothing can be built on it, and units up there shoot one
+tile further at targets below.
+
+Aircraft fly straight over water, trees and buildings. Only rockets (Rocket
+Soldiers, AT Troopers, the Ranger IFV) and the halftrack's flak can hit them.
+
 ## Units
 
 Each side has its own roster.
 
 | | Allied | Soviet |
 | --- | --- | --- |
-| Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour) |
-| Vehicles | Warden Tank, Ranger IFV (carries 1; its weapon changes with the passenger, and an Engineer inside repairs nearby vehicles), Lancer Tank (beam that arcs to nearby enemies), Paladin Tank, Ore Hauler, Construction Vehicle | Bison Tank, Bulwark Halftrack (carries 5, flak gun), Siege Launcher (long-range missile artillery), Leech Drone (crawls into vehicles and eats them from within), Ironclad Tank, Ore Truck, Construction Vehicle |
+| Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry), Skytrooper (jetpack; hovers over obstacles, needs an Airfield), Striker (elite commando, one at a time: kills infantry in one shot, demolishes buildings), Infiltrator (the enemy ignores it; sabotages buildings), Blink Trooper (teleports instead of walking) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour), Sapper (timed charges on buildings and vehicles), Psion (takes over one enemy unit until it dies), Isotope Trooper (shots leave radiation; deploys to irradiate the area) |
+| Vehicles | Warden Tank, Ranger IFV (carries 1; its weapon changes with the passenger, and an Engineer inside repairs nearby vehicles), Lancer Tank (beam that arcs to nearby enemies), Veil Tank (stealth missile tank: looks like a tree while parked, and the enemy doesn't pick it as a target until it fires), Paladin Tank, Ore Hauler (jumps back to the refinery with a full load), Construction Vehicle | Bison Tank, Bulwark Halftrack (carries 5, flak gun), Siege Launcher (long-range missile artillery), Leech Drone (crawls into vehicles and eats them from within), Ironclad Tank, Ore Truck (machine gun), Construction Vehicle |
+| Aircraft | Talon Jet (one bomb run, then rearms on an Airfield pad; two jets per Airfield), Shade Transport (helicopter for 5 infantry; the enemy can't see it in flight unless something is close) | Tempest Airship (very slow and tough, bombs what's below it, repairs itself) |
+| Ships | Landing Craft (carries 5 infantry or vehicles), Frigate (shells ships and the shore; the only thing that can hurt a sub), Picket Cruiser (anti-air) | Landing Craft, Barracuda Sub (torpedoes; attacks ships only), Hornet Flak Boat (fast; anti-air and anti-infantry) |
+| Structures | Airfield (builds jets and the helicopter, and rearms jets), Service Depot, Dockyard (built on water; builds ships) | Repair Bay (the same depot), Sea Works (the same dockyard) |
 
 ## Display
 
