@@ -197,11 +197,18 @@ so code-only work can land first and the art can follow.
 
 - **Run the tests** after any gameplay change, and add a test for new mechanics:
   ```bash
-  npm install && npx playwright install chromium   # first time only
-  npm test                                          # all tests, about 30 s
-  npm run test:quick                                # skips the slow whole-game AI test
+  npm install && npx playwright install            # first time only (Chromium, Firefox and WebKit)
+  npm test                                          # all three browsers
+  npx playwright test --project=chromium            # one browser, every test (about 8 min)
+  npm run test:quick                                # skips the long @slow simulations
   ```
-  The tests are headless Chromium, run by Playwright against `tools/serve.py` on port 8399.
+  Playwright runs them headless against `tools/serve.py` on port 8399. Chromium runs everything; Firefox and
+  WebKit skip `@slow` (whole-game simulations, plain game logic, the same in every engine). CI
+  (`.github/workflows/test.yml`) runs the three browsers in parallel on pull requests and pushes to `main`.
+  - Browser differences handled in code: no canvas `filter` in Safari (the hit flash redraws additively instead,
+    `flashed()` in `render.js`), Firefox counts mouse-wheel notches in lines (`deltaMode`), and Safari rejects
+    `AudioContext.resume()` outside a gesture. Math functions may differ in the last bit between engines, so a
+    seed replays exactly only within one browser; saves are portable but a loaded game may drift elsewhere.
   - `tests/units.spec.js`: a scenario per unit ability.
   - `tests/air.spec.js`: aircraft, the air armour class, jets and the Airfield, stealth.
   - `tests/depot.spec.js`: the Service Depot.
@@ -232,6 +239,12 @@ so code-only work can land first and the art can follow.
 - **Syntax only:** `node --check --experimental-default-type=module js/<file>.js`.
 - `tests/determinism.spec.js` plays four simulated minutes twice with one seed and compares every unit and building.
 - The game uses ES modules, so it must be served over http (`tools/serve.py`); opening `index.html` from disk won't work.
+
+## Deploying
+
+`.github/workflows/pages.yml` publishes `index.html`, `js/` and `assets/` to GitHub Pages on every push to `main`
+(no build step). Pages has to be enabled in the repo settings with "GitHub Actions" as the source. Keep every
+asset path relative: the site is served from `/red-horizon/`, not the domain root.
 
 ## Next tasks (recommended order)
 
