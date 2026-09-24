@@ -279,6 +279,22 @@ const SIDE_NAME = {allied: 'Allied', soviet: 'Soviet'};
 // world <-> iso screen projection (2:1 dimetric diamonds)
 function toIso(wx, wy){ return {x: wx - wy + WPX, y: (wx + wy) * 0.5}; }
 function toWorld(ix, iy){ const a = ix - WPX; return {x: iy + a * 0.5, y: iy - a * 0.5}; }
+// height of the ground (iso px) at a world point: only the plateau is raised
+function groundZ(x, y){
+  const P = TerrainGen.PLATEAU, u = x / T, v = y / T;
+  if(Math.abs(u - P.x) > P.r + 3 || Math.abs(v - P.y) > P.r + 3) return 0;
+  return TerrainGen.elevation(u, v) * TerrainGen.CLIFF_H;
+}
+// iso position of something standing on the ground at (x, y), `z` px above it
+function isoAt(x, y, z = 0){ const p = toIso(x, y); p.y -= groundZ(x, y) + z; return p; }
+// the world point under the screen: looks down the column for raised ground first
+function pickWorld(ix, iy){
+  for(let dy = TerrainGen.CLIFF_H; dy > 0; dy -= 2){
+    const w = toWorld(ix, iy + dy);
+    if(groundZ(w.x, w.y) >= dy - 1) return w;
+  }
+  return toWorld(ix, iy);
+}
 
 // ---------- canvas ----------
 const cv = document.getElementById('game');
@@ -562,6 +578,7 @@ function canPlace(key, tx, ty, team){
     for(let x = tx; x < tx + def.w; x++){
       if(!inMap(x, y) || ore[idx(x, y)] > 0) return false;
       if(def.onWater ? !sailable(x, y) : occ[idx(x, y)] !== 0) return false;   // a dockyard needs open water
+      if(groundZ((x + 0.5) * T, (y + 0.5) * T) > 0) return false;             // nothing is built up on the plateau
       if(team === PLAYER && !explored[idx(x, y)]) return false;
     }
   for(const u of units){
@@ -1118,11 +1135,13 @@ function fireWeapon(e, target){
 function combatStep(u, target, dt){
   const w = weaponFor(u, target);
   const pad = target.kind === 'building' ? Math.max(target.w, target.h) * T * 0.4 : 0;
-  // hand-placed charges and bombs reach a building's walls, not just near its middle
+  // shooting down from the plateau reaches a tile further
+const highGround = (a, b) => groundZ(a.x, a.y) > TerrainGen.CLIFF_H * 0.9 && groundZ(b.x, b.y) < TerrainGen.CLIFF_H * 0.5 && !a.def.air ? 1 : 0;
+// hand-placed charges and bombs reach a building's walls, not just near its middle
   const d = target.kind === 'building' && w.range <= 1 ? Math.hypot(u.x - clamp(u.x, target.tx * T, (target.tx + target.w) * T),
                                                                    u.y - clamp(u.y, target.ty * T, (target.ty + target.h) * T))
                                                         : dist(u, target) - pad;
-  if(d <= w.range * T){
+  if(d <= (w.range + highGround(u, target)) * T){
     u.path = null;
     const a = Math.atan2(target.y - u.y, target.x - u.x);
     let aimed = true;
@@ -1185,7 +1204,7 @@ function updateUnit(u, dt){
   } else {
     if(u.scanT <= 0){
       u.scanT = 0.45;
-      const t = findEnemyInRange(u, u.deployed ? w.range : u.def.scan || w.range + 2.2);
+      const t = findEnemyInRange(u, (u.deployed ? w.range : u.def.scan || w.range + 2.2) + (groundZ(u.x, u.y) > 18 ? 1 : 0));
       if(t) u.order = {type:'attack', target: t, auto: true};
     }
   }
@@ -2163,7 +2182,7 @@ const groups = {};
 function updateMouseWorld(e){
   const r = cv.getBoundingClientRect();
   mouse.x = e.clientX - r.left; mouse.y = e.clientY - r.top;
-  const w = toWorld(mouse.x / ZOOM + state.camX, mouse.y / ZOOM + state.camY);
+  const w = pickWorld(mouse.x / ZOOM + state.camX, mouse.y / ZOOM + state.camY);
   mouse.wx = w.x; mouse.wy = w.y;
 }
 
@@ -2198,8 +2217,7 @@ window.addEventListener('mouseup', e => {
     const y1 = Math.min(mouse.dragY, mouse.y) / ZOOM + state.camY, y2 = Math.max(mouse.dragY, mouse.y) / ZOOM + state.camY;
     const picked = units.filter(u => {
       if(!onMap(u) || u.team !== PLAYER) return false;
-      const p = toIso(u.x, u.y);
-      p.y -= u.z || 0;
+      const p = isoAt(u.x, u.y, u.z || 0);
       return p.x >= x1 && p.x <= x2 && p.y >= y1 - 10 && p.y <= y2 + 6;
     });
     if(picked.length){ selection = picked; sfx('click'); ack('select', picked[0]); }
@@ -2221,13 +2239,13 @@ window.addEventListener('mouseup', e => {
 });
 
 function pickEntity(wx, wy){
-  const c = toIso(wx, wy);
+  const c = isoAt(wx, wy);
   // aircraft first: they are drawn on top
   const cand = units.filter(u => onMap(u) && !hiddenFrom(u, PLAYER)).sort((a, b) => (b.z || 0) - (a.z || 0));
   for(const u of cand){
-    const p = toIso(u.x, u.y);
+    const p = isoAt(u.x, u.y, u.z || 0);
     const r = u.def.r + 9;
-    if(Math.abs(p.x - c.x) < r && Math.abs(p.y - (u.z || 0) - c.y + 6) < r * 0.85) return u;
+    if(Math.abs(p.x - c.x) < r && Math.abs(p.y - c.y + 6) < r * 0.85) return u;
   }
   for(const b of buildings){
     if(b.dead) continue;
@@ -3025,15 +3043,14 @@ function drawSandbags(p){
 
 // shadow of an aircraft on the ground below it
 function drawAirShadow(u){
-  const p = toIso(u.x, u.y);
+  const p = isoAt(u.x, u.y);
   const r = u.def.r * (1.1 - Math.min(0.4, (u.z || 0) / 200));
   cx.fillStyle = 'rgba(0,0,0,0.28)';
   cx.beginPath(); cx.ellipse(p.x, p.y, r, r * 0.5, 0, 0, 7); cx.fill();
 }
 
 function drawUnitSprite(u){
-  const p = toIso(u.x, u.y);
-  p.y -= u.z || 0;                                    // aircraft sheets are anchored on the aircraft itself
+  const p = isoAt(u.x, u.y, u.z || 0);                                    // aircraft sheets are anchored on the aircraft itself
   const name = uName(u);
   const inf = Sprites.get(name);
   const body = Sprites.get(name + '_body');
@@ -3433,7 +3450,7 @@ function drawBrackets(sx, sy, w, h){
 
 function drawProjectile(p){
   if(p.kind === 'bomb'){
-    const g = toIso(p.x, p.y);
+    const g = isoAt(p.x, p.y);
     cx.fillStyle = 'rgba(0,0,0,0.22)';
     cx.beginPath(); cx.ellipse(g.x, g.y, 4, 2, 0, 0, 7); cx.fill();
     cx.fillStyle = '#2b2f36';
@@ -3441,12 +3458,12 @@ function drawProjectile(p){
     return;
   }
   if(p.kind === 'missile'){
-    const g = toIso(p.x, p.y), z = missileZ(p);
+    const g = isoAt(p.x, p.y), z = missileZ(p);
     // shadow on the ground, then the missile pitched along its arc
     cx.fillStyle = 'rgba(0,0,0,0.25)';
     cx.beginPath(); cx.ellipse(g.x, g.y, 7, 3, 0, 0, 7); cx.fill();
     const ux = (p.tx - p.sx) / p.total, uy = (p.ty - p.sy) / p.total;
-    const g2 = toIso(p.x + ux, p.y + uy);
+    const g2 = isoAt(p.x + ux, p.y + uy);
     const f = clamp(1 - Math.hypot(p.tx - p.x, p.ty - p.y) / p.total, 0, 1);
     const dz = Math.cos(f * Math.PI) * Math.PI * Math.min(220, p.total * 0.45) / p.total;
     const a = Math.atan2(g2.y - g.y - dz, g2.x - g.x);
@@ -3458,14 +3475,14 @@ function drawProjectile(p){
     cx.restore();
     return;
   }
-  const s = toIso(p.x, p.y);
-  const t = toIso(p.tx, p.ty);
+  const s = isoAt(p.x, p.y);
+  const t = isoAt(p.tx, p.ty);
   // shots to and from aircraft climb or drop along the way
   const k = p.total ? clamp(1 - Math.hypot(p.tx - p.x, p.ty - p.y) / p.total, 0, 1) : 1;
   s.y -= 8 + (p.z0 || 0) * (1 - k) + (p.zt || 0) * k; t.y -= 6 + (p.zt || 0);
   const a = Math.atan2(t.y - s.y, t.x - s.x);
   if(p.kind === 'torpedo'){   // a dark streak just under the surface, with a foam trail
-    const g = toIso(p.x, p.y), a2 = Math.atan2(t.y + 6 - g.y, t.x - g.x);
+    const g = isoAt(p.x, p.y), a2 = Math.atan2(t.y + 6 - g.y, t.x - g.x);
     cx.strokeStyle = 'rgba(230,245,255,0.6)'; cx.lineWidth = 2;
     cx.beginPath(); cx.moveTo(g.x, g.y); cx.lineTo(g.x - Math.cos(a2) * 14, g.y - Math.sin(a2) * 14); cx.stroke();
     cx.fillStyle = '#20262c'; cx.beginPath(); cx.ellipse(g.x, g.y, 4, 2, a2, 0, 7); cx.fill();
@@ -3493,13 +3510,13 @@ function drawEffect(e){
   const f = e.t / e.dur;
   if(e.type === 'boom' && Sprites.has('explosion')){
     // rendered fireball: frames 0-4 flame, 5-7 smoke; scaled to the blast
-    const p = toIso(e.x, e.y), sheet = Sprites.get('explosion'), k = e.size / 26;
+    const p = isoAt(e.x, e.y), sheet = Sprites.get('explosion'), k = e.size / 26;
     cx.save(); cx.translate(p.x, p.y); cx.scale(k, k);
     Sprites.draw(cx, 'explosion', 0, Math.min(sheet.frames - 1, Math.floor(f * sheet.frames)), 0, 0);
     cx.restore();
   } else if(e.type === 'boom'){
     // fireball: bright core that swells upward, then fades into the puffs around it
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     const r = e.size * (0.5 + Math.sqrt(f) * 0.9);
     const lift = f * e.size * 0.6;
     cx.save();
@@ -3518,7 +3535,7 @@ function drawEffect(e){
       cx.beginPath(); cx.ellipse(p.x, p.y, e.size * 1.6, e.size * 0.8, 0, 0, Math.PI * 2); cx.fill();
     }
   } else if(e.type === 'puff'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     const r = e.r * (0.6 + f * 1.1);
     const a = (e.dark ? 0.45 : 0.55) * (1 - f) * Math.min(1, e.t * 8);
     const c = e.dark ? 40 + f * 60 : 90 + f * 70;
@@ -3528,21 +3545,21 @@ function drawEffect(e){
     cx.fillStyle = g;
     cx.beginPath(); cx.arc(p.x, p.y - e.z, r, 0, Math.PI * 2); cx.fill();
   } else if(e.type === 'corpse'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     cx.save();
     cx.globalAlpha = e.t > e.dur - 1 ? e.dur - e.t : 1;
     Sprites.draw(cx, e.name, e.team, Math.min(3, Math.floor(e.t / 0.1)), p.x, p.y);
     cx.restore();
   } else if(e.type === 'spark'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     cx.fillStyle = `rgba(255,${180 - f * 120 | 0},60,${1 - f})`;
     cx.fillRect(p.x - 2, p.y - 8 - f * 6, 4, 4);
   } else if(e.type === 'hit'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     cx.fillStyle = `rgba(255,200,90,${1 - f})`;
     cx.beginPath(); cx.arc(p.x, p.y - 6 - (e.z || 0), (e.big ? 9 : 4.5) * (0.5 + f), 0, 7); cx.fill();
   } else if(e.type === 'muzzle'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     const d = isoDir(e.a);
     cx.strokeStyle = `rgba(255,240,160,${1 - f})`;
     cx.lineWidth = 3;
@@ -3551,21 +3568,21 @@ function drawEffect(e){
     cx.lineTo(p.x + d.x * 15, p.y - e.z + d.y * 15);
     cx.stroke();
   } else if(e.type === 'smoke'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     cx.fillStyle = `rgba(190,190,190,${0.5 * (1 - f)})`;
     cx.beginPath(); cx.arc(p.x, p.y - (e.z || 8), e.z ? 3 + f * 8 : 2 + f * 4, 0, 7); cx.fill();
   } else if(e.type === 'tracer'){
-    const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
+    const p1 = isoAt(e.x1, e.y1), p2 = isoAt(e.x2, e.y2);
     cx.strokeStyle = `rgba(255,250,220,${1 - f})`; cx.lineWidth = 1.2;
     cx.beginPath(); cx.moveTo(p1.x, p1.y - 10); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
   } else if(e.type === 'beam'){
-    const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
+    const p1 = isoAt(e.x1, e.y1), p2 = isoAt(e.x2, e.y2);
     cx.strokeStyle = e.heal ? `rgba(120,255,140,${1 - f})` : `rgba(${e.col || '150,230,255'},${1 - f})`; cx.lineWidth = (4 * (1 - f) + 1) * (e.thin ? 0.5 : 1);
     cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
     cx.strokeStyle = `rgba(255,255,255,${1 - f})`; cx.lineWidth = 1.5;
     cx.beginPath(); cx.moveTo(p1.x, p1.y - e.z1); cx.lineTo(p2.x, p2.y - 6); cx.stroke();
   } else if(e.type === 'arc'){
-    const p1 = toIso(e.x1, e.y1), p2 = toIso(e.x2, e.y2);
+    const p1 = isoAt(e.x1, e.y1), p2 = isoAt(e.x2, e.y2);
     const y1 = p1.y - e.z1, y2 = p2.y - 6;
     cx.strokeStyle = `rgba(${e.col || '140,200,255'},${1 - f})`; cx.lineWidth = 2.5;
     cx.beginPath(); cx.moveTo(p1.x, y1);
@@ -3577,19 +3594,19 @@ function drawEffect(e){
     }
     cx.stroke();
   } else if(e.type === 'charge'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     if(Math.floor(e.t * (e.dur - e.t < 1 ? 10 : 4)) % 2 === 0){
       cx.fillStyle = '#ff3a2a';
       cx.beginPath(); cx.arc(p.x, p.y - 10 - (e.target.z || 0), 3, 0, 7); cx.fill();
     }
   } else if(e.type === 'blink'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     const r = e.arrive ? 6 + f * 18 : 18 * (1 - f) + 4;
     cx.strokeStyle = `rgba(150,215,255,${e.arrive ? 1 - f : 0.4 + f * 0.6})`; cx.lineWidth = 2;
     cx.beginPath(); cx.ellipse(p.x, p.y - 2, r, r * 0.5, 0, 0, 7); cx.stroke();
     cx.beginPath(); cx.moveTo(p.x, p.y - 2); cx.lineTo(p.x, p.y - 26 * (e.arrive ? 1 - f : f)); cx.stroke();
   } else if(e.type === 'cmd'){
-    const p = toIso(e.x, e.y);
+    const p = isoAt(e.x, e.y);
     cx.strokeStyle = e.red ? `rgba(255,90,90,${1 - f})` : `rgba(120,255,120,${1 - f})`;
     cx.lineWidth = 2;
     cx.beginPath(); cx.ellipse(p.x, p.y, 16 * (1 - f) + 3, (16 * (1 - f) + 3) * 0.5, 0, 0, 7); cx.stroke();
@@ -3616,8 +3633,7 @@ function visibleTileBounds(){
 
 // screen-space bounds of an entity's visible pixels (for brackets / health bars)
 function screenBox(e){
-  const p = toIso(e.x, e.y);
-  p.y -= e.z || 0;
+  const p = e.kind === 'unit' ? isoAt(e.x, e.y, e.z || 0) : toIso(e.x, e.y);
   const name = e.kind === 'unit' ? uName(e) : '';
   const fromSprite = (sp, bb, grow) => ({
     x0: p.x + bb.x0, y0: p.y + bb.y0 - (grow || 0), x1: p.x + bb.x1, y1: p.y + bb.y1,
@@ -3968,9 +3984,19 @@ function setupScenery(){
   for(let y = 0; y < MH; y++)
     for(let x = 0; x < MW; x++)
       if(lakeVal(x + 0.5, y + 0.5) > -0.04){ occ[idx(x, y)] = BLOCKED; water[idx(x, y)] = 1; }
-  // tree clumps and rocks, kept clear of bases, ore fields and the map edge
+  // plateau: its cliff tiles are impassable; the top and the ramps are open ground
+  const E = new Float32Array(MW * MH), P = TerrainGen.PLATEAU;
+  for(let y = 0; y < MH; y++) for(let x = 0; x < MW; x++) E[idx(x, y)] = groundZ((x + 0.5) * T, (y + 0.5) * T) / TerrainGen.CLIFF_H;
+  for(let y = 1; y < MH - 1; y++)
+    for(let x = 1; x < MW - 1; x++){
+      const i = idx(x, y), ramp = TerrainGen.onRamp(x + 0.5, y + 0.5);
+      if(ramp || occ[i]) continue;
+      const nb = [E[idx(x + 1, y)], E[idx(x - 1, y)], E[idx(x, y + 1)], E[idx(x, y - 1)]];
+      if((E[i] > 0 && E[i] < 0.999) || (E[i] >= 0.999 && nb.some(e => e < 0.999))) occ[i] = BLOCKED;
+    }
+  // tree clumps and rocks, kept clear of bases, ore fields, the plateau and the map edge
   const keepClear = [[9, 51, 11], [53, 9, 11], [14, 47, 6], [49, 16, 6], [32, 32, 7], [50, 50, 5], [13, 13, 5],
-                     [TOWN.x, TOWN.y, 8]];
+                     [TOWN.x, TOWN.y, 8], [P.x, P.y, P.r + 3]];
   const clear = (x, y) => x > 1 && y > 1 && x < MW - 2 && y < MH - 2 && occ[idx(x, y)] === 0 && !onRoad(x, y) &&
     keepClear.every(([cx, cy, r]) => Math.hypot(x - cx, y - cy) > r);
   let s = 777 + (setup.seed - 1) * 7919;   // the map seed moves the trees and rocks too
@@ -4235,7 +4261,7 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
-  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised, sailable, passable, unload: t => unloadTransport(t), reveal: (tx, ty, r) => revealAround(tx * T, ty * T, r), faction: FACTION,
+  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised, sailable, passable, unload: t => unloadTransport(t), reveal: (tx, ty, r) => revealAround(tx * T, ty * T, r), faction: FACTION, plateau: TerrainGen.PLATEAU, onRamp: TerrainGen.onRamp, groundZ,
   world: () => ({water: Array.from(water).join(''), trees: doodads.filter(d => d.name !== 'lamp').map(d => d.tx + ',' + d.ty).join(';')}),
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },

@@ -49,7 +49,11 @@ Right-click gives orders.
 The minimap only works while you have a powered Radar.
 
 The map has a sea along its west and north edges, so both bases have a coast.
-Ships only move on water.
+Ships only move on water. East of the centre stands a plateau: its cliffs can only
+be climbed by two ramps, nothing can be built on it, and units up there shoot one
+tile further at targets below. East of the centre stands a plateau: its cliffs can only
+be climbed by two ramps, nothing can be built on it, and units up there shoot one
+tile further at targets below.
 
 Aircraft fly straight over water, trees and buildings. Only rockets (Rocket
 Soldiers, AT Troopers, the Ranger IFV) and the halftrack's flak can hit them.
