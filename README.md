@@ -45,6 +45,7 @@ Right-click gives orders.
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
 | Control groups | `Ctrl+1-9` to assign, `1-9` to recall |
 | Stop | `S` |
+| Pause menu (resume, restart, quit, sound and voice volume, scroll speed) | `Esc` or the Options button (`Esc` first cancels a placement or sell/repair mode) |
 | Scroll | Arrow keys or the screen edge |
 | Zoom | Mouse wheel or `+` / `-` |
 

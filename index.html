@@ -33,7 +33,7 @@
   }
   #btns button:hover{filter:brightness(1.15);}
   #game{position:fixed;top:calc(var(--topbar-h) * var(--ui, 1));left:0;cursor:none;background:#04070d;}
-  #topbar, #sidebar, #announcer, #tip, #help, #endScreen{zoom:var(--ui, 1);}
+  #topbar, #sidebar, #announcer, #tip, #help, #endScreen, #menu{zoom:var(--ui, 1);}
 
   /* ---- command sidebar ---- */
   #sidebar{
@@ -121,7 +121,7 @@
   .cameo.isReady .ready{display:flex;}
   .cameo .cnt{position:absolute;top:2px;right:4px;font:bold 13px "Trebuchet MS",sans-serif;color:#fff;
     text-shadow:0 0 3px #000,0 0 2px #000;pointer-events:none;}
-  #help, #endScreen{
+  #help, #endScreen, #menu{
     position:fixed;inset:0;background:rgba(4,7,14,.88);z-index:50;display:flex;
     align-items:center;justify-content:center;color:#dfe7f7;
   }
@@ -150,6 +150,13 @@
     border:2px solid;border-color:#0b0f15 #7e93ab #7e93ab #0b0f15;}
   #diffNote{font-weight:normal;font-size:13px;color:#aebbd0;margin-top:6px;}
   #endScreen{display:none;}
+  #menu{display:none;z-index:60;}
+  .menuBox{min-width:360px;text-align:center;}
+  .menuBtns button{display:block;width:100%;margin:0 0 8px;}
+  .slider{display:flex;align-items:center;gap:10px;margin-top:10px;font:bold 14px "Trebuchet MS",sans-serif;color:#d3dcea;text-align:left;}
+  .slider label{width:110px;}
+  .slider input{flex:1;accent-color:#e0b640;}
+  .slider span{width:44px;text-align:right;font-family:"Courier New",monospace;color:#ffd24a;}
   #announcer{
     position:fixed;top:calc(var(--topbar-h) + 10px);left:12px;z-index:20;pointer-events:none;
     display:flex;flex-direction:column;gap:6px;
@@ -200,7 +207,7 @@
 </div>
 
 <div id="announcer"></div>
-<div id="tip">Left: select / drag &nbsp;•&nbsp; Right: move / attack / rally &nbsp;•&nbsp; Ctrl: force-fire &nbsp;•&nbsp; D deploy / unload / dig in &nbsp;•&nbsp; K repair &nbsp;•&nbsp; L sell &nbsp;•&nbsp; Ctrl+1-9 groups &nbsp;•&nbsp; Wheel / +- zoom &nbsp;•&nbsp; Arrows / edge: scroll</div>
+<div id="tip">Left: select / drag &nbsp;•&nbsp; Right: move / attack / rally &nbsp;•&nbsp; Ctrl: force-fire &nbsp;•&nbsp; D deploy / unload / dig in &nbsp;•&nbsp; K repair &nbsp;•&nbsp; L sell &nbsp;•&nbsp; Ctrl+1-9 groups &nbsp;•&nbsp; Esc menu &nbsp;•&nbsp; Wheel / +- zoom &nbsp;•&nbsp; Arrows / edge: scroll</div>
 
 <div id="help">
   <div class="panelBox">
@@ -236,6 +243,7 @@
       <li><b>Navy:</b> Build a <b>Dockyard</b> on the coast for ships. Load a Landing Craft at the shore by right-clicking it; press <b>D</b> next to a beach to unload.</li>
       <li><b>Repairs:</b> Right-click a <b>Service Depot</b> with vehicles selected to park them on it; it fixes them for credits and pulls out a latched drone.</li>
       <li><b>Aircraft:</b> Jets make one bomb run on a right-clicked target, then fly back to the <b>Airfield</b> to rearm (right-click the Airfield to send them home). Only rockets and flak can hit aircraft.</li>
+      <li><b>Menu:</b> <b>Esc</b> or <b>Options</b> pauses the game: resume, restart, quit, and set sound, voice and scroll speed.</li>
       <li><b>Win:</b> Destroy every enemy structure. Lose all of yours and it's over.</li>
     </ul>
   </div>
@@ -245,7 +253,22 @@
   <div class="panelBox" style="text-align:center">
     <h1 id="endTitle">VICTORY</h1>
     <p id="endText"></p>
-    <button onclick="location.reload()">PLAY AGAIN</button>
+    <button id="endAgain">PLAY AGAIN</button>
+  </div>
+</div>
+
+<div id="menu">
+  <div class="panelBox menuBox">
+    <h1>PAUSED</h1>
+    <div class="menuBtns">
+      <button id="mResume">RESUME</button>
+      <button id="mRestart">RESTART</button>
+      <button id="mQuit">QUIT TO TITLE</button>
+      <button id="mHelp">HOW TO PLAY</button>
+    </div>
+    <div class="slider"><label for="volSfx">Sound</label><input id="volSfx" type="range" min="0" max="100"><span></span></div>
+    <div class="slider"><label for="volVoice">Voice</label><input id="volVoice" type="range" min="0" max="100"><span></span></div>
+    <div class="slider"><label for="scrollSpd">Scroll speed</label><input id="scrollSpd" type="range" min="25" max="300" step="5"><span></span></div>
   </div>
 </div>
 
