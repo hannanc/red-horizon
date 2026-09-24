@@ -103,6 +103,19 @@ fallback drawing.
      - Soviet heavy airship: very slow, tough, drops bombs, repairs itself.
      - Stealth transport helicopter for 5 infantry, reusing the transport code.
      - Jetpack infantry.
+   - **The art is already rendered.** Sheet names are in `assets/sprites/manifest.json`:
+     - `jet_allied_body`: 32 facings.
+     - `jet_allied_bombs`: 32 facings. Draw it over the body while the jet still carries bombs.
+     - `airship_soviet_body`: 32 facings.
+     - `heli_allied_body`: 32 facings.
+     - `heli_allied_rotor`: 1 facing, 4 spin frames. Cycle it over the body and draw it last.
+     - `jetpack_allied` (plus `_die`): a normal infantry sheet with the manifest flag `air: true`.
+     - `airfield_allied`: a 3x3 building with two landing pads, centred at about (-0.6, -0.55) and (0.55, 0.6) tiles from the footprint centre in Blender coordinates (game y = -Blender y).
+     - Cameos: `jet_allied`, `airship_soviet`, `heli_allied`, `jetpack_allied`, `airfield_allied`.
+   - **How aircraft sheets are drawn:** they are rendered with no ground and anchored
+     on the aircraft's centre. Draw them at `toIso(x, y)` shifted up by the altitude
+     in px, and paint a ground shadow (dark ellipse) at `toIso(x, y)` yourself.
+     Jetpack infantry are anchored at the feet, so shift them up by their hover height the same way.
 3. **Repair Depot (code plus art).**
    - A building that repairs vehicles parked on it, for credits.
    - It also ejects latched drones, which gives the drone a counter.

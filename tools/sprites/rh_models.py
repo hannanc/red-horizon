@@ -361,6 +361,34 @@ def arc_tower(f):
     p.sphere((0, 0, 1.34), 0.16, C['glow'])
     return {'body': p}
 
+def airfield(f):
+    """Two landing pads for jets, a control tower and a small hangar."""
+    C = palette(f)
+    p = Part('body')
+    z = slab(p, 3, 3, C)
+    for (x, y) in ((-0.62, -0.55), (0.55, 0.62)):
+        p.cyl((x, y, z), 0.62, 0.025, C['dark'], seg=32)
+        p.torus((x, y, z + 0.03), 0.52, 0.018, C['yellow'])
+        p.torus((x, y, z + 0.03), 0.3, 0.012, C['team'])
+        for i in range(8):
+            a = i * math.pi / 4
+            p.box((x + math.cos(a) * 0.57, y + math.sin(a) * 0.57, z + 0.025), (0.05, 0.05, 0.03),
+                  mat('#fff2c0', emit=2.0, name='padlight'), bevel=0)
+    # control tower on the back-left corner
+    tx, ty = -0.95, 0.95
+    p.box((tx, ty, z), (0.42, 0.42, 0.7), C['wall'])
+    p.box((tx, ty, z + 0.55), (0.46, 0.46, 0.06), C['team'], bevel=0.01)
+    p.box((tx, ty, z + 0.7), (0.5, 0.5, 0.18), C['glass'], taper=(1.12, 1.12), bevel=0.01)
+    p.box((tx, ty, z + 0.88), (0.6, 0.6, 0.05), C['roof'])
+    p.cyl((tx, ty, z + 0.93), 0.02, 0.2, C['steel'], seg=6)
+    p.sphere((tx + 0.12, ty, z + 1.1), 0.09, C['trim'], scale=(1, 1, 0.4), half=True)
+    # hangar along the east side
+    p.box((0.95, -0.2, z), (0.5, 0.9, 0.36), C['wall2'])
+    p.box((0.95, -0.2, z + 0.36), (0.54, 0.94, 0.1), C['roof'], taper=(0.8, 0.95))
+    p.box((0.7, -0.2, z), (0.02, 0.6, 0.28), C['dark'], bevel=0)
+    hazard(p, -1.3, -0.1, -1.3, z, C, n=8, depth=0.05)
+    return {'body': p}
+
 # ================================================================ vehicles
 
 def tracks(p, L, y, w, h, C, wheels=5):
@@ -595,11 +623,99 @@ def halftrack(f):
         tur.cyl((0.1, dy, 0.4), 0.026, 0.05, C['dark'], axis='X', seg=8)
     return {'body': body, 'turret': tur}
 
+# ================================================================ aircraft
+# Aircraft are built around the origin (their centre of mass) and rendered with
+# no ground: the game draws them at altitude and paints their shadow itself.
+
+def jet(f):
+    """Delta-wing strike jet. Its bombs are a separate part, hidden once dropped."""
+    C = palette(f)
+    body, bombs = Part('body'), Part('bombs')
+    skin = mat('#aab4bd' if f == 'allied' else '#9a9282', metal=0.5, rough=0.35, name='jetskin_' + f)
+    body.cyl((-0.5, 0, 0), 0.07, 0.86, skin, axis='X', seg=16)
+    body.cyl((0.36, 0, 0), 0.07, 0.22, skin, axis='X', seg=16, r2=0.0)
+    body.cyl((-0.56, 0, 0), 0.05, 0.07, C['dark'], axis='X', seg=12)                 # exhaust
+    body.sphere((0.2, 0, 0.055), 0.06, C['glass'], scale=(2.0, 0.8, 0.7))            # canopy
+    wing = [(0.18, 0.05), (-0.42, 0.52), (-0.5, 0.52), (-0.46, 0.05)]
+    for s in (-1, 1):
+        body.prism((0, 0, -0.015), [(x, s * y) for x, y in (wing if s > 0 else reversed(wing))], 0.02, skin, bevel=0.005)
+        body.box((-0.46, s * 0.49, -0.018), (0.1, 0.05, 0.026), C['team'], bevel=0)   # wing tips
+        body.box((0.05, s * 0.1, -0.06), (0.26, 0.05, 0.06), C['hull2'], bevel=0.01)   # intakes
+    body.box((-0.42, 0, 0.05), (0.2, 0.015, 0.2), skin, taper=(0.35, 1), shift=(-0.1, 0), bevel=0)  # fin
+    body.box((-0.47, 0, 0.19), (0.07, 0.02, 0.05), C['team'], bevel=0)
+    body.box((-0.1, 0, 0.066), (0.3, 0.06, 0.012), C['team'], bevel=0)
+    red = mat('#c8452f', rough=0.5, name='warhead')
+    for s in (-1, 1):
+        bombs.cyl((-0.2, s * 0.26, -0.07), 0.035, 0.26, C['dark'], axis='X', seg=10)
+        bombs.cyl((0.06, s * 0.26, -0.07), 0.035, 0.06, red, axis='X', seg=10, r2=0.0)
+        bombs.box((-0.07, s * 0.26, -0.04), (0.08, 0.01, 0.03), C['steel'], bevel=0)
+    return {'body': body, 'bombs': bombs}
+
+
+def airship(f):
+    """Heavy bomber airship: long envelope, gondola, fins and engine pods."""
+    C = palette(f)
+    body = Part('body')
+    env = mat('#8a8676' if f == 'soviet' else '#9aa0a6', metal=0.1, rough=0.6, grime=0.25, name='envelope_' + f)
+    L, R = 1.15, 0.36
+    body.sphere((0, 0, 0.12), R, env, scale=(L / R, 1, 1), seg=32)
+    for x in (-0.55, 0.05, 0.6):                     # rigid frame bands
+        r = R * math.sqrt(max(0.0, 1 - (x / L) ** 2)) + 0.006
+        body.cyl((x - 0.02, 0, 0.12), r, 0.04, C['team'] if x == 0.05 else C['steel'], axis='X', seg=32)
+    for a in (0, 90, 180, 270):                      # cruciform tail fins
+        r = math.radians(a)
+        cy, cz = math.cos(r), math.sin(r)
+        if a in (0, 180):
+            body.box((-0.95, cy * 0.2, 0.11), (0.3, 0.3, 0.02), C['hull2'], taper=(0.4, 1), shift=(-0.08, cy * 0.1), bevel=0.005)
+        else:
+            body.box((-0.95, 0, 0.12 if cz > 0 else -0.18), (0.3, 0.02, 0.3), C['hull2'],
+                     taper=(0.4, 1) if cz > 0 else (1, 1), shift=(-0.08, 0), bevel=0.005)
+    # gondola underneath with a bomb bay
+    body.box((0.1, 0, -0.34), (0.62, 0.2, 0.14), C['hull'], taper=(0.9, 0.9), bevel=0.02)
+    body.box((0.36, 0, -0.3), (0.1, 0.16, 0.07), C['glass'], taper=(0.6, 0.8), bevel=0.01)
+    body.box((-0.05, 0, -0.35), (0.26, 0.12, 0.012), C['dark'], bevel=0)
+    body.box((0.1, 0, -0.2), (0.4, 0.08, 0.02), C['steel'], bevel=0)
+    # engine pods with propellers
+    for s in (-1, 1):
+        body.cyl((-0.25, s * 0.42, -0.08), 0.06, 0.26, C['hull2'], axis='X', seg=14)
+        body.box((-0.12, s * 0.33, -0.06), (0.1, 0.16, 0.025), C['steel'], bevel=0)
+        body.cyl((-0.3, s * 0.42, -0.08), 0.1, 0.012, mat('#3a3d42', rough=0.5, name='prop'), axis='X', seg=20)
+    return {'body': body}
+
+
+def heli(f):
+    """Faceted stealth transport helicopter. The rotor is its own part and
+    gets a few spin frames instead of facings."""
+    C = palette(f)
+    body, rotor = Part('body'), Part('rotor')
+    skin = mat('#5f666e', metal=0.4, rough=0.45, name='stealth')
+    body.box((-0.02, 0, -0.14), (0.66, 0.36, 0.26), skin, taper=(0.78, 0.8), shift=(0.03, 0), bevel=0.025)
+    body.box((0.38, 0, -0.12), (0.2, 0.28, 0.18), skin, taper=(0.3, 0.6), shift=(0.06, 0), bevel=0.02)
+    body.box((0.3, 0, 0.0), (0.22, 0.24, 0.1), C['glass'], taper=(0.5, 0.8), shift=(-0.04, 0), bevel=0.012)
+    body.cyl((-0.82, 0, 0.0), 0.035, 0.54, skin, axis='X', seg=10, r2=0.06)     # tail boom
+    for s_ in (-1, 1):
+        body.box((-0.05, s_ * 0.185, -0.08), (0.42, 0.012, 0.12), C['team'], bevel=0)   # side stripes
+        body.box((0.0, s_ * 0.2, -0.16), (0.2, 0.08, 0.08), C['hull2'], bevel=0.01)     # sponsons
+    body.box((-0.08, 0, 0.12), (0.26, 0.16, 0.06), C['team'], bevel=0.01)
+    body.box((-0.76, 0, 0.0), (0.16, 0.025, 0.2), skin, taper=(0.5, 1), shift=(-0.06, 0), bevel=0)
+    body.cyl((-0.78, 0.02, 0.1), 0.08, 0.01, mat('#2d3035', name='trotor'), axis='Y', seg=16)
+    body.cyl((-0.04, 0, 0.14), 0.04, 0.08, C['steel'], seg=10)                 # rotor mast
+    for s_ in (-1, 1):                                                         # skids
+        body.cyl((-0.3, s_ * 0.2, -0.32), 0.016, 0.62, C['dark'], axis='X', seg=8)
+        for x in (-0.15, 0.15):
+            body.box((x, s_ * 0.18, -0.32), (0.025, 0.025, 0.1), C['dark'], bevel=0, shift=(0, -s_ * 0.03))
+    blade = mat('#2a2d31', rough=0.6, name='blade')
+    rotor.cyl((-0.04, 0, 0.21), 0.06, 0.035, C['steel'], seg=12)
+    for k in range(4):
+        a = k * math.pi / 2
+        rotor.box((-0.04 + math.cos(a) * 0.35, math.sin(a) * 0.35, 0.225), (0.7, 0.07, 0.012), blade, bevel=0, rot=a)
+    return {'body': body, 'rotor': rotor}
+
 # ================================================================ infantry
 
 class Soldier:
     """Articulated soldier. Limb Parts pivot at the hip / shoulder.
-    kind: rifle | rocket | engineer | sniper | arc"""
+    kind: rifle | rocket | engineer | sniper | arc | jetpack"""
     def __init__(self, f, kind):
         C = palette(f)
         self.kind = kind
@@ -630,6 +746,14 @@ class Soldier:
             # big tool pack with a coil of cable
             b.box((-0.1, 0, 0.25), (0.08, 0.15, 0.17), C['hull2'], bevel=0.015)
             b.torus((-0.1, 0, 0.42), 0.05, 0.014, C['dark'])
+        elif kind == 'jetpack':
+            # twin-thruster flight pack with flames underneath
+            b.box((-0.11, 0, 0.22), (0.09, 0.2, 0.22), C['steel'], bevel=0.015)
+            b.box((-0.11, 0, 0.44), (0.07, 0.16, 0.03), vest, bevel=0.005)
+            flame = mat('#ffb347', emit=10.0, name='jetflame')
+            for s in (-1, 1):
+                b.cyl((-0.14, s * 0.07, 0.14), 0.035, 0.12, C['dark'], seg=10)
+                b.cyl((-0.14, s * 0.07, -0.12), 0.006, 0.26, flame, seg=10, r2=0.045)
         elif kind == 'arc':
             # generator pack: casing, copper coils and a glowing core
             b.box((-0.12, 0, 0.22), (0.1, 0.18, 0.2), C['dark'], bevel=0.015)
@@ -714,6 +838,15 @@ class Soldier:
         else:
             armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-65), math.radians(-50)
         legL.root.rotation_euler.y = legR.root.rotation_euler.y = 0
+        if self.kind == 'jetpack' and anim != 'die':
+            legL.root.rotation_euler.y = math.radians(14)
+            legR.root.rotation_euler.y = math.radians(22)
+            if anim == 'walk':      # hovering bob and a lazy leg sway instead of steps
+                ph = k / 6 * 2 * math.pi
+                self.body.root.location.z = math.sin(ph) * 0.015
+                legL.root.rotation_euler.y += math.sin(ph) * math.radians(6)
+                legR.root.rotation_euler.y -= math.sin(ph) * math.radians(6)
+                return
         if anim == 'walk':
             ph = k / 6 * 2 * math.pi
             legL.root.rotation_euler.y = math.sin(ph) * math.radians(32)
