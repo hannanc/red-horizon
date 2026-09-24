@@ -416,6 +416,76 @@ def depot(f):
         p.sphere((x, y, z + 0.52), 0.05, C['glow'])
     return {'body': p}
 
+def shipyard(f):
+    """Naval yard placed on water: a U-shaped pier on pilings around a slipway
+    channel that opens to the +X edge (ships leave there), a gantry crane
+    astride the channel and a dock office. Nothing goes below z = 0."""
+    C = palette(f)
+    p = Part('body')
+    dz, th = 0.08, 0.08                     # deck underside (pilings show below it) and thickness
+    z = dz + th
+    for s in (-1, 1):                       # side piers, channel between y = -0.64 .. 0.64
+        p.box((0, s * 1.06, dz), (2.96, 0.84, th), C['concrete'], bevel=0.015)
+    p.box((-1.13, 0, dz), (0.7, 1.32, th), C['concrete'], bevel=0.015)     # back pier
+    for x in (-1.38, -0.6, 0.2, 1.0, 1.42):
+        for s in (-1, 1):
+            for yy in (0.68, 1.42):
+                p.cyl((x, s * yy, 0), 0.04, dz + 0.005, C['steel'], seg=8)
+    for s in (-1, 1):                       # rubber fenders and edge hazard stripes along the channel
+        p.box((0.36, s * 0.625, dz - 0.03), (2.2, 0.03, th + 0.02), C['dark'], bevel=0.008)
+        hazard(p, -0.72, 1.44, s * 0.7, z, C, n=12, depth=0.05)
+    # slipway: a ramp from the back pier down into the water, with launch rails
+    p.box((-0.45, 0, 0), (0.7, 1.0, z), C['concrete'], taper=(0.02, 1), shift=(-0.34, 0), bevel=0.01)
+    for s in (-1, 1):
+        p.box((-0.45, s * 0.25, 0), (0.7, 0.04, z + 0.012), C['steel'], taper=(0.02, 1), shift=(-0.34, 0), bevel=0)
+    # gantry crane on rails along both piers
+    for s in (-1, 1):
+        for dy in (-0.06, 0.06):
+            p.box((0.47, s * 0.95 + dy, z), (1.94, 0.02, 0.012), C['steel'], bevel=0)
+    for x in (-0.1, 0.55):
+        for s in (-1, 1):
+            p.box((x, s * 0.95, z), (0.24, 0.22, 0.08), C['steel'])
+            p.box((x, s * 0.95, z + 0.08), (0.1, 0.1, 0.9), C['accent'], taper=(0.8, 0.8), bevel=0.01)
+        p.box((x, 0, z + 0.98), (0.12, 2.1, 0.12), C['accent'], bevel=0.01)
+    for s in (-1, 1):
+        p.box((0.225, s * 0.95, z + 0.98), (0.77, 0.08, 0.08), C['accent'], bevel=0.01)
+    for k in range(4):                      # cross bracing
+        p.box((-0.1 if k < 2 else 0.55, (1 if k % 2 else -1) * 0.95, z + 0.45), (0.12, 0.12, 0.025), C['dark'], bevel=0)
+    p.box((0.225, 0.2, z + 1.1), (0.78, 0.26, 0.12), C['team'], bevel=0.01)     # trolley
+    p.box((0.225, 0.2, z + 0.84), (0.2, 0.18, 0.26), C['wall2'], bevel=0.01)    # operator cab
+    p.box((0.33, 0.2, z + 0.88), (0.015, 0.14, 0.07), C['glass'], bevel=0)
+    p.cyl((0.225, 0.2, z + 0.42), 0.006, 0.42, C['dark'], seg=4)
+    p.box((0.225, 0.2, z + 0.34), (0.08, 0.08, 0.08), C['yellow'], bevel=0.01)  # hook block
+    # dock office on the back corner
+    ox, oy = -1.05, 1.05
+    p.box((ox, oy, z), (0.62, 0.56, 0.46), C['wall'])
+    p.box((ox, oy, z + 0.34), (0.66, 0.6, 0.07), C['team'], bevel=0.01)
+    p.box((ox, oy, z + 0.46), (0.66, 0.6, 0.05), C['roof'])
+    for i in range(3):
+        p.box((ox + 0.315, oy - 0.18 + i * 0.18, z + 0.16), (0.02, 0.1, 0.1), C['glass'], bevel=0)
+    for i in range(2):
+        p.box((ox - 0.12 + i * 0.25, oy - 0.285, z + 0.16), (0.12, 0.02, 0.1), C['glass'], bevel=0)
+    if f == 'allied':
+        p.sphere((ox - 0.1, oy + 0.05, z + 0.51), 0.12, C['trim'], scale=(1, 1, 0.7), half=True)
+    else:
+        p.cyl((ox - 0.15, oy + 0.1, z + 0.51), 0.05, 0.35, C['steel'], seg=12)
+        p.cyl((ox - 0.15, oy + 0.1, z + 0.86), 0.06, 0.04, C['dark'], seg=12)
+    p.cyl((ox + 0.15, oy - 0.1, z + 0.51), 0.012, 0.3, C['steel'], seg=6)
+    # front pier: fuel tanks, crates, bollards
+    for x in (-1.1, -0.8):
+        p.cyl((x, -1.1, z), 0.13, 0.3, C['wall2'], seg=20)
+        p.cyl((x, -1.1, z + 0.3), 0.135, 0.03, C['team'], seg=20)
+    for (x, y) in ((-0.5, -1.28), (-0.34, -1.28), (-0.42, -1.12)):
+        p.box((x, y, z), (0.14, 0.14, 0.13), mat('#9a7a4a', rough=0.9, name='crate'))
+    for x in (0.0, 0.5, 1.0):
+        for s in (-1, 1):
+            p.cyl((x, s * 0.78, z), 0.025, 0.05, C['dark'], seg=8)
+    # navigation lights at the channel mouth: red on one side, green on the other
+    for s, col in ((-1, '#ff4a3a'), (1, '#5dff7a')):
+        p.cyl((1.4, s * 0.8, z), 0.03, 0.14, C['dark'], seg=8)
+        p.sphere((1.4, s * 0.8, z + 0.16), 0.03, mat(col, emit=5.0, name='navlight' + col))
+    return {'body': p}
+
 # ================================================================ vehicles
 
 def tracks(p, L, y, w, h, C, wheels=5):
@@ -509,7 +579,19 @@ def harvester(f):
         body.cyl((cab_x - 0.02, 0.0, 0.56), 0.06, 0.06, C['hull2'])
         body.cyl((cab_x + 0.02, 0.0, 0.59), 0.012, 0.18, C['dark'], axis='X', seg=6)
     body.cyl((-L / 2 + 0.12, 0.2, 0.32), 0.035, 0.32, C['steel'], seg=8)
-    return {'body': body}
+    if f == 'allied':
+        return {'body': body}
+    # pintle machine gun on a post just behind the cab. It sits on the unit's
+    # origin because the game turns turret sheets about the unit centre.
+    tur = Part('turret')
+    tur.cyl((0, 0, 0.5), 0.022, 0.2, C['steel'], seg=8)
+    tur.cyl((0, 0, 0.69), 0.04, 0.03, C['hull2'], seg=12)
+    tur.box((0.02, 0, 0.72), (0.14, 0.05, 0.05), C['dark'], bevel=0.006)
+    tur.box((0.1, 0, 0.7), (0.02, 0.14, 0.1), C['team'], bevel=0.004)           # gun shield
+    tur.box((0.03, 0.035, 0.7), (0.06, 0.03, 0.04), C['metal'], bevel=0.004)   # ammo box
+    tur.cyl((0.09, 0, 0.745), 0.011, 0.2, C['dark'], axis='X', seg=6)
+    tur.cyl((0.28, 0, 0.745), 0.016, 0.025, C['dark'], axis='X', seg=8)
+    return {'body': body, 'turret': tur}
 
 def beam_tank(f):
     """Light hull with a turret-mounted focusing crystal."""
@@ -650,6 +732,217 @@ def halftrack(f):
         tur.cyl((0.1, dy, 0.4), 0.026, 0.05, C['dark'], axis='X', seg=8)
     return {'body': body, 'turret': tur}
 
+
+def veil_tank(f):
+    """Low faceted stealth tank: slanted skirts over the tracks and a slim
+    turret with a twin missile pod on each side."""
+    C = palette(f)
+    body, tur = Part('body'), Part('turret')
+    skin = mat('#5f666e', metal=0.4, rough=0.45, name='stealth')
+    L, W = 0.92, 0.58
+    tracks(body, L - 0.06, W / 2 - 0.1, 0.18, 0.13, C)
+    body.hull((0, 0, 0.06), L, W - 0.08, 0.14, skin, nose=0.3, tail=0.14, top_w=0.68)
+    for s in (-1, 1):       # slanted side skirts
+        body.box((0, s * (W / 2 - 0.03), 0.04), (L * 0.9, 0.05, 0.12), skin, taper=(0.86, 0.4), shift=(0, -s * 0.03))
+        body.box((0.02, s * (W / 2 - 0.06), 0.16), (L * 0.5, 0.012, 0.012), C['team'], bevel=0)
+    body.box((-0.1, 0, 0.2), (0.3, 0.18, 0.012), C['team'], bevel=0.003)
+    body.box((L / 2 - 0.2, 0, 0.145), (0.06, 0.24, 0.03), C['dark'], bevel=0, shift=(-0.02, 0))   # sensor slit
+    body.box((-L / 2 + 0.08, 0, 0.12), (0.05, 0.3, 0.05), C['dark'], bevel=0.004)                # baffled exhaust
+    red = mat('#c8452f', rough=0.5, name='warhead')
+    tur.hull((-0.04, 0, 0.2), 0.38, 0.26, 0.07, skin, nose=0.12, tail=0.08, top_w=0.6)
+    tur.box((-0.05, 0, 0.27), (0.12, 0.09, 0.025), C['team'], taper=(0.7, 0.7), bevel=0.003)
+    tur.cyl((-0.14, 0.06, 0.27), 0.005, 0.18, C['dark'], seg=4)
+    for s in (-1, 1):
+        tur.box((-0.02, s * 0.14, 0.23), (0.08, 0.05, 0.04), C['steel'], bevel=0.005)
+        tur.box((0.0, s * 0.19, 0.22), (0.34, 0.08, 0.08), skin, taper=(0.85, 0.8), shift=(-0.02, 0))
+        tur.box((-0.01, s * 0.19, 0.3), (0.26, 0.06, 0.008), C['team'], bevel=0)
+        for dz in (-0.02, 0.02):
+            tur.cyl((0.165, s * 0.19, 0.26 + dz), 0.017, 0.02, C['dark'], axis='X', seg=10)
+            tur.cyl((0.18, s * 0.19, 0.26 + dz), 0.013, 0.035, red, axis='X', seg=10, r2=0.0)
+    return {'body': body, 'turret': tur}
+
+# ================================================================ ships
+# Ships float with the waterline at z = 0 and nothing below it. Turrets sit on
+# the origin because the game turns turret sheets about the unit centre.
+
+def navy(f):
+    """Ship paint and deck materials."""
+    return (mat('#8b949c' if f == 'allied' else '#6f6d63', metal=0.35, rough=0.5, grime=0.2, name='navy_' + f),
+            mat('#4f5358' if f == 'allied' else '#4a4640', rough=0.8, grime=0.3, name='deck_' + f))
+
+
+def ship_outline(l, w, bow):
+    """Top view of a hull along +X (counter-clockwise): cut stern, pointed bow."""
+    return [(-l, -w * 0.75), (-l + 0.1, -w), (l - bow, -w), (l - bow * 0.4, -w * 0.55), (l, 0),
+            (l - bow * 0.4, w * 0.55), (l - bow, w), (-l + 0.1, w), (-l, w * 0.75)]
+
+
+def ship_hull(p, L, W, h, bow, skin, deck, C):
+    """Waterline stripe, hull sides and deck. Returns the deck height."""
+    p.prism((0, 0, 0), ship_outline(L / 2, W / 2, bow), 0.03, C['dark'], bevel=0.004)
+    p.prism((0, 0, 0.03), ship_outline(L / 2 + 0.01, W / 2 + 0.01, bow), h - 0.03, skin, bevel=0.012)
+    p.prism((0, 0, h), ship_outline(L / 2 - 0.025, W / 2 - 0.025, bow * 0.96), 0.01, deck, bevel=0)
+    return h + 0.01
+
+
+def hull_band(p, x, length, W, z, C):
+    """Team-colour band along both sides of the hull just below the deck edge."""
+    for s in (-1, 1):
+        p.box((x, s * (W / 2 + 0.012), z - 0.06), (length, 0.012, 0.035), C['team'], bevel=0)
+
+
+def lander(f):
+    """Landing craft for vehicles: open well deck between high sides, a bow
+    ramp (raised), and the bridge at the stern."""
+    C = palette(f)
+    skin, deck = navy(f)
+    body = Part('body')
+    L, W = 1.7, 0.66
+    z = ship_hull(body, L, W, 0.14, 0.12, skin, deck, C)
+    for s in (-1, 1):
+        body.box((0.1, s * (W / 2 - 0.035), z), (L - 0.52, 0.05, 0.12), skin, bevel=0.008)
+        body.box((0.1, s * (W / 2 - 0.035), z + 0.12), (L - 0.52, 0.056, 0.02), C['team'], bevel=0.004)
+    # bow ramp, hinged at the deck and leaning back a little
+    rx = L / 2 - 0.1
+    body.cyl((rx - 0.02, -(W - 0.16) / 2, z), 0.02, W - 0.16, C['steel'], axis='Y', seg=8)
+    body.box((rx, 0, z), (0.04, W - 0.12, 0.2), skin, shift=(-0.04, 0), bevel=0.008)
+    for s in (-1, 1):
+        body.box((rx + 0.002, s * 0.1, z + 0.05), (0.04, 0.12, 0.012), C['team'], shift=(-0.02, 0), bevel=0)
+    # well deck markings
+    body.box((0.15, 0, z), (0.9, 0.02, 0.004), C['yellow'], bevel=0)
+    for x in (-0.3, 0.05, 0.4):
+        for s in (-1, 1):
+            body.box((x, s * 0.2, z), (0.03, 0.03, 0.012), C['yellow'], bevel=0)
+    # stern bridge
+    body.box((-0.62, 0, z), (0.3, W - 0.14, 0.2), skin, bevel=0.01)
+    body.box((-0.61, 0, z + 0.2), (0.2, 0.34, 0.14), C['wall2'], taper=(0.9, 0.95), bevel=0.01)
+    body.box((-0.51, 0, z + 0.25), (0.02, 0.28, 0.05), C['glass'], bevel=0)
+    body.box((-0.61, 0, z + 0.34), (0.24, 0.38, 0.02), C['team'], bevel=0.004)
+    body.cyl((-0.66, 0, z + 0.36), 0.012, 0.3, C['steel'], seg=6)
+    body.box((-0.66, 0, z + 0.56), (0.02, 0.2, 0.015), C['dark'], bevel=0)
+    for s in (-1, 1):
+        body.cyl((-0.76, s * 0.2, z), 0.035, 0.28, C['dark'], seg=10)
+    return {'body': body}
+
+
+def frigate(f):
+    """Gun frigate: sharp bow, a gun turret midships, bridge, mast and funnel aft."""
+    C = palette(f)
+    skin, deck = navy(f)
+    body, tur = Part('body'), Part('turret')
+    L, W = 1.9, 0.5
+    z = ship_hull(body, L, W, 0.18, 0.45, skin, deck, C)
+    hull_band(body, -0.1, 1.0, W, z, C)
+    body.box((0.42, 0, z), (0.02, 0.3, 0.05), skin, bevel=0.005)                 # breakwater
+    body.cyl((0.62, 0.05, z), 0.02, 0.02, C['dark'], seg=8)                      # anchor gear
+    body.box((0.7, 0, z), (0.14, 0.012, 0.006), C['dark'], bevel=0)
+    body.box((-0.42, 0, z), (0.42, 0.34, 0.16), skin, taper=(0.95, 0.9), bevel=0.01)
+    body.box((-0.3, 0, z + 0.16), (0.18, 0.26, 0.12), skin, taper=(0.9, 0.9), bevel=0.01)
+    body.box((-0.215, 0, z + 0.2), (0.02, 0.22, 0.05), C['glass'], bevel=0)
+    body.box((-0.3, 0, z + 0.28), (0.2, 0.3, 0.02), C['team'], bevel=0.004)
+    body.box((-0.34, 0, z + 0.3), (0.05, 0.05, 0.3), C['steel'], taper=(0.4, 0.4), bevel=0)
+    body.box((-0.34, 0, z + 0.48), (0.03, 0.24, 0.015), C['dark'], bevel=0)
+    body.box((-0.34, 0, z + 0.6), (0.03, 0.14, 0.035), C['trim'], bevel=0.004)
+    body.box((-0.55, 0, z + 0.16), (0.16, 0.14, 0.2), skin, taper=(0.85, 0.85), shift=(-0.02, 0), bevel=0.01)
+    body.box((-0.57, 0, z + 0.36), (0.14, 0.12, 0.03), C['dark'], bevel=0.004)
+    body.box((-0.8, 0, z), (0.12, 0.28, 0.03), C['dark'], bevel=0.004)           # depth charge rack
+    tur.cyl((0, 0, z), 0.13, 0.04, C['steel'], seg=16)
+    tur.hull((-0.01, 0, z + 0.04), 0.3, 0.22, 0.11, skin, nose=0.1, tail=0.03, top_w=0.8)
+    tur.box((-0.03, 0, z + 0.15), (0.12, 0.12, 0.012), C['team'], bevel=0.003)
+    tur.cyl((0.1, 0, z + 0.1), 0.02, 0.36, C['steel'], axis='X', seg=10)
+    tur.cyl((0.44, 0, z + 0.1), 0.028, 0.03, C['dark'], axis='X', seg=10)
+    return {'body': body, 'turret': tur}
+
+
+def picket(f):
+    """Air-defence cruiser: radar mast and radome aft, a tilted missile box
+    launcher midships."""
+    C = palette(f)
+    skin, deck = navy(f)
+    body, tur = Part('body'), Part('turret')
+    L, W = 1.9, 0.52
+    z = ship_hull(body, L, W, 0.18, 0.42, skin, deck, C)
+    hull_band(body, -0.1, 1.0, W, z, C)
+    body.cyl((0.55, 0, z), 0.06, 0.06, skin, seg=14)                              # close-in gun dome
+    body.sphere((0.55, 0, z + 0.06), 0.06, C['trim'], half=True)
+    body.cyl((0.6, 0, z + 0.09), 0.008, 0.08, C['dark'], axis='X', seg=6)
+    body.box((-0.5, 0, z), (0.5, 0.36, 0.18), skin, bevel=0.01)
+    body.box((-0.35, 0, z + 0.18), (0.2, 0.28, 0.12), skin, taper=(0.9, 0.9), bevel=0.01)
+    body.box((-0.255, 0, z + 0.22), (0.02, 0.24, 0.05), C['glass'], bevel=0)
+    body.box((-0.35, 0, z + 0.3), (0.22, 0.3, 0.02), C['team'], bevel=0.004)
+    # lattice radar mast
+    body.box((-0.47, 0, z + 0.18), (0.12, 0.12, 0.44), C['steel'], taper=(0.35, 0.35), bevel=0)
+    for k in range(3):
+        body.box((-0.47, 0, z + 0.3 + k * 0.1), (0.13 - k * 0.02, 0.13 - k * 0.02, 0.012), C['dark'], bevel=0)
+    body.box((-0.47, 0, z + 0.62), (0.04, 0.28, 0.1), C['trim'], bevel=0.006)
+    body.box((-0.445, 0, z + 0.65), (0.008, 0.2, 0.04), C['team'], bevel=0)
+    body.sphere((-0.64, 0, z + 0.18), 0.08, C['trim'], half=True)                # radome
+    body.box((-0.84, 0, z), (0.1, 0.26, 0.04), C['dark'], bevel=0.004)
+    tur.cyl((0, 0, z), 0.12, 0.05, C['steel'], seg=16)
+    tur.box((0, 0, z + 0.05), (0.16, 0.18, 0.06), skin, bevel=0.008)
+    for s in (-1, 1):
+        tur.box((0, s * 0.11, z + 0.05), (0.08, 0.03, 0.13), C['steel'], bevel=0.004)
+    box = Part('mbox', tur)
+    box.root.location = (0, 0, z + 0.17)
+    box.root.rotation_euler.y = math.radians(-22)
+    box.box((0, 0, -0.07), (0.28, 0.2, 0.14), skin, bevel=0.01)
+    box.box((-0.02, 0, 0.07), (0.22, 0.16, 0.01), C['team'], bevel=0)
+    red = mat('#c8452f', rough=0.5, name='warhead')
+    for i in range(3):
+        for j in range(2):
+            y, zz = -0.06 + i * 0.06, -0.025 + j * 0.05
+            box.box((0.14, y, zz - 0.02), (0.008, 0.046, 0.04), C['dark'], bevel=0)
+            box.cyl((0.14, y, zz), 0.013, 0.008, red, axis='X', seg=8)
+    return {'body': body, 'turret': tur}
+
+
+def sub(f):
+    """Attack submarine running on the surface: long low rounded hull with a
+    conning tower and an upper stern fin. Body only."""
+    C = palette(f)
+    body = Part('body')
+    dark = mat('#2f3336', metal=0.3, rough=0.55, grime=0.25, name='subhull')
+    L, R = 2.0, 0.2
+    body.sphere((0, 0, 0), R, dark, scale=(L / 2 / R, 1, 0.9), seg=24, half=True)
+    body.box((0.05, 0, 0.12), (1.2, 0.14, 0.07), dark, taper=(0.95, 0.8), bevel=0.01)      # deck casing
+    body.box((-0.5, 0, 0.19), (0.3, 0.05, 0.006), C['team'], bevel=0)
+    for x in (0.5, -0.3):
+        body.cyl((x, 0, 0.19), 0.028, 0.012, C['steel'], seg=10)                          # hatches
+    # conning tower
+    body.box((0.15, 0, 0.15), (0.36, 0.12, 0.26), dark, taper=(0.8, 0.85), shift=(-0.03, 0), bevel=0.012)
+    body.box((0.133, 0, 0.3), (0.325, 0.116, 0.04), C['team'], bevel=0.005)
+    body.box((0.2, 0, 0.3), (0.08, 0.34, 0.012), dark, bevel=0.004)                    # sail planes
+    body.cyl((0.1, 0.02, 0.41), 0.01, 0.12, C['steel'], seg=6)                         # periscope
+    body.cyl((0.16, -0.02, 0.41), 0.008, 0.08, C['steel'], seg=6)
+    body.box((-0.95, 0, 0.04), (0.14, 0.018, 0.16), dark, taper=(0.5, 1), shift=(-0.04, 0), bevel=0.003)
+    return {'body': body}
+
+
+def gunboat(f):
+    """Fast patrol gunboat with a twin flak mount midships and a wheelhouse aft."""
+    C = palette(f)
+    skin, deck = navy(f)
+    body, tur = Part('body'), Part('turret')
+    L, W = 1.3, 0.4
+    z = ship_hull(body, L, W, 0.14, 0.34, skin, deck, C)
+    hull_band(body, -0.05, 0.7, W, z, C)
+    body.box((0.36, 0, z), (0.12, 0.12, 0.004), C['team'], bevel=0, rot=math.radians(45))
+    body.box((-0.3, 0, z), (0.26, 0.28, 0.16), skin, taper=(0.9, 0.9), bevel=0.01)
+    body.box((-0.172, 0, z + 0.08), (0.02, 0.22, 0.05), C['glass'], bevel=0)
+    body.box((-0.3, 0, z + 0.16), (0.22, 0.24, 0.02), C['team'], bevel=0.004)
+    body.cyl((-0.34, 0, z + 0.18), 0.01, 0.22, C['steel'], seg=6)
+    body.box((-0.34, 0, z + 0.34), (0.02, 0.16, 0.012), C['dark'], bevel=0)
+    for s in (-1, 1):
+        body.cyl((-0.52, s * 0.1, z), 0.025, 0.1, C['dark'], seg=8)
+    tur.cyl((0, 0, z), 0.1, 0.04, C['steel'], seg=14)
+    tur.box((0, 0, z + 0.04), (0.14, 0.18, 0.08), skin, bevel=0.008)
+    tur.box((-0.03, 0, z + 0.04), (0.03, 0.24, 0.14), C['steel'], bevel=0.005)          # gun shield
+    tur.box((0.01, 0, z + 0.12), (0.1, 0.1, 0.01), C['team'], bevel=0)
+    for dy in (-0.035, 0.035):
+        tur.cyl((0.02, dy, z + 0.13), 0.018, 0.34, C['dark'], axis='X', seg=8)
+        tur.cyl((0.34, dy, z + 0.13), 0.026, 0.05, C['dark'], axis='X', seg=8)
+    return {'body': body, 'turret': tur}
+
 # ================================================================ aircraft
 # Aircraft are built around the origin (their centre of mass) and rendered with
 # no ground: the game draws them at altitude and paints their shadow itself.
@@ -742,19 +1035,38 @@ def heli(f):
 
 class Soldier:
     """Articulated soldier. Limb Parts pivot at the hip / shoulder.
-    kind: rifle | rocket | engineer | sniper | arc | jetpack"""
+    kind: rifle | rocket | engineer | sniper | arc | jetpack | sapper | striker | psion | isotope |
+          infiltrator | blink"""
+    HAND = ('engineer', 'sapper', 'psion', 'infiltrator')    # carry their tool in the hand, not a shouldered gun
+    RAISE = {'sapper': -70, 'psion': -125, 'infiltrator': -88}  # tool-arm angle while firing
+
     def __init__(self, f, kind):
         C = palette(f)
         self.kind = kind
         self.body = Part('body')
         b = self.body
         vest = C['team']
-        bulky = kind == 'arc'
+        bulky = kind in ('arc', 'sapper', 'isotope')
+        gloved = bulky or kind == 'blink'
         uniform = C['uniform']
         if kind == 'sniper':
             uniform = mat('#55603f', rough=0.9, name='ghillie')
         elif kind == 'arc':
             uniform = C['steel']
+        elif kind == 'striker':
+            uniform = mat('#3b4032', rough=0.85, name='fatigues')
+        elif kind == 'psion':
+            uniform = mat('#3a3440', rough=0.75, name='longcoat')
+        elif kind == 'isotope':
+            uniform = mat('#b5a642', rough=0.45, name='hazmat')
+        elif kind == 'infiltrator':
+            uniform = mat('#2f343d', rough=0.6, name='suit')
+        elif kind == 'blink':
+            uniform = mat('#b4bfcc', metal=0.45, rough=0.35, name='blinkarmor')
+        torso = uniform if kind in ('psion', 'infiltrator') else vest   # coat / jacket instead of a vest
+        psy = mat('#d58cff', emit=6.0, name='psyglow')
+        rad = mat('#7dff5a', emit=5.0, name='radglow')
+        phase = mat('#d8f0ff', emit=6.0, name='blinkglow')
         lw, tw = (0.09, 0.2) if bulky else (0.075, 0.17)
         # legs
         self.legs = []
@@ -767,7 +1079,7 @@ class Soldier:
                 leg.box((0.01, 0, -0.14), (lw + 0.02, lw + 0.01, 0.06), vest, bevel=0.01)
             self.legs.append(leg)
         # torso, belt, pack
-        b.box((0, 0, 0.23), (0.15 if bulky else 0.13, tw, 0.21 if bulky else 0.2), vest, bevel=0.02)
+        b.box((0, 0, 0.23), (0.15 if bulky else 0.13, tw, 0.21 if bulky else 0.2), torso, bevel=0.02)
         b.box((0, 0, 0.225), (0.14 if bulky else 0.135, tw + 0.005, 0.03), C['dark'], bevel=0.005)
         if kind == 'engineer':
             # big tool pack with a coil of cable
@@ -789,6 +1101,57 @@ class Soldier:
             b.sphere((-0.13, 0, 0.43), 0.032, C['glow'])
             for s in (-1, 1):
                 b.sphere((0, s * 0.11, 0.42), 0.045, vest, scale=(1.2, 1, 0.8))
+        elif kind == 'sapper':
+            # charge vest: blocks strapped across the chest, a satchel on the hip, fuse coil on the pack
+            charge = mat('#a0522d', rough=0.7, name='charge')
+            for (y, z) in ((-0.05, 0.28), (0.05, 0.28), (-0.05, 0.35), (0.05, 0.35)):
+                b.box((0.08, y, z), (0.03, 0.07, 0.055), charge, bevel=0.006)
+            b.box((0.097, 0, 0.3), (0.006, 0.17, 0.012), C['dark'], bevel=0)
+            b.box((-0.03, -0.12, 0.12), (0.1, 0.05, 0.09), C['hull2'], bevel=0.012)
+            b.box((-0.12, 0, 0.24), (0.09, 0.17, 0.16), C['hull2'], bevel=0.015)
+            b.torus((-0.12, 0, 0.41), 0.045, 0.012, mat('#c83c32', rough=0.5, name='fuse'))
+            for s in (-1, 1):
+                b.sphere((0, s * 0.11, 0.42), 0.042, vest, scale=(1.2, 1, 0.8))
+        elif kind == 'striker':
+            # bandolier across the chest, holstered sidearm, light pack
+            strap = mat('#4a3a28', rough=0.7, name='bandolier')
+            b.box((0.068, -0.05, 0.24), (0.014, 0.03, 0.19), strap, bevel=0, shift=(0, 0.1))
+            for i in range(4):
+                t = (i + 0.5) / 4
+                b.box((0.078, -0.05 + 0.1 * t, 0.228 + 0.19 * t), (0.012, 0.018, 0.024), C['copper'], bevel=0)
+            b.box((0.0, 0.095, 0.16), (0.05, 0.02, 0.07), C['dark'], bevel=0.005)
+            b.box((-0.08, 0, 0.28), (0.05, 0.12, 0.11), uniform, bevel=0.012)
+        elif kind == 'psion':
+            # long coat: skirt over the thighs, high collar, team sash; no pack
+            b.box((-0.005, 0, 0.09), (0.16, 0.21, 0.15), uniform, bevel=0.012, taper=(0.82, 0.82))
+            b.box((0, 0, 0.405), (0.12, 0.16, 0.045), uniform, bevel=0.01, taper=(1.1, 1.1))
+            b.box((0.066, -0.05, 0.24), (0.012, 0.03, 0.17), vest, bevel=0, shift=(0, 0.1))
+            b.box((0.0, 0, 0.222), (0.145, 0.185, 0.024), vest, bevel=0.004)
+        elif kind == 'isotope':
+            # sealed-suit air tanks with glowing gauges, hose running to the projector
+            b.box((-0.1, 0, 0.22), (0.05, 0.18, 0.2), C['dark'], bevel=0.012)
+            for s in (-1, 1):
+                b.cyl((-0.145, s * 0.045, 0.2), 0.045, 0.24, C['steel'], seg=12)
+                b.sphere((-0.145, s * 0.045, 0.44), 0.045, C['steel'], scale=(1, 1, 0.6), half=True)
+                b.torus((-0.145, s * 0.045, 0.33), 0.047, 0.01, rad)
+            b.box((-0.19, 0, 0.26), (0.02, 0.12, 0.05), vest, bevel=0.004)
+            b.cyl((-0.12, -0.105, 0.3), 0.013, 0.2, C['dark'], axis='X', seg=6)
+        elif kind == 'infiltrator':
+            # suit jacket: white shirt front and a team-coloured tie; no pack
+            shirt = mat('#e8e6df', rough=0.6, name='shirt')
+            b.box((0.066, 0, 0.34), (0.008, 0.05, 0.09), shirt, bevel=0, taper=(1, 1.6))
+            b.box((0.072, 0, 0.3), (0.008, 0.024, 0.12), vest, bevel=0, taper=(1, 0.55))
+            for s in (-1, 1):
+                b.box((0.067, s * 0.045, 0.3), (0.008, 0.03, 0.13), C['dark'], bevel=0, shift=(0, -s * 0.01))
+        elif kind == 'blink':
+            # phase generator pack: casing, glowing rings and core
+            b.box((-0.1, 0, 0.24), (0.07, 0.16, 0.19), C['steel'], bevel=0.015)
+            b.cyl((-0.16, 0, 0.25), 0.05, 0.17, C['dark'], seg=14)
+            for k in range(2):
+                b.torus((-0.16, 0, 0.3 + k * 0.07), 0.058, 0.012, phase)
+            b.sphere((-0.16, 0, 0.45), 0.035, phase)
+            for s in (-1, 1):
+                b.sphere((0, s * 0.1, 0.415), 0.04, vest, scale=(1.2, 1, 0.7))
         else:
             b.box((-0.085, 0, 0.27), (0.06, 0.13, 0.13), uniform, bevel=0.015)
         # head
@@ -803,6 +1166,37 @@ class Soldier:
         elif kind == 'arc':
             b.sphere((0, 0, 0.475), 0.07, C['steel'], scale=(1.05, 1, 1.05))
             b.box((0.05, 0, 0.46), (0.03, 0.08, 0.035), C['glow'], bevel=0.004)
+        elif kind == 'sapper':
+            b.sphere((0, 0, 0.488), 0.068, C['helmet'], scale=(1.05, 1, 0.85), half=True)
+            b.box((0.048, 0, 0.462), (0.02, 0.1, 0.03), C['dark'], bevel=0.004)      # blast goggles
+            for s in (-1, 1):
+                b.cyl((0.056, s * 0.024, 0.477), 0.012, 0.008, C['glass'], axis='X', seg=8)
+        elif kind == 'striker':
+            beret = mat('#2d2a2e', rough=0.8, name='beret')
+            b.sphere((-0.004, 0.012, 0.512), 0.062, beret, scale=(1.05, 1.05, 0.42))
+            b.box((0.05, -0.02, 0.505), (0.012, 0.02, 0.02), vest, bevel=0)
+        elif kind == 'psion':
+            # circlet with glowing points and a brow gem
+            b.torus((0, 0, 0.5), 0.058, 0.009, C['steel'])
+            for i in range(5):
+                a = i * 2 * math.pi / 5
+                b.cyl((math.cos(a) * 0.058, math.sin(a) * 0.058, 0.5), 0.008, 0.032, C['steel'], seg=6, r2=0.003)
+                b.sphere((math.cos(a) * 0.058, math.sin(a) * 0.058, 0.535), 0.01, psy)
+            b.box((0.054, 0, 0.49), (0.012, 0.028, 0.02), psy, bevel=0)
+        elif kind == 'isotope':
+            visor = mat('#2c4a36', metal=0.4, rough=0.1, emit=0.5, name='hazvisor')
+            b.sphere((0, 0, 0.48), 0.075, uniform, scale=(1.05, 1, 1.0))
+            b.sphere((0.035, 0, 0.485), 0.055, visor, scale=(0.9, 1, 0.72))
+            b.cyl((0.065, 0, 0.44), 0.022, 0.035, C['dark'], axis='X', seg=10)       # filter canister
+        elif kind == 'infiltrator':
+            cap = mat('#4a4e55', rough=0.85, name='flatcap')
+            b.sphere((-0.004, 0, 0.482), 0.058, mat('#3a2a1e', rough=0.8, name='hair'), scale=(1, 1, 0.9), half=True)
+            b.cyl((0.004, 0, 0.5), 0.06, 0.012, vest, seg=16)                         # cap band
+            b.sphere((0.006, 0, 0.51), 0.062, cap, scale=(1.1, 1.02, 0.45), half=True)
+            b.box((0.062, 0, 0.505), (0.05, 0.085, 0.01), cap, bevel=0.004)          # brim
+        elif kind == 'blink':
+            b.sphere((0, 0, 0.48), 0.066, uniform, scale=(1.08, 1, 1.0))
+            b.box((0.045, 0, 0.463), (0.03, 0.09, 0.028), phase, bevel=0.006)          # visor
         else:
             b.sphere((0, 0, 0.488), 0.066, C['helmet'], scale=(1.05, 1, 0.85), half=True)
         # arms
@@ -812,7 +1206,7 @@ class Soldier:
             arm.root.location = (0, s * (0.12 if bulky else 0.105), 0.41)
             aw = 0.065 if bulky else 0.055
             arm.box((0, 0, -0.17), (aw, aw - 0.005, 0.17), uniform, bevel=0.01)
-            arm.sphere((0, 0, -0.18), 0.028, C['dark'] if bulky else C['skin'])
+            arm.sphere((0, 0, -0.18), 0.028, C['dark'] if gloved else C['skin'])
             self.arms.append(arm)
         # weapon (or tools)
         flash_mat = mat('#ffd36b', emit=12.0, name='flash')
@@ -842,6 +1236,55 @@ class Soldier:
                 self.gun.cyl((0.08 + k * 0.045, 0, 0), 0.034, 0.022, C['copper'], axis='X', seg=10)
             self.gun.cyl((0.2, 0, 0), 0.016, 0.06, C['metal'], axis='X', seg=8)
             self.flash = self.gun.ico((0.27, 0, 0), 0.05, mat('#9fdcff', emit=14.0, name='arcflash'), subdiv=1)
+        elif kind == 'sapper':
+            # hand-held detonator: the flash is its red firing lamp
+            self.gun = Part('gun', self.arms[0])
+            self.gun.box((0.0, 0, -0.27), (0.05, 0.036, 0.08), C['dark'], bevel=0.006)
+            self.gun.cyl((0.0, 0.012, -0.33), 0.004, 0.06, C['steel'], seg=4)
+            self.gun.box((0.026, 0, -0.24), (0.008, 0.02, 0.02), mat('#c83c32', rough=0.5, name='toolbox'), bevel=0)
+            self.flash = self.gun.ico((0.03, 0, -0.23), 0.02, mat('#ff3a2a', emit=12.0, name='detflash'), subdiv=1)
+        elif kind == 'striker':
+            # compact suppressed carbine
+            self.gun = Part('gun', b)
+            self.gun.root.location = (0.06, -0.035, 0.34)
+            self.gun.box((0.04, 0, -0.02), (0.2, 0.028, 0.05), C['dark'], bevel=0.005)
+            self.gun.cyl((0.14, 0, 0.005), 0.014, 0.1, C['steel'], axis='X', seg=8)
+            self.gun.box((0.03, 0, -0.065), (0.03, 0.02, 0.05), C['dark'], bevel=0.004)
+            self.gun.box((-0.08, 0, -0.035), (0.06, 0.022, 0.04), C['hull2'], bevel=0.004)
+            self.flash = self.gun.ico((0.26, 0, 0.005), 0.035, flash_mat, subdiv=1)
+        elif kind == 'psion':
+            # nothing held: a glow in the palm that flares when the hand is raised
+            self.gun = Part('gun', self.arms[0])
+            self.gun.sphere((0.0, 0, -0.2), 0.02, psy)
+            self.flash = self.gun.ico((0.0, 0, -0.25), 0.07, mat('#e7b8ff', emit=14.0, name='psyflash'), subdiv=2)
+        elif kind == 'isotope':
+            # projector: body, glowing ring, flared nozzle
+            self.gun = Part('gun', b)
+            self.gun.root.location = (0.06, -0.05, 0.33)
+            self.gun.box((0.03, 0, -0.03), (0.16, 0.05, 0.06), C['dark'], bevel=0.008)
+            self.gun.cyl((0.1, 0, 0), 0.02, 0.14, C['steel'], axis='X', seg=10)
+            self.gun.cyl((0.16, 0, 0), 0.028, 0.02, rad, axis='X', seg=12)
+            self.gun.cyl((0.24, 0, 0), 0.026, 0.03, C['dark'], axis='X', seg=10, r2=0.034)
+            self.flash = self.gun.ico((0.32, 0, 0), 0.06, mat('#9bff7a', emit=14.0, name='radflash'), subdiv=1)
+        elif kind == 'infiltrator':
+            # small pistol in one hand, briefcase in the other
+            self.gun = Part('gun', self.arms[0])
+            self.gun.box((0.0, 0, -0.29), (0.022, 0.018, 0.1), C['dark'], bevel=0.004)
+            self.gun.box((-0.025, 0, -0.215), (0.04, 0.018, 0.026), C['dark'], bevel=0.004)
+            self.flash = self.gun.ico((0, 0, -0.31), 0.03, flash_mat, subdiv=1)
+            case = Part('case', self.arms[1])
+            leather = mat('#4a3322', rough=0.6, name='leather')
+            case.box((0, 0, -0.33), (0.14, 0.035, 0.11), leather, bevel=0.008)
+            case.box((0, 0, -0.225), (0.05, 0.012, 0.012), C['dark'], bevel=0)
+            case.box((0, 0, -0.29), (0.145, 0.04, 0.015), vest, bevel=0)
+        elif kind == 'blink':
+            # short rifle with a glowing charge strip
+            self.gun = Part('gun', b)
+            self.gun.root.location = (0.06, -0.035, 0.34)
+            self.gun.box((0.04, 0, -0.02), (0.22, 0.026, 0.05), C['trim'], bevel=0.006)
+            self.gun.box((0.05, 0, 0.03), (0.12, 0.012, 0.006), phase, bevel=0)
+            self.gun.box((-0.07, 0, -0.035), (0.06, 0.024, 0.05), C['dark'], bevel=0.005)
+            self.flash = self.gun.ico((0.19, 0, 0.005), 0.04, mat('#e6f6ff', emit=14.0, name='blinkflash'), subdiv=1)
         else:
             self.gun = Part('gun', b)
             self.gun.root.location = (0.06, -0.035, 0.34)
@@ -854,13 +1297,14 @@ class Soldier:
     def pose(self, anim, k):
         legL, legR = self.legs
         armL, armR = self.arms
+        hand = self.kind in self.HAND
         self.body.root.rotation_euler.y = 0
         self.body.root.location.z = 0
         self.flash.hide_render = True
         self.gun.root.location.x = self.gun_x
         if self.kind == 'rocket':
             armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-150), math.radians(-120)
-        elif self.kind == 'engineer':
+        elif hand:
             armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-6), math.radians(-10)
         else:
             armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-65), math.radians(-50)
@@ -879,13 +1323,15 @@ class Soldier:
             legL.root.rotation_euler.y = math.sin(ph) * math.radians(32)
             legR.root.rotation_euler.y = -math.sin(ph) * math.radians(32)
             self.body.root.location.z = abs(math.cos(ph)) * 0.012
-            if self.kind == 'engineer':
+            if hand:
                 armL.root.rotation_euler.y = -math.sin(ph) * math.radians(22)
                 armR.root.rotation_euler.y = math.sin(ph) * math.radians(10) - math.radians(4)
         elif anim == 'fire':
+            if self.kind in self.RAISE:
+                armL.root.rotation_euler.y = math.radians(self.RAISE[self.kind])
             if k == 0:
                 self.flash.hide_render = self.kind == 'engineer'
-            elif self.kind != 'engineer':
+            elif not hand:
                 self.gun.root.location.x -= 0.02
         elif anim == 'die':
             self.body.root.rotation_euler.y = -math.radians([0, 30, 62, 88][k])
@@ -1077,4 +1523,37 @@ def ore(level, seed):
         p.ico((x, y, 0), s * 1.3, dirt, subdiv=1, scale=(1.4, 1.4, 0.25), smooth=False)
         p.ico((x, y, s * 0.4), s, golds[i % 3], subdiv=1, jitter=0.6,
               seed=seed * 100 + i, scale=(1, 1, 0.9 + rng.random() * 0.7), smooth=False)
+    return {'body': p}
+
+
+def explosion(k, frames=8):
+    """Fireball animation frame k: a white-hot core swells into a cluster of
+    yellow and orange puffs that cool, drift up and turn into dark smoke."""
+    p = Part('body')
+    hot = [mat('#fff4c2', emit=14.0, name='fx_white'), mat('#ffc446', emit=9.0, name='fx_yellow'),
+           mat('#ff7a1e', emit=6.0, name='fx_orange'), mat('#c8401a', emit=3.0, name='fx_red')]
+    smoke = [mat(c, rough=0.95, name='fx_smoke' + c) for c in ('#3a3634', '#4f4a46', '#625d58')]
+    t = k / (frames - 1)
+    rng = np.random.default_rng(7)          # same puff layout every frame, so the frames line up
+    spread = 0.1 + 0.35 * min(1.0, t * 1.6)
+    for i in range(12):
+        a, d, lift, rs = rng.random() * 2 * math.pi, math.sqrt(rng.random()), rng.random(), rng.random()
+        x, y = math.cos(a) * d * spread, math.sin(a) * d * spread
+        zz = 0.08 + (0.1 + 0.5 * lift) * spread + t * t * (0.45 + 0.35 * lift)
+        r = (0.1 + 0.1 * rs) * (0.6 + 1.2 * min(1.0, t * 2)) * (1 + 0.25 * max(0.0, t - 0.6))
+        heat = 1 - 1.35 * t - 0.3 * d
+        if heat > 0.7:
+            m = hot[0]
+        elif heat > 0.45:
+            m = hot[1]
+        elif heat > 0.2:
+            m = hot[2]
+        elif heat > 0.02:
+            m = hot[3]
+        else:
+            m = smoke[i % 3]
+        p.ico((x, y, zz), r, m, subdiv=2, jitter=0.3, seed=i)
+    core = 0.3 * math.sin(math.pi * (0.15 + 0.85 * min(1.0, t * 1.6)))   # bright core, gone once smoke takes over
+    if core > 0.03:
+        p.ico((0, 0, 0.12 + t * 0.2), core, hot[0] if t < 0.3 else hot[1], subdiv=2, jitter=0.2, seed=99)
     return {'body': p}
