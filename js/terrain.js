@@ -87,6 +87,7 @@ const TerrainGen = (() => {
       for(const a of pair[0]) for(const b of pair[1]) if(a !== b && opp[a] !== b) opts.push(a + b);
       m.sea = {edges: opts[Math.floor(rnd() * opts.length)], width: 3.5 + rnd() * 1.5};
     }
+    const awayFromTown = (p, d) => !m.town || Math.hypot(p.x - m.town.x, p.y - m.town.y) > d;
     const seaD = p => m.sea ? Math.min(...[...m.sea.edges].map(e => e === 'w' ? p.x : e === 'n' ? p.y : e === 'e' ? MW - 1 - p.x : MH - 1 - p.y)) : 99;
     // ore: a field by each base (towards the middle), one in the middle, a pair on the flanks
     for(const b of bases){
@@ -95,12 +96,26 @@ const TerrainGen = (() => {
     }
     if(rnd() < 0.45) m.plateau = {x: 32, y: 32, r: 6 + rnd() * 2.5, ramps: [0, 1, 2, 3].map(k => k * Math.PI / 2 + Math.PI / 4)};
     m.ore.push([32, 32, m.plateau ? 3 : 5, m.plateau ? 900 : 650]);
+    // a town off to one side of the line between the bases, with two roads through it (placed before
+    // the flank ore and lakes, which keep clear of it)
+    if(rnd() < 0.8) for(let tries = 0; tries < 8 && !m.town; tries++){
+      const side = rnd() < 0.5 ? 1 : -1, d = 15 + rnd() * 6;
+      const dx = bases[1].x - bases[0].x, dy = bases[1].y - bases[0].y, l = Math.hypot(dx, dy);
+      const t = {x: Math.round(32 - dy / l * d * side), y: Math.round(32 + dx / l * d * side)};
+      const clear = m.ore.every(o => Math.hypot(o[0] - t.x, o[1] - t.y) > o[2] + 8) &&
+                    far(t, 16) && seaD(t) > 12 && (!m.plateau || Math.hypot(t.x - 32, t.y - 32) > m.plateau.r + 9);
+      if(clear){
+        m.town = {x: t.x, y: t.y, lots: townLots(t.x, t.y)};
+        m.roads.push({axis: 'x', c: t.y, from: Math.max(4, t.x - 14), to: Math.min(MW - 5, t.x + 14)},
+                     {axis: 'y', c: t.x, from: Math.max(4, t.y - 14), to: Math.min(MH - 5, t.y + 14)});
+      }
+    }
     const spots = [];
     for(let tries = 0; tries < 200 && spots.length < 3; tries++){
       const p = {x: Math.round(6 + rnd() * (MW - 12)), y: Math.round(6 + rnd() * (MH - 12))};
       const q = mirror(p);
       const ok = pt => far(pt, 15) && Math.hypot(pt.x - 32, pt.y - 32) > (m.plateau ? m.plateau.r + 5 : 11) && seaD(pt) > 8 &&
-                       spots.every(o => Math.hypot(o.x - pt.x, o.y - pt.y) > 11) && m.ore.every(o => Math.hypot(o[0] - pt.x, o[1] - pt.y) > 9);
+                       spots.every(o => Math.hypot(o.x - pt.x, o.y - pt.y) > 11) && m.ore.every(o => Math.hypot(o[0] - pt.x, o[1] - pt.y) > 9) && awayFromTown(pt, 11);
       if(Math.hypot(p.x - q.x, p.y - q.y) > 14 && ok(p) && ok(q)) spots.push(p, q);
     }
     if(spots.length >= 2) m.ore.push([spots[0].x, spots[0].y, 3, 450], [spots[1].x, spots[1].y, 3, 450]);
@@ -110,21 +125,8 @@ const TerrainGen = (() => {
       const p = {x: 6 + rnd() * (MW - 12), y: 6 + rnd() * (MH - 12)}, q = mirror(p);
       const ok = pt => far(pt, 14 + r) && Math.hypot(pt.x - 32, pt.y - 32) > (m.plateau ? m.plateau.r + r + 4 : r + 8) && seaD(pt) > r + 5 &&
                        m.ore.every(o => Math.hypot(o[0] - pt.x, o[1] - pt.y) > o[2] + r + 3) &&
-                       m.lakes.every(l => Math.hypot(l.x - pt.x, l.y - pt.y) > l.r + r + 5);
+                       m.lakes.every(l => Math.hypot(l.x - pt.x, l.y - pt.y) > l.r + r + 5) && awayFromTown(pt, r + 9);
       if(Math.hypot(p.x - q.x, p.y - q.y) > 2 * r + 6 && ok(p) && ok(q)){ m.lakes.push({x: p.x, y: p.y, r}, {x: q.x, y: q.y, r}); if(rnd() < 0.5) break; }
-    }
-    // a town off to one side of the line between the bases, with two roads through it
-    if(rnd() < 0.7){
-      const side = rnd() < 0.5 ? 1 : -1, d = 9 + rnd() * 5;
-      const dx = bases[1].x - bases[0].x, dy = bases[1].y - bases[0].y, l = Math.hypot(dx, dy);
-      const t = {x: Math.round(32 - dy / l * d * side), y: Math.round(32 + dx / l * d * side)};
-      const clear = m.lakes.every(k => Math.hypot(k.x - t.x, k.y - t.y) > k.r + 9) && m.ore.every(o => Math.hypot(o[0] - t.x, o[1] - t.y) > o[2] + 8) &&
-                    far(t, 16) && seaD(t) > 12 && (!m.plateau || Math.hypot(t.x - 32, t.y - 32) > m.plateau.r + 9);
-      if(clear){
-        m.town = {x: t.x, y: t.y, lots: townLots(t.x, t.y)};
-        m.roads.push({axis: 'x', c: t.y, from: Math.max(4, t.x - 14), to: Math.min(MW - 5, t.x + 14)},
-                     {axis: 'y', c: t.x, from: Math.max(4, t.y - 14), to: Math.min(MH - 5, t.y + 14)});
-      }
     }
     return m;
   }

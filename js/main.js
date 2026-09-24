@@ -113,9 +113,26 @@ export function setupTown(){
     }
 }
 
+// Trees must never wall one base off from the other: if no path joins them, clear the woods along
+// the straight line between them (lakes and cliffs are laid out by the map with room to spare).
+function openWay(a, b){
+  if(findPath(a.x, a.y, b.x, b.y)) return;
+  const n = Math.ceil(Math.hypot(b.x - a.x, b.y - a.y));
+  for(let i = 0; i <= n; i++){
+    const x = Math.round(a.x + (b.x - a.x) * i / n), y = Math.round(a.y + (b.y - a.y) * i / n);
+    for(let dy = -1; dy <= 1; dy++) for(let dx = -1; dx <= 1; dx++){
+      const tx = x + dx, ty = y + dy;
+      if(!inMap(tx, ty) || occ[idx(tx, ty)] !== BLOCKED || water[idx(tx, ty)] || groundZ((tx + 0.5) * T, (ty + 0.5) * T) > 0) continue;
+      occ[idx(tx, ty)] = 0;
+      for(let k = doodads.length - 1; k >= 0; k--) if(doodads[k].tx === tx && doodads[k].ty === ty) doodads.splice(k, 1);
+    }
+  }
+}
+
 export function setupMap(){
   const map = TerrainGen.map;
   setupScenery();
+  openWay({x: map.bases[0].x, y: map.bases[0].y}, {x: map.bases[1].x + 1, y: map.bases[1].y + 3});
   setupTown();
   for(const [x, y, r, amount] of map.ore) seedOre(x, y, r, amount);
 
@@ -393,6 +410,8 @@ window.__RH = {
   },
   get ai(){ return ai; },
   zoom: z => setZoom(z),
+  // rebuild the world from other setup choices (before the game starts), e.g. rebuild({map: 'random', seed: 5})
+  rebuild(opts){ Object.assign(setup, opts); newWorld(); },
   settings, restart: () => restartGame(),
   pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
