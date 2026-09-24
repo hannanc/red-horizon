@@ -358,6 +358,9 @@ const UNIT_DEFS = {
             weapon:{dmg:125,rof:3.0,  range:9.5, kind:'snipe', vs:{inf:1, heavy:0, building:0}}},
   beamtank:{name:'Lancer Tank',   cost:1400, hp:300, speed:70,  r:14, armor:'heavy',time:13, tab:'vehicle',  from:'factory', side:'allied', prereq:['radar'],
             weapon:{dmg:75, rof:3.0,  range:7.5, kind:'beam', chain:2, vs:{inf:1, heavy:0.9, building:1.3}}},
+  veiltank:{name:'Veil Tank',     cost:1000, hp:280, speed:80,  r:13, armor:'heavy',time:11, tab:'vehicle',  from:'factory', side:'allied', prereq:['radar'],
+            treeDisguise:true,   // passes for a tree while parked; enemies don't pick it as a target until it fires
+            weapon:{dmg:48, rof:2.0,  range:6,   kind:'rocket', vs:{inf:0.6, heavy:1.3, building:1}}},
   // soviet only
   arctrooper:{name:'Arc Trooper', cost:500,  hp:140, speed:44,  r:9,  armor:'inf',  time:7,  tab:'infantry', from:'barracks', side:'soviet',
             weapon:{dmg:45, rof:1.8,  range:4.2, kind:'arc', vs:{inf:1.3, heavy:1.3, building:0.8}}},
@@ -448,6 +451,7 @@ UNIT_DEFS.psion.voice = {select: ['I hear your thoughts', 'Psion listening'], mo
 UNIT_DEFS.isotope.voice = {select: ['Isotope ready', 'Counter is clicking'], move: ['Moving the hot zone', 'Moving'], attack: ['Glow for me', 'Exposure started']};
 UNIT_DEFS.infiltrator.voice = {select: ['Papers in order', 'Nobody saw me'], move: ['Blending in', 'On my way'], attack: ['Going inside', 'Leave it to me']};
 UNIT_DEFS.blink.voice = {select: ['Blink trooper ready', 'Coordinates?'], move: ['Jumping', 'See you there'], attack: ['Phasing in', 'Engaging']};
+UNIT_DEFS.veiltank.voice = {select: ['Veil ready', 'Nobody sees us'], move: ['Moving quietly', 'Changing cover'], attack: ['Dropping the veil', 'Firing']};
 UNIT_DEFS.dog.voice = null;
 UNIT_DEFS.drone.voice = null;
 
@@ -1101,8 +1105,11 @@ function updateUnit(u, dt){
       if(t) u.order = {type:'attack', target: t, auto: true};
     }
   }
+  if(u.def.treeDisguise) u.stillT = u.moving ? 0 : (u.stillT || 0) + dt;
   applySeparation(u, dt);
 }
+// a parked Veil Tank that hasn't fired lately looks like a tree
+const treeDisguised = u => !!u.def.treeDisguise && u.stillT > 1 && u.fireT > 3;
 
 // a drone inside a vehicle rides along and eats it; it goes down with its host
 function updateLatched(u, dt){
@@ -1206,6 +1213,7 @@ function updateHeli(u, dt){
 // ---------- special infantry ----------
 // disguised spies fool everyone except hounds
 function fooledBy(e, u){
+  if(u.def.treeDisguise) return u.fireT > 3;           // the Veil Tank gives itself away only by firing
   if(!u.def.disguise) return false;
   const w = weaponOf(e);
   return !(w && w.kind === 'bite');
@@ -1859,7 +1867,7 @@ const TAB_ITEMS = {
   structure: ['power','refinery','barracks','factory','radar','depot','airfield'],
   defense:   ['pillbox','beamtower'],
   infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','sapper','isotope','psion','jetpack','blink','infiltrator','striker'],
-  vehicle:   ['ltank','ifv','halftrack','beamtank','launcher','drone','htank','jet','heli','airship','harv','mcv'],
+  vehicle:   ['ltank','ifv','halftrack','beamtank','veiltank','launcher','drone','htank','jet','heli','airship','harv','mcv'],
 };
 
 function makeCameoIcon(key, isUnit){
@@ -2875,6 +2883,16 @@ function drawUnitSprite(u){
   const ghost = u.def.stealth && !u.revealed;         // our own stealth units show faintly
   const tint = u.def.disguise && u.team === PLAYER ? ENEMY : u.team;   // an infiltrator wears the enemy's colours
   if(u.deployed && u.def.deployWeapon) drawSandbags(p);
+  if(treeDisguised(u)){
+    const tree = Sprites.get('tree');
+    if(tree) Sprites.draw(cx, 'tree', 0, u.id % tree.frames, p.x, p.y);
+    else { cx.fillStyle = '#35592a'; cx.beginPath(); cx.ellipse(p.x, p.y - 16, 13, 15, 0, 0, 7); cx.fill(); }
+    if(u.team === PLAYER){   // our own "tree" keeps a small team marker
+      cx.fillStyle = TEAM_COLOR[PLAYER];
+      cx.beginPath(); cx.moveTo(p.x, p.y - 4); cx.lineTo(p.x + 4, p.y - 1); cx.lineTo(p.x, p.y + 2); cx.lineTo(p.x - 4, p.y - 1); cx.closePath(); cx.fill();
+    }
+    return;
+  }
   if(inf || body){
     cx.save();
     if(u.flash > 0) cx.filter = 'brightness(1.9)';
@@ -3959,7 +3977,7 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
-  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(),
+  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised,
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },
