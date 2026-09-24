@@ -139,6 +139,10 @@
     font:bold 15px "Trebuchet MS",sans-serif;cursor:pointer;letter-spacing:2px;text-shadow:0 1px 0 #000;
   }
   .panelBox button:hover{filter:brightness(1.15);}
+  #diffRow{font:bold 14px "Trebuchet MS",sans-serif;color:#d3dcea;margin-bottom:10px;}
+  #diffRow button{margin:0 0 0 6px;padding:5px 14px;font-size:13px;}
+  #diffRow button.on{background:linear-gradient(#e0b640,#8a6a14);border-color:#ffe38a #4a3808 #4a3808 #ffe38a;}
+  #diffNote{font-weight:normal;font-size:13px;color:#aebbd0;margin-top:6px;}
   #endScreen{display:none;}
   #announcer{
     position:fixed;top:calc(var(--topbar-h) + 10px);left:12px;z-index:20;pointer-events:none;
@@ -206,6 +210,10 @@
       <li><b>Engineers:</b> Right-click an enemy structure to capture it, or one of yours to repair it fully. The engineer is used up.</li>
       <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
     </ul>
+    <div id="diffRow">Difficulty:
+      <button data-diff="easy">EASY</button><button data-diff="normal">NORMAL</button><button data-diff="hard">HARD</button>
+      <div id="diffNote"></div>
+    </div>
     <button id="startBtn">COMMENCE OPERATION</button>
   </div>
 </div>
@@ -325,7 +333,7 @@ const UNIT_DEFS = {
             weapon:{dmg:34, rof:1.9,  range:5.6, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.6}}},
   ltank  : {name:'Warden Tank',   cost:700,  hp:320, speed:82,  r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory',
             weapon:{dmg:42, rof:1.6,  range:5.2, kind:'shell', vs:{inf:0.8, heavy:1, building:1}}},
-  htank  : {name:'Paladin Tank',  cost:1750, hp:820, speed:52,  r:15, armor:'heavy',time:16, tab:'vehicle',  from:'factory', prereq:['radar'],
+  htank  : {name:'Paladin Tank',  cost:1600, hp:820, speed:52,  r:15, armor:'heavy',time:16, tab:'vehicle',  from:'factory', prereq:['radar'],
             weapon:{dmg:105,rof:2.4,  range:5.8, kind:'shell', vs:{inf:0.9, heavy:1.25, building:1.15}}},
   harv   : {name:'Ore Hauler',    cost:1400, hp:650, speed:64,  r:14, armor:'heavy',time:12, tab:'vehicle',  from:'factory', harvester:true},
   mcv    : {name:'Construction Vehicle', cost:3000, hp:1000,speed:42,  r:17, armor:'heavy',time:25, tab:'vehicle',  from:'factory', prereq:['radar'], mcv:true},
@@ -336,22 +344,22 @@ const UNIT_DEFS = {
             weapon:{dmg:200,rof:1.0,  range:1.0, kind:'bite', vs:{inf:1, heavy:0, building:0}}},
   sniper : {name:'Marksman',      cost:600,  hp:100, speed:50,  r:8,  armor:'inf',  time:7,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
             weapon:{dmg:125,rof:3.0,  range:9.5, kind:'snipe', vs:{inf:1, heavy:0, building:0}}},
-  beamtank:{name:'Lancer Tank',   cost:1200, hp:300, speed:70,  r:14, armor:'heavy',time:13, tab:'vehicle',  from:'factory', side:'allied', prereq:['radar'],
+  beamtank:{name:'Lancer Tank',   cost:1400, hp:300, speed:70,  r:14, armor:'heavy',time:13, tab:'vehicle',  from:'factory', side:'allied', prereq:['radar'],
             weapon:{dmg:75, rof:3.0,  range:7.5, kind:'beam', chain:2, vs:{inf:1, heavy:0.9, building:1.3}}},
   // soviet only
   arctrooper:{name:'Arc Trooper', cost:500,  hp:140, speed:44,  r:9,  armor:'inf',  time:7,  tab:'infantry', from:'barracks', side:'soviet',
             weapon:{dmg:45, rof:1.8,  range:4.2, kind:'arc', vs:{inf:1.3, heavy:1.3, building:0.8}}},
-  launcher:{name:'Siege Launcher',cost:800,  hp:160, speed:56,  r:15, armor:'heavy',time:12, tab:'vehicle',  from:'factory', side:'soviet', prereq:['radar'],
+  launcher:{name:'Siege Launcher',cost:1000, hp:160, speed:56,  r:15, armor:'heavy',time:12, tab:'vehicle',  from:'factory', side:'soviet', prereq:['radar'],
             turret:false, scan:9,
             weapon:{dmg:220,rof:8.0,  range:14,  kind:'missile', splash:1.6, vs:{inf:1, heavy:0.8, building:1.5}}},
   // transports: infantry board with a right-click, unload with D (or by clicking the transport again)
-  ifv    : {name:'Ranger IFV',    cost:600,  hp:220, speed:104, r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory', side:'allied',
+  ifv    : {name:'Ranger IFV',    cost:700,  hp:220, speed:104, r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory', side:'allied',
             transport:1, ifv:true,     // its weapon depends on who rides in it (IFV_WEAPONS)
             weapon:{dmg:30, rof:1.4,  range:6,   kind:'rocket', vs:{inf:0.5, heavy:1.3, building:0.6}}},
   halftrack:{name:'Bulwark Halftrack', cost:500, hp:200, speed:90, r:14, armor:'heavy',time:8, tab:'vehicle',  from:'factory', side:'soviet',
             transport:5,
             weapon:{dmg:20, rof:0.8,  range:5.5, kind:'flak', vs:{inf:1.3, heavy:0.5, building:0.4}}},
-  drone  : {name:'Leech Drone',   cost:500,  hp:90,  speed:122, r:8,  armor:'heavy',time:5,  tab:'vehicle',  from:'factory', side:'soviet',
+  drone  : {name:'Leech Drone',   cost:400,  hp:90,  speed:122, r:8,  armor:'heavy',time:5,  tab:'vehicle',  from:'factory', side:'soviet',
             turret:false, drain:45,   // damage per second once latched inside a vehicle
             weapon:{dmg:150,rof:1.0,  range:0.8, kind:'latch', vs:{inf:1, heavy:1, building:0}}},
 };
@@ -772,7 +780,7 @@ function updateHarvester(u, dt){
   } else if(u.hState === 'unload'){
     u.hTimer += dt;
     if(u.hTimer >= 1.2){
-      state.credits[u.team] += Math.round(u.carry);
+      state.credits[u.team] += Math.round(u.carry * (u.team === ENEMY ? diff.harvest : 1));
       if(u.team === PLAYER) sfx('cash');
       u.carry = 0; u.hState = 'seek'; u.oreTile = null;
     }
@@ -1152,6 +1160,23 @@ function splashDamage(x, y, r, dmg, vs, src, team){
 }
 
 // ---------- enemy AI ----------
+// Difficulty scales the AI's economy (start credits, trickle income, ore payout) and aggression; the player's side is the same on every level.
+const DIFFICULTY = {
+  easy:   {name:'Easy',   credits: 4000,  income: 3.5, harvest: 0.6, firstWave: 180, waveGap: 1.5, waveStart: 2, waveGrow: 1, waveMax: 6,
+           capMul: 0.5,  capMax: 10, tech: 1.6, note:'The Soviets are slow to arm and attack in small groups.'},
+  normal: {name:'Normal', credits: 7000,  income: 6,   harvest: 0.8, firstWave: 120, waveGap: 1.2, waveStart: 3, waveGrow: 1, waveMax: 10,
+           capMul: 0.75, capMax: 18, tech: 1.25, note:'A steady opponent with growing attack waves.'},
+  hard:   {name:'Hard',   credits: 12000, income: 9,   harvest: 1,   firstWave: 80,  waveGap: 1,   waveStart: 3, waveGrow: 2, waveMax: 14,
+           capMul: 1,    capMax: 26, tech: 1, note:'A rich enemy that attacks early and often.'},
+};
+let diff = DIFFICULTY.normal;
+function setDifficulty(key){
+  diff = DIFFICULTY[key] || DIFFICULTY.normal;
+  state.credits[ENEMY] = diff.credits;
+  ai.waveTimer = diff.firstWave;
+  ai.waveSize = diff.waveStart;
+}
+
 const ai = {
   waveTimer: 80,
   waveSize: 3,
@@ -1160,18 +1185,18 @@ const ai = {
 };
 
 function tickAI(dt){
-  state.credits[ENEMY] += 9 * dt;
+  state.credits[ENEMY] += diff.income * dt;
 
   if(!ai.prodKey){
     ai.prodKey = ai.prodQ[ai.prodI % ai.prodQ.length];
-    if(state.time > 240 && Math.random() < 0.25) ai.prodKey = 'htank';
-    if(state.time > 150 && Math.random() < 0.3) ai.prodKey = 'ltank';
+    if(state.time > 240 * diff.tech && Math.random() < 0.25) ai.prodKey = 'htank';
+    if(state.time > 150 * diff.tech && Math.random() < 0.3) ai.prodKey = 'ltank';
     ai.prodI++;
     ai.prodProgress = 0;
   } else {
     const def = UNIT_DEFS[ai.prodKey];
     const armyCount = units.filter(u => u.team === ENEMY && !u.dead && !u.def.harvester).length;
-    const armyCap = Math.min(26, 5 + Math.floor(state.time / 30) * 2);
+    const armyCap = Math.min(diff.capMax, Math.round((5 + Math.floor(state.time / 30) * 2) * diff.capMul));
     if(armyCount < armyCap){
       const rate = dt / def.time;
       const cost = def.cost * rate;
@@ -1214,8 +1239,8 @@ function tickAI(dt){
         announce('Warning: Soviet forces inbound!', true, 'Warning');
         sfx('alert');
       }
-      ai.waveSize = Math.min(14, ai.waveSize + 2);
-      ai.waveTimer = Math.max(45, 85 - state.time / 20);
+      ai.waveSize = Math.min(diff.waveMax, ai.waveSize + diff.waveGrow);
+      ai.waveTimer = Math.max(45, 85 - state.time / 20) * diff.waveGap;
     } else {
       ai.waveTimer = 12;
     }
@@ -3049,8 +3074,8 @@ function checkEnd(){
     document.getElementById('endTitle').textContent = win ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').style.color = win ? '#39d353' : '#e04040';
     document.getElementById('endText').textContent = win
-      ? `The Soviet base has been reduced to rubble in ${clockEl.textContent}. Outstanding, Commander!`
-      : 'Your base has fallen. The red banner flies over the ruins.';
+      ? `The Soviet base has been reduced to rubble in ${clockEl.textContent} on ${diff.name}. Outstanding, Commander!`
+      : `Your base has fallen on ${diff.name}. The red banner flies over the ruins.`;
     document.getElementById('endScreen').style.display = 'flex';
     speak(win ? 'Mission accomplished' : 'Command link lost');
     sfx(win ? 'ready' : 'alert');
@@ -3213,10 +3238,27 @@ function tick(dt){
 }
 
 // ---------- boot ----------
+// difficulty is picked on the start screen and locked once the game begins
+let diffKey = 'normal';
+try { diffKey = localStorage.getItem('rh-difficulty') || diffKey; } catch(e){}
+if(!DIFFICULTY[diffKey]) diffKey = 'normal';
+function showDifficulty(){
+  document.querySelectorAll('#diffRow button').forEach(b => b.classList.toggle('on', b.dataset.diff === diffKey));
+  document.getElementById('diffNote').textContent = DIFFICULTY[diffKey].note;
+}
+document.querySelectorAll('#diffRow button').forEach(b => b.addEventListener('click', () => {
+  diffKey = b.dataset.diff;
+  try { localStorage.setItem('rh-difficulty', diffKey); } catch(e){}
+  showDifficulty();
+}));
+showDifficulty();
 document.getElementById('startBtn').addEventListener('click', () => {
   document.getElementById('help').style.display = 'none';
   if(!state.started){
     state.started = true;
+    setDifficulty(diffKey);
+    document.getElementById('diffRow').style.display = 'none';
+    document.getElementById('startBtn').textContent = 'RESUME';
     audio();
     announce('Command link established', false, 'Command link established');
   }
