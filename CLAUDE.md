@@ -32,7 +32,8 @@ This file covers how the code works, the rules, and what to build next.
 - **World:** 64x64 tiles, `T = 32` world px per tile. Logic runs on the square
   grid. `toIso` / `toWorld` convert to 2:1 isometric screen space.
   `occ[]` holds the building id on each tile, 0 for free, or `BLOCKED` for
-  water, trees and rocks.
+  water, trees and rocks. `walk[]` marks tiles of flat buildings (`def.flat`, the depot) that
+  units may drive over; always test movement with `passable()`, placement with `occ`.
 - **Teams:** `PLAYER = 0` (Allied), `ENEMY = 1` (Soviet AI), `NEUTRAL = 2` (civilian town).
   `FACTION[team]` picks the sprite set.
 - **Definitions:**
@@ -57,6 +58,9 @@ This file covers how the code works, the rules, and what to build next.
   - Jets (`def.jet`, `updateJet`): parked on an Airfield pad (`u.pad = {b, i}`, `padPos`, `freePad`), one bomb run per `def.ammo`, then back to a pad to rearm for `def.rearm` seconds. With no pad they circle.
   - The helicopter (`def.lands`, `updateHeli`) lands whenever it's idle. Infantry board it only on the ground; `unloadTransport` makes it land first.
   - The airship has `selfRepair` (hp/s). The AI builds one every few minutes (`airshipDue`) outside its army cap.
+- **Service Depot** (`def.flat`): drawn before everything else so vehicles sit on it. `serviceDepot()` repairs the most
+  damaged stopped vehicle on its footprint (`onFootprint`) for credits and kills drones latched inside parked vehicles.
+  The enemy base starts with one, and `aiRepairs()` sends damaged idle AI vehicles to it.
 - **Stealth** (`def.stealth`): `stealthTick` sets `u.revealed` when an enemy is within about 2.5 tiles, the unit fired in the last 3 s, or (helicopter) it has landed. `hiddenFrom(u, team)` hides it from targeting, picking, drawing and the minimap.
 - **Orders:** the `order.type` values are `idle`, `move`, `attack`, `attackmove`, `capture` (engineer) and `board`.
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.
@@ -94,11 +98,12 @@ so code-only work can land first and the art can follow.
   The tests are headless Chromium, run by Playwright against `tools/serve.py` on port 8399.
   - `tests/units.spec.js`: a scenario per unit ability.
   - `tests/air.spec.js`: aircraft, the air armour class, jets and the Airfield, stealth.
+  - `tests/depot.spec.js`: the Service Depot.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
@@ -133,7 +138,7 @@ fallback drawing.
      on the aircraft's centre. Draw them at `toIso(x, y)` shifted up by the altitude
      in px, and paint a ground shadow (dark ellipse) at `toIso(x, y)` yourself.
      Jetpack infantry are anchored at the feet, so shift them up by their hover height the same way.
-2. **Repair Depot (code plus art).**
+2. **Done: Repair Depot (code plus art).** Model `depot` is written but not rendered yet.
    - A building that repairs vehicles parked on it, for credits.
    - It also ejects latched drones, which gives the drone a counter.
 3. **Garrisoning (code).** Infantry enter civilian buildings (reuse the `cargo`
@@ -161,5 +166,4 @@ fallback drawing.
 ### Known issues
 
 - Engineers sent into the enemy base usually die to the Arc Towers before reaching a building. That's expected; there's no infiltration mechanic yet.
-- Nothing counters a latched drone yet. The Repair Depot above fixes that.
 - The AI never builds Engineers.

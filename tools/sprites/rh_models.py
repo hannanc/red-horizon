@@ -389,6 +389,33 @@ def airfield(f):
     hazard(p, -1.3, -0.1, -1.3, z, C, n=8, depth=0.05)
     return {'body': p}
 
+def depot(f):
+    """Service depot: a low drive-on repair platform (vehicles park on top of it,
+    so keep the middle flat) with a gantry crane along the back edge."""
+    C = palette(f)
+    p = Part('body')
+    z = slab(p, 3, 3, C)
+    p.box((0, 0, z), (1.9, 1.9, 0.04), C['steel'], bevel=0.01)
+    p.torus((0, 0, z + 0.05), 0.75, 0.02, C['yellow'])
+    p.torus((0, 0, z + 0.05), 0.5, 0.015, C['team'])
+    for s in (-1, 1):
+        hazard(p, -0.95, 0.95, s * 0.98, z + 0.04, C, n=10, depth=0.07)
+    # gantry crane over the back edge
+    for x in (-1.25, 1.25):
+        p.box((x, 1.2, z), (0.12, 0.12, 1.0), C['accent'], bevel=0.01)
+    p.box((0, 1.2, z + 1.0), (2.62, 0.16, 0.12), C['accent'], bevel=0.01)
+    p.box((0.25, 1.2, z + 0.82), (0.3, 0.26, 0.18), C['dark'])
+    p.cyl((0.25, 1.2, z + 0.45), 0.012, 0.37, C['steel'], seg=4)
+    p.box((0.25, 1.2, z + 0.38), (0.1, 0.1, 0.07), C['accent'])
+    # tool shed on the left and lamp posts at the front corners
+    p.box((-1.18, 0.1, z), (0.46, 0.9, 0.42), C['wall2'])
+    p.box((-1.18, 0.1, z + 0.42), (0.52, 0.96, 0.06), C['team'], bevel=0.005)
+    p.box((-0.94, 0.1, z + 0.05), (0.02, 0.4, 0.3), C['dark'], bevel=0)
+    for (x, y) in ((1.3, -1.3), (-1.3, -1.3)):
+        p.cyl((x, y, z), 0.025, 0.5, C['steel'], seg=6)
+        p.sphere((x, y, z + 0.52), 0.05, C['glow'])
+    return {'body': p}
+
 # ================================================================ vehicles
 
 def tracks(p, L, y, w, h, C, wheels=5):
