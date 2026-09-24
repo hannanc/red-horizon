@@ -575,9 +575,6 @@ def harvester(f):
                  seed=i + 3, smooth=False)
     # scoop arm at the front
     body.box((L / 2 + 0.02, 0, 0.05), (0.08, W - 0.24, 0.12), C['steel'], shift=(0.04, 0))
-    if f == 'soviet':
-        body.cyl((cab_x - 0.02, 0.0, 0.56), 0.06, 0.06, C['hull2'])
-        body.cyl((cab_x + 0.02, 0.0, 0.59), 0.012, 0.18, C['dark'], axis='X', seg=6)
     body.cyl((-L / 2 + 0.12, 0.2, 0.32), 0.035, 0.32, C['steel'], seg=8)
     if f == 'allied':
         return {'body': body}
