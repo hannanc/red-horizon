@@ -7,6 +7,7 @@ import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches
 import {initUI, announce, audio, buildSidebar, clockEl, drawHUD, groups, sfx, speak, tickCamera} from './ui.js';
 import {canBoard, canPlace, deliverUnit, placeBuilding, powerOf, prodQ, radPuddles, radSources, revealAround, spawnUnit, tickProduction, tickRadiation, treeDisguised, unloadTransport, updateBuilding, updateUnit} from './units.js';
 import {rand, seedRandom} from './rng.js';
+import {SLOTS, readSlot, restore, slotInfo, snapshot, writeSlot} from './save.js';
 
 initUI();
 
@@ -313,11 +314,12 @@ for(const [id, key, k] of SLIDERS)
 export function openMenu(){
   if(!state.started || state.over || state.menu) return;
   state.menu = true; state.paused = true;
-  showSettings();
+  showSettings(); showSaves(false);
   menuEl.style.display = 'flex';
   sfx('click');
 }
 export function closeMenu(){
+  if(menuEl.classList.contains('title')){ menuEl.classList.remove('title'); menuEl.style.display = 'none'; return; }
   if(!state.menu) return;
   state.menu = false; state.paused = false;
   menuEl.style.display = 'none';
@@ -333,6 +335,67 @@ export function restartGame(){
   announce('Command link established', false, 'Command link established');
 }
 document.getElementById('mResume').addEventListener('click', closeMenu);
+
+// ---------- save / load ----------
+const slotsEl = document.getElementById('slots');
+const clockText = t => { t = Math.floor(t + 1e-3); return Math.floor(t / 60) + ':' + String(t % 60).padStart(2, '0'); };
+function showSaves(on){
+  menuEl.classList.toggle('saves', on);
+  document.getElementById('mSaves').textContent = on ? 'BACK' : 'SAVE / LOAD';
+  document.getElementById('mResume').textContent = menuEl.classList.contains('title') ? 'BACK' : 'RESUME';
+  menuEl.querySelector('h1').textContent = menuEl.classList.contains('title') ? 'LOAD GAME' : on ? 'SAVE / LOAD' : 'PAUSED';
+  if(!on) return;
+  slotsEl.innerHTML = '';
+  for(let n = 1; n <= SLOTS; n++){
+    const m = slotInfo(n), row = document.createElement('div');
+    row.className = 'slotRow';
+    row.innerHTML = `<div class="info"><b>${n}.</b> ${m ? `${SIDE_NAME[m.side]} · ${m.map} · ${DIFFICULTY[m.diff].name} · ${clockText(m.time)}
+      <small>saved ${new Date(m.date).toLocaleString()}</small>` : '<i>empty</i>'}</div>
+      <button class="save" data-slot="${n}">SAVE</button><button class="load" data-slot="${n}"${m ? '' : ' disabled'}>LOAD</button>`;
+    slotsEl.appendChild(row);
+  }
+}
+slotsEl.addEventListener('click', e => {
+  const n = +e.target.dataset.slot;
+  if(!n) return;
+  if(e.target.classList.contains('save')){ saveGame(n); showSaves(true); }
+  else if(e.target.classList.contains('load')) loadGame(n);
+});
+document.getElementById('mSaves').addEventListener('click', () => showSaves(!menuEl.classList.contains('saves')));
+document.getElementById('loadBtn').addEventListener('click', () => {
+  menuEl.classList.add('title');
+  menuEl.style.display = 'flex';
+  showSaves(true);
+});
+// the map is rebuilt from its seed, then everything that moved since is put back on top
+export function saveGame(n){
+  const ok = writeSlot(n, {meta: {side: setup.side, map: TerrainGen.map.name, diff: diffKey, time: state.time, date: Date.now()},
+                           setup: {...setup}, diff: diffKey, data: snapshot({fogT, endT, lowPowerWarned})});
+  announce(ok ? 'Game saved' : 'Save failed: browser storage is full', !ok, ok ? 'Game saved' : null);
+  return ok;
+}
+export function loadGame(n){
+  const s = readSlot(n);
+  if(!s) return false;
+  closeMenu();
+  for(const id of ['help', 'endScreen']) document.getElementById(id).style.display = 'none';
+  Object.assign(setup, s.setup);
+  diffKey = s.diff; showDifficulty();
+  state.over = false;
+  newWorld();
+  setDifficulty(diffKey);
+  const x = restore(s.data);
+  fogT = x.fogT; endT = x.endT; lowPowerWarned = x.lowPowerWarned; simAcc = 0;
+  if(!state.started){
+    state.started = true;
+    document.getElementById('setupBox').style.display = 'none';
+    document.getElementById('startBtn').textContent = 'RESUME';
+    audio();
+  }
+  buildSidebar();
+  announce('Game loaded', false, 'Game loaded');
+  return true;
+}
 document.getElementById('mRestart').addEventListener('click', restartGame);
 document.getElementById('mQuit').addEventListener('click', () => location.reload());   // back to the start screen
 document.getElementById('mHelp').addEventListener('click', () => {
@@ -412,7 +475,7 @@ window.__RH = {
   zoom: z => setZoom(z),
   // rebuild the world from other setup choices (before the game starts), e.g. rebuild({map: 'random', seed: 5})
   rebuild(opts){ Object.assign(setup, opts); newWorld(); },
-  settings, restart: () => restartGame(),
+  settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
   pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },

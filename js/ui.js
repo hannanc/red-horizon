@@ -568,7 +568,7 @@ export function drawHUD(dt){
     t.classList.toggle('alert', !!s && s.ready && t.dataset.tab !== activeTab);
   });
   powerBar.classList.toggle('low', state.lowPower);
-  const m = Math.floor(state.time / 60), sec = Math.floor(state.time % 60);
+  const secs = Math.floor(state.time + 1e-3), m = Math.floor(secs / 60), sec = secs % 60;   // the epsilon hides fixed-step rounding (29.9999)
   clockEl.textContent = String(m).padStart(2, '0') + ':' + String(sec).padStart(2, '0');
 }
 

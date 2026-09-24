@@ -66,6 +66,7 @@ export const onRoad = (x, y) => roadHits(x + 0.5, y + 0.5).some(h => h.d < 1.2);
 export let nextId = 1;
 export function newId(){ return nextId++; }
 export function resetIds(){ nextId = 1; }
+export function setNextId(n){ nextId = n; }
 export const buildings = [];
 // selected units / buildings: one shared array, replaced through setSelection()
 export const selection = [];
