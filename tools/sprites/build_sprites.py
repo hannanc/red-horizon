@@ -45,6 +45,7 @@ BUILDINGS = {  # key: (footprint, height in BU, builder, factions, frames, frame
     'arctower':  ((1, 1), 1.55, M.arc_tower, ('soviet',), 1, None),
     'airfield':  ((3, 3), 1.3, M.airfield, ('allied',), 1, None),
     'depot':     ((3, 3), 1.15, M.depot, FACTIONS, 1, None),
+    'shipyard':  ((3, 3), 1.4, M.shipyard, FACTIONS, 1, None),     # sits on water; channel opens to +X
 }
 VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom, factions)
     'ltank':    (M.light_tank, (104, 72, 58, 44), 1.9, FACTIONS),
@@ -56,6 +57,13 @@ VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom, factions)
     'drone':    (M.leech_drone, (72, 52, 40, 32), 3.0, ('soviet',)),
     'ifv':      (M.ifv, (108, 76, 60, 46), 1.8, ('allied',)),
     'halftrack': (M.halftrack, (124, 84, 68, 50), 1.5, ('soviet',)),
+    'veiltank': (M.veil_tank, (104, 72, 58, 44), 1.9, ('allied',)),
+    # ships: waterline at z = 0, rendered like vehicles
+    'lander':   (M.lander, (148, 100, 80, 60), 1.2, FACTIONS),
+    'frigate':  (M.frigate, (148, 100, 80, 60), 1.2, ('allied',)),
+    'picket':   (M.picket, (148, 100, 80, 60), 1.2, ('allied',)),
+    'sub':      (M.sub, (148, 100, 80, 60), 1.2, ('soviet',)),
+    'gunboat':  (M.gunboat, (124, 84, 68, 50), 1.5, ('soviet',)),
 }
 INFANTRY = {  # key: (kind, frame, cameo zoom, factions)
     'rifle':      ('rifle', (64, 48, 38, 38), 3.4, FACTIONS),
@@ -65,6 +73,12 @@ INFANTRY = {  # key: (kind, frame, cameo zoom, factions)
     'arctrooper': ('arc', (64, 48, 38, 38), 3.2, ('soviet',)),
     'dog':        ('dog', (64, 48, 38, 38), 3.6, ('allied',)),
     'jetpack':    ('jetpack', (64, 56, 32, 40), 3.2, ('allied',)),
+    'sapper':     ('sapper', (64, 48, 38, 38), 3.2, ('soviet',)),
+    'striker':    ('striker', (64, 48, 38, 38), 3.3, ('allied',)),
+    'psion':      ('psion', (64, 48, 38, 38), 3.3, ('soviet',)),
+    'isotope':    ('isotope', (64, 48, 38, 38), 3.2, ('soviet',)),
+    'infiltrator': ('infiltrator', (64, 48, 38, 38), 3.3, ('allied',)),
+    'blink':      ('blink', (64, 48, 38, 38), 3.3, ('allied',)),
 }
 AIRBORNE_INF = {'jetpack'}      # rendered without ground; the game draws the shadow
 # Aircraft: rendered without ground around their centre. (builder, (W, H, ax, ay), cameo zoom, factions)
@@ -339,6 +353,8 @@ if wanted('rock'):
     do_doodads('rock', [lambda s=s: M.rock(s) for s in range(3)], (84, 52, 48, 34)); print('[sprites] rock', flush=True)
 if wanted('ore'):
     do_doodads('ore', [lambda lv=lv, s=s: M.ore(lv, s) for lv in range(4) for s in range(2)], (72, 44, 38, 24)); print('[sprites] ore', flush=True)
+if wanted('explosion'):
+    do_doodads('explosion', [lambda k=k: M.explosion(k) for k in range(8)], (96, 96, 48, 72)); print('[sprites] explosion', flush=True)
 
 os.makedirs(OUT, exist_ok=True)
 with open(MPATH, 'w') as fh:
