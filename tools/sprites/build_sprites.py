@@ -44,15 +44,22 @@ BUILDINGS = {  # key: (footprint, height in BU, builder, factions, frames, frame
     'beamtower': ((1, 1), 1.9, M.beam_tower, ('allied',), 1, None),
     'arctower':  ((1, 1), 1.55, M.arc_tower, ('soviet',), 1, None),
 }
-VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom)
-    'ltank':   (M.light_tank, (104, 72, 58, 44), 1.9),
-    'htank':   (M.heavy_tank, (128, 84, 70, 50), 1.45),
-    'harv':    (M.harvester, (124, 84, 68, 50), 1.5),
-    'mcv':     (M.mcv, (148, 100, 80, 60), 1.25),
+VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom, factions)
+    'ltank':    (M.light_tank, (104, 72, 58, 44), 1.9, FACTIONS),
+    'htank':    (M.heavy_tank, (128, 84, 70, 50), 1.45, FACTIONS),
+    'harv':     (M.harvester, (124, 84, 68, 50), 1.5, FACTIONS),
+    'mcv':      (M.mcv, (148, 100, 80, 60), 1.25, FACTIONS),
+    'beamtank': (M.beam_tank, (104, 80, 58, 50), 1.8, ('allied',)),
+    'launcher': (M.siege_launcher, (136, 92, 74, 56), 1.35, ('soviet',)),
+    'drone':    (M.leech_drone, (72, 52, 40, 32), 3.0, ('soviet',)),
 }
-INFANTRY = {  # key: (kind, frame, cameo zoom)
-    'rifle':  ('rifle', (64, 48, 38, 38), 3.4),
-    'rocket': ('rocket', (64, 48, 38, 38), 3.4),
+INFANTRY = {  # key: (kind, frame, cameo zoom, factions)
+    'rifle':      ('rifle', (64, 48, 38, 38), 3.4, FACTIONS),
+    'rocket':     ('rocket', (64, 48, 38, 38), 3.4, FACTIONS),
+    'engineer':   ('engineer', (64, 48, 38, 38), 3.4, FACTIONS),
+    'sniper':     ('sniper', (64, 48, 38, 38), 3.4, ('allied',)),
+    'arctrooper': ('arc', (64, 48, 38, 38), 3.2, ('soviet',)),
+    'dog':        ('dog', (64, 48, 38, 38), 3.6, ('allied',)),
 }
 VEHICLE_FACINGS = 32
 INF_FACINGS = 8
@@ -167,10 +174,11 @@ def do_vehicle(key, builder, frame, czoom, faction):
     W, H, ax, ay = frame
     fresh_scene(W, H, ax, ay)
     parts = builder(faction)
+    meshes = {n: [o for o in p.root.children_recursive if o.type == 'MESH'] for n, p in parts.items()}
     for pname, part in parts.items():
-        for other in parts.values():
-            for ob in other.objects:
-                ob.hide_render = other is not part
+        for other, obs in meshes.items():
+            for ob in obs:
+                ob.hide_render = other != pname
         frames, masks = [], []
         for i in range(VEHICLE_FACINGS):
             ang = 2 * math.pi * i / VEHICLE_FACINGS
@@ -181,8 +189,8 @@ def do_vehicle(key, builder, frame, czoom, faction):
             masks.append(m)
         save(f'{name}_{pname}', frames, masks, 8, dict(ax=ax, ay=ay, facings=VEHICLE_FACINGS, seq=1, kind='vehicle'))
     # cameo, all parts visible, turned toward the viewer's lower right
-    for p in parts.values():
-        for ob in p.objects:
+    for obs in meshes.values():
+        for ob in obs:
             ob.hide_render = False
         p.root.rotation_euler.z = -0.45
     set_camera(CAMEO_W, CAMEO_H, CAMEO_W / 2 - 4, CAMEO_H / 2 + 12, czoom)
@@ -193,7 +201,7 @@ def do_infantry(key, kind, frame, czoom, faction):
     name = f'{key}_{faction}'
     W, H, ax, ay = frame
     fresh_scene(W, H, ax, ay)
-    s = M.Soldier(faction, kind)
+    s = M.Dog(faction) if kind == 'dog' else M.Soldier(faction, kind)
     frames, masks = [], []
     for fi in range(INF_FACINGS):
         s.body.root.rotation_euler.z = -2 * math.pi * fi / INF_FACINGS
@@ -254,12 +262,12 @@ for key, (fp, hbu, builder, facs, nfr, kw) in BUILDINGS.items():
     for fac in facs:
         if wanted(f'{key}_{fac}'):
             t = time.time(); do_building(key, fp, hbu, builder, fac, nfr, kw); print(f'[sprites] {key}_{fac} {time.time() - t:.1f}s', flush=True)
-for key, (builder, frame, cz) in VEHICLES.items():
-    for fac in FACTIONS:
+for key, (builder, frame, cz, facs) in VEHICLES.items():
+    for fac in facs:
         if wanted(f'{key}_{fac}'):
             t = time.time(); do_vehicle(key, builder, frame, cz, fac); print(f'[sprites] {key}_{fac} {time.time() - t:.1f}s', flush=True)
-for key, (kind, frame, cz) in INFANTRY.items():
-    for fac in FACTIONS:
+for key, (kind, frame, cz, facs) in INFANTRY.items():
+    for fac in facs:
         if wanted(f'{key}_{fac}'):
             t = time.time(); do_infantry(key, kind, frame, cz, fac); print(f'[sprites] {key}_{fac} {time.time() - t:.1f}s', flush=True)
 if wanted('civ'):
