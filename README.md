@@ -18,7 +18,7 @@ http rather than opened from disk). The start screen sets up the skirmish:
 - **Map:** Classic, Twin Lakes (two lakes split the middle into three lanes), Highland Pass (a big central
   plateau with rich ore on top) or Random.
 - **Seed:** picks the random map (bases in opposite corners, ore and lakes mirrored so neither side is
-  favoured) and the game's luck; the same seed replays the same game.
+  favoured, often a town and sometimes a sea or a central plateau) and the game's luck; the same seed replays the same game.
 - **Difficulty:** Easy, Normal or Hard sets the AI's income, how fast and how well it builds its base, its army size
   and how often and how hard it attacks. The AI starts from a Construction Hub, like you, and builds up from there.
 

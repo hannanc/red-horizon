@@ -72,9 +72,12 @@ This file covers how the code works, the rules, and what to build next.
 - **Maps** (`js/terrain.js`): a map object lists `bases` (player vehicle, enemy hub), `ore` fields, `sea` edges,
   `lakes`, `roads`, a `town` with its lots, an optional `plateau` with `ramps`, and seeds for noise and trees.
   `TerrainGen.MAPS` holds the handmade ones (classic, twinlakes, highland); `randomMap(seed)` builds one with bases in
-  opposite corners and everything mirrored through the centre. `makeMap(id, seed)` picks; `setMap(map)` makes it
+  opposite corners, a matching ore field by each, a middle field, mirrored flank ore and lakes, and often a town (placed
+  before the flank ore and lakes, which keep clear of it). `makeMap(id, seed)` picks; `setMap(map)` makes it
   current, in the game and in each paint worker (the map rides along with every chunk request). Everything in the
   game reads the current map through `TerrainGen.map` (setupMap, scenery, the AI's idea of where the player lives).
+  Random trees could wall a base in, so `setupMap()` calls `openWay()`, which cuts a lane through the woods between
+  the bases when no path joins them. A new map must pass `tests/maps.spec.js`.
 - **Definitions:**
   - `BUILD_DEFS` and `UNIT_DEFS` hold stats, cost, build time, sidebar tab, prerequisites and weapon.
   - `side: 'allied' | 'soviet'` makes a unit exclusive to one side (`available()`).
@@ -195,9 +198,11 @@ so code-only work can land first and the art can follow.
   - `tests/menu.spec.js`: the pause menu and its settings.
   - `tests/aibase.spec.js`: the AI builds a full base on each level, rebuilds a lost factory, keeps its doors open,
     and an idle defended base falls later on Easy than Normal than Hard.
+  - `tests/maps.spec.js`: every handmade map and a spread of random seeds joins the bases, reaches every ore field
+    and lets a new factory out; random maps are balanced and repeatable; the AI's doors reach the player on each.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `rebuild({map, seed, ...})` (a new world from other setup choices, before `start()`), `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
