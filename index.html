@@ -3151,7 +3151,7 @@ function loop(now){
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
 
-  if(state.started && !state.over){
+  if(state.started && !state.over && !state.paused){
     tickCamera(dt);
     tick(dt);
   } else if(state.started){
@@ -3242,15 +3242,27 @@ Sprites.load(TEAM_COLOR)
     startTerrainWorkers(state.camX + VW / 2, state.camY + VH / 2);
     buildSidebar();
     requestAnimationFrame(loop);
+    window.__RH.ready = true;
   });
 
 // debug/testing handle
+// Tests (tests/*.spec.js) wait for `ready`, call start(), pause(true) to stop the
+// real-time clock, then advance the game deterministically with step().
 window.__RH = {
+  ready: false,
+  start(){ document.getElementById('startBtn').click(); },
+  pause(on = true){ state.paused = on; },
+  weaponOf, canHurt, get UNIT_DEFS(){ return UNIT_DEFS; }, get effects(){ return effects; },
   get units(){ return units; }, get buildings(){ return buildings; },
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },
   select(list){ selection = list; },
+  // make a patch of ground open (no trees, rocks or water) so a test arena is predictable
+  clear(tx, ty, w, h){
+    for(let y = ty; y < ty + h; y++) for(let x = tx; x < tx + w; x++) if(inMap(x, y) && occ[idx(x, y)] === BLOCKED) occ[idx(x, y)] = 0;
+    for(let i = doodads.length - 1; i >= 0; i--){ const d = doodads[i]; if(d.tx >= tx && d.tx < tx + w && d.ty >= ty && d.ty < ty + h) doodads.splice(i, 1); }
+  },
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },
   step(seconds){ // advance the simulation manually (testing / hidden-tab)

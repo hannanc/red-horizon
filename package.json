@@ -1,0 +1,12 @@
+{
+  "name": "red-horizon",
+  "private": true,
+  "description": "Classic 2.5D isometric RTS in the browser",
+  "scripts": {
+    "test": "playwright test",
+    "test:quick": "playwright test --grep-invert @slow"
+  },
+  "devDependencies": {
+    "@playwright/test": "^1.63.0"
+  }
+}

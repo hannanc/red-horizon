@@ -75,14 +75,23 @@ so code-only work can land first and the art can follow.
 
 ## Testing
 
-- **Syntax:** extract the main `<script>` and run `node --check` on it.
-- **In a browser:** `window.__RH` is a debug handle.
-  - It has `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `select([...])`, `look(tx, ty)` and `step(seconds)`, and exposes `units`, `buildings` and `state`.
-  - Click `#startBtn` first.
-  - The real-time loop keeps running, so for deterministic tests freeze it with `state.over = true` and wrap each `step()` in `over = false` / `over = true`.
-  - To test a whole game, script it: spawn units, step, then assert on hp, orders and positions.
-- **Checks worth running after gameplay changes:**
-  - Simulate 5-8 minutes with `step(1)` in a loop. Confirm the AI builds and attacks, nothing gets stuck (for example units left in `board` or `capture` orders), and there are no console errors.
+- **Run the tests** after any gameplay change, and add a test for new mechanics:
+  ```bash
+  npm install && npx playwright install chromium   # first time only
+  npm test                                          # all tests, about 30 s
+  npm run test:quick                                # skips the slow whole-game AI test
+  ```
+  The tests are headless Chromium, run by Playwright against `tools/serve.py` on port 8399.
+  - `tests/units.spec.js`: a scenario per unit ability.
+  - `tests/ui.spec.js`: real mouse clicks and the sidebar.
+  - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
+  - Every test also fails on any console error.
+- **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `clear(tx, ty, w, h)`
+  (opens a patch of ground for a test arena), `select([...])`, `look(tx, ty)`,
+  `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
+  Tests call `start()` then `pause(true)`, so the real-time clock is stopped and only `step()` moves the game.
+- **Syntax only:** extract the main `<script>` and run `node --check` on it.
 
 ## Next tasks (recommended order)
 
