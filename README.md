@@ -28,6 +28,8 @@ Right-click gives orders.
 | Board a transport / unload it | Right-click the transport with infantry selected / `D`, or click the selected transport again (a helicopter lands first) |
 | Bomb run with a Talon Jet | Right-click a ground target; the jet drops its bombs, flies back to a free Airfield pad and rearms |
 | Send jets home | Right-click an Airfield |
+| Garrison a town building | Right-click it with armed infantry selected (up to 5). Empty it with `D`, or by clicking or right-clicking the selected building |
+| Dig in behind sandbags (Riflemen / Troopers) | `D` with them selected: more range, half damage taken, they hold position. `D` or a move order climbs out |
 | Repair vehicles | Right-click your Service Depot with vehicles selected; they park on it and are fixed for credits (a latched Leech Drone is removed) |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
