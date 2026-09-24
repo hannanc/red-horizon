@@ -3,7 +3,7 @@ name: Tests
 on:
   pull_request:
   push:
-    branches: [main, claude/v1]
+    branches: [main]
   workflow_dispatch:
 jobs:
   test:
