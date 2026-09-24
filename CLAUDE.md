@@ -38,8 +38,13 @@ This file covers how the code works, the rules, and what to build next.
   `sailable()` is true. `canMove(u, x, y)` picks the right test, `findPath` and `freeTileNear` take one as an argument,
   and `bareOcc(i)` is what a tile reverts to when a building on it goes.
   The sea is a band along the west and north edges (`TerrainGen.seaVal` in `js/terrain.js`, folded into `lakeVal`).
-- **Teams:** `PLAYER = 0` (Allied), `ENEMY = 1` (Soviet AI), `NEUTRAL = 2` (civilian town).
-  `FACTION[team]` picks the sprite set.
+- **Teams:** `PLAYER = 0`, `ENEMY = 1` (the AI), `NEUTRAL = 2` (civilian town). `FACTION[team]` is the side
+  (`'allied'` / `'soviet'`) and picks the sprite set; the player is Allied unless the setup screen says otherwise.
+  Use `FACTION[...]` and `SIDE_NAME`, not hard-coded side names, in anything that depends on who plays what.
+- **Skirmish setup** (`setup = {side, credits, seed}`, saved in localStorage): `newWorld()` clears every world array,
+  sets `FACTION`, the AI's queue (`AI_QUEUE`, `AI_SHIPS`), reseeds the terrain (`TerrainGen.setSeed`, also sent to the
+  paint workers) and runs `setupMap()`. It runs at load, and again at start if the settings changed. Seed 1 is the
+  classic map; the seed moves lakes (`LAKE_SITES`), shifts every noise field and reseeds tree placement.
 - **Definitions:**
   - `BUILD_DEFS` and `UNIT_DEFS` hold stats, cost, build time, sidebar tab, prerequisites and weapon.
   - `side: 'allied' | 'soviet'` makes a unit exclusive to one side (`available()`).
@@ -134,12 +139,13 @@ so code-only work can land first and the art can follow.
   - `tests/infantry.spec.js`: the special infantry.
   - `tests/veiltank.spec.js`: the stealth tank.
   - `tests/naval.spec.js`: the sea, the Dockyard and ships.
-  - `tests/polish.spec.js`: ore truck gun, hauler jump, AI engineers, the skirmish setup, cliffs.
+  - `tests/polish.spec.js`: ore truck gun, hauler jump, AI engineers.
+  - `tests/setup.spec.js`: the skirmish setup screen (side, credits, seed).
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `world()` (water and tree layout, for seed tests), `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
@@ -197,7 +203,7 @@ fallback drawing.
    - terrain height levels and cliffs
    - Done: a gun on the Soviet ore truck (model updated, not rendered yet), and teleport-to-refinery for the Allied hauler
    - Done: AI engineers that capture player buildings (`aiEngineers`)
-   - a skirmish setup screen (map seed, starting credits, pick a side)
+   - Done: a skirmish setup screen (map seed, starting credits, pick a side)
 
 ### Known issues
 

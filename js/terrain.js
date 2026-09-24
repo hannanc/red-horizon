@@ -16,7 +16,10 @@ const TerrainGen = (() => {
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   }
+  // map seed: shifts every noise field; seed 1 is the classic map
+  let SX = 0, SY = 0;
   function vnoise(x, y){
+    x += SX; y += SY;
     const xi = Math.floor(x), yi = Math.floor(y);
     const xf = x - xi, yf = y - yi;
     const u = xf * xf * (3 - 2 * xf), v = yf * yf * (3 - 2 * yf);
@@ -24,6 +27,8 @@ const TerrainGen = (() => {
     return a + (b - a) * u + (c - a) * v + (a - b - c + d) * u * v;
   }
   function fbm(x, y){ return vnoise(x, y) * 0.55 + vnoise(x * 2.1, y * 2.1) * 0.3 + vnoise(x * 4.3, y * 4.3) * 0.15; }
+
+  let F = null;   // painter fields, rebuilt when the seed changes
 
   // ---------- map features ----------
   // roads: 'x' roads run along game x at centre line y = c, 'y' roads along game y
@@ -48,7 +53,19 @@ const TerrainGen = (() => {
   }
 
   // lakes: > 0 is water, a thin band below 0 is the sandy shore
-  const LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}];
+  let LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}];
+  // lake sites that keep clear of the bases, the town, the roads and the ore
+  const LAKE_SITES = [[24, 12], [40, 52], [31, 22], [16, 28], [46, 45], [36, 14]];
+  function setSeed(seed){
+    seed = Math.max(1, Math.floor(seed) || 1);
+    if(seed === 1){ SX = SY = 0; LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}]; }
+    else {
+      SX = (seed * 7919) % 10007; SY = (seed * 104729) % 10009;
+      const sites = LAKE_SITES.slice().sort((a, b) => hash2(seed, a[0] * 64 + a[1]) - hash2(seed, b[0] * 64 + b[1]));
+      LAKES = sites.slice(0, 2 + (seed % 2)).map(([x, y], i) => ({x, y, r: 3.4 + hash2(seed, i) * 1.4}));
+    }
+    F = null;   // repaint the low-frequency fields
+  }
   // the sea: a band SEA tiles wide (give or take) along the west (u = 0) and north (v = 0) edges,
   // joined at the top corner, so both bases have a coast
   const SEA = 4.5;
@@ -62,7 +79,6 @@ const TerrainGen = (() => {
   // ---------- painter ----------
   // Low-frequency fields (dirt, tone, relief, lakes) on a 1/4-tile grid.
   const FR = 4, GW = MW * FR + 2, GH = MH * FR + 2;
-  let F = null;
   function fields(){
     if(F) return F;
     F = {dirt: new Float32Array(GW * GH), tone: new Float32Array(GW * GH),
@@ -154,5 +170,6 @@ const TerrainGen = (() => {
       }
   }
 
-  return {T, MW, MH, hash2, vnoise, fbm, ROADS, TOWN, roadHits, nearRoad, LAKES, SEA, seaVal, lakeVal, paint};
+  return {T, MW, MH, hash2, vnoise, fbm, ROADS, TOWN, roadHits, nearRoad, SEA, seaVal, lakeVal, paint, setSeed,
+          get LAKES(){ return LAKES; }};
 })();

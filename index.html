@@ -129,7 +129,9 @@
     background:linear-gradient(180deg,#46576c,#2a3544 40%,#1b2430);
     border:3px solid;border-color:#a9bbcf #10151c #10151c #a9bbcf;
     padding:26px 32px;max-width:640px;box-shadow:0 20px 60px rgba(0,0,0,.7);
+    max-height:calc(100vh / var(--ui, 1) - 24px);overflow-y:auto;scrollbar-width:thin;scrollbar-color:#566a82 #141b25;
   }
+  .panelBox li{margin-bottom:2px;}
   .panelBox h1{color:#ffd24a;margin-bottom:12px;font-size:26px;letter-spacing:3px;text-shadow:0 2px 0 #000;}
   .panelBox p,.panelBox li{font-size:14px;line-height:1.55;color:#d3dcea;}
   .panelBox ul{margin:10px 0 16px 20px;}
@@ -140,9 +142,12 @@
     font:bold 15px "Trebuchet MS",sans-serif;cursor:pointer;letter-spacing:2px;text-shadow:0 1px 0 #000;
   }
   .panelBox button:hover{filter:brightness(1.15);}
-  #diffRow{font:bold 14px "Trebuchet MS",sans-serif;color:#d3dcea;margin-bottom:10px;}
-  #diffRow button{margin:0 0 0 6px;padding:5px 14px;font-size:13px;}
-  #diffRow button.on{background:linear-gradient(#e0b640,#8a6a14);border-color:#ffe38a #4a3808 #4a3808 #ffe38a;}
+  #setupBox{margin-top:12px;}
+  .optRow{font:bold 14px "Trebuchet MS",sans-serif;color:#d3dcea;margin-bottom:8px;}
+  .optRow button{margin:0 0 0 6px;padding:5px 14px;font-size:13px;}
+  .optRow button.on{background:linear-gradient(#e0b640,#8a6a14);border-color:#ffe38a #4a3808 #4a3808 #ffe38a;}
+  #seedIn{width:84px;margin-left:6px;padding:5px 6px;font:bold 13px "Courier New",monospace;background:#141b25;color:#ffd24a;
+    border:2px solid;border-color:#0b0f15 #7e93ab #7e93ab #0b0f15;}
   #diffNote{font-weight:normal;font-size:13px;color:#aebbd0;margin-top:6px;}
   #endScreen{display:none;}
   #announcer{
@@ -200,7 +205,24 @@
 <div id="help">
   <div class="panelBox">
     <h1>RED HORIZON</h1>
-    <p>A classic isometric real-time strategy skirmish. You command the <b style="color:#6ea3ff">Allied</b> base in the west. The <b style="color:#ff6e6e">Soviet</b> AI holds the east and <i>will</i> come for you.</p>
+    <p>A classic isometric real-time strategy skirmish. You command the <b style="color:#6ea3ff" id="sideMe">Allied</b> base in the west. The <b style="color:#ff6e6e" id="sideThem">Soviet</b> AI holds the east and <i>will</i> come for you.</p>
+    <div id="setupBox">
+      <div class="optRow">Side:
+        <button data-side="allied">ALLIED</button><button data-side="soviet">SOVIET</button>
+      </div>
+      <div class="optRow">Credits:
+        <button data-credits="5000">5,000</button><button data-credits="8000">8,000</button><button data-credits="12000">12,000</button>
+      </div>
+      <div class="optRow">Map seed:
+        <input id="seedIn" type="number" min="1" max="99999" step="1"><button id="seedRnd" title="Random map">🎲</button>
+        <button id="seedClassic" title="The classic map">CLASSIC</button>
+      </div>
+      <div id="diffRow" class="optRow">Difficulty:
+        <button data-diff="easy">EASY</button><button data-diff="normal">NORMAL</button><button data-diff="hard">HARD</button>
+        <div id="diffNote"></div>
+      </div>
+    </div>
+    <button id="startBtn" style="margin-bottom:10px">COMMENCE OPERATION</button>
     <ul>
       <li><b>Deploy:</b> Select your <b>Construction Vehicle</b> and press <b>D</b> (or click it again) to unfold your Construction Hub.</li>
       <li><b>Economy:</b> Build an <b>Ore Refinery</b> — its Miner harvests golden ore and returns it for credits.</li>
@@ -214,13 +236,8 @@
       <li><b>Navy:</b> Build a <b>Dockyard</b> on the coast for ships. Load a Landing Craft at the shore by right-clicking it; press <b>D</b> next to a beach to unload.</li>
       <li><b>Repairs:</b> Right-click a <b>Service Depot</b> with vehicles selected to park them on it; it fixes them for credits and pulls out a latched drone.</li>
       <li><b>Aircraft:</b> Jets make one bomb run on a right-clicked target, then fly back to the <b>Airfield</b> to rearm (right-click the Airfield to send them home). Only rockets and flak can hit aircraft.</li>
-      <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
+      <li><b>Win:</b> Destroy every enemy structure. Lose all of yours and it's over.</li>
     </ul>
-    <div id="diffRow">Difficulty:
-      <button data-diff="easy">EASY</button><button data-diff="normal">NORMAL</button><button data-diff="hard">HARD</button>
-      <div id="diffNote"></div>
-    </div>
-    <button id="startBtn">COMMENCE OPERATION</button>
   </div>
 </div>
 
@@ -256,7 +273,8 @@ const SIDEBAR_W = 264 * UI, TOPBAR_H = 30 * UI;
 const PLAYER = 0, ENEMY = 1, NEUTRAL = 2;
 const TEAM_COLOR   = ['#3b7dff', '#e04040', '#c8c0a8'];
 const TEAM_COLOR_D = ['#234a99', '#8c2626'];
-const FACTION = ['allied', 'soviet', 'civ'];   // sprite set per team
+const FACTION = ['allied', 'soviet', 'civ'];   // sprite set per team; the skirmish setup can swap the first two
+const SIDE_NAME = {allied: 'Allied', soviet: 'Soviet'};
 
 // world <-> iso screen projection (2:1 dimetric diamonds)
 function toIso(wx, wy){ return {x: wx - wy + WPX, y: (wx + wy) * 0.5}; }
@@ -332,9 +350,9 @@ const BUILD_DEFS = {
   civ     : {name:'Civilian Building', cost:0,    power:0,    w:2, h:2, hp:700,  time:0,  tab:null, z:30, garrison:5},
   pillbox : {name:'Pillbox',           cost:600,  power:-10,  w:1, h:1, hp:450,  time:8,  tab:'defense',   prereq:['barracks'], z:12,
              weapon:{dmg:11, rof:0.35, range:5.6, kind:'bullet', vs:{inf:1.6, heavy:0.35, building:0.4}}},
-  beamtower:{name:'Beam Tower',        cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:'defense',   prereq:['barracks'], z:66,
+  beamtower:{name:'Beam Tower',        cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:'defense',   prereq:['barracks'], z:66, side:'allied',
              weapon:{dmg:110, rof:3.2, range:7.6, kind:'beam', vs:{inf:1.2, heavy:1, building:0.8}}},
-  arctower: {name:'Arc Tower',         cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:null, z:54, // enemy only
+  arctower: {name:'Arc Tower',         cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:'defense',   prereq:['barracks'], z:54, side:'soviet',
              weapon:{dmg:110, rof:3.2, range:7.2, kind:'arc', vs:{inf:1.4, heavy:1, building:0.8}}},
   // vehicles drive onto it (flat: its tiles stay passable) to be repaired; it also pulls out latched drones
   depot   : {name:'Service Depot',     cost:800,  power:-20,  w:3, h:3, hp:900,  time:12, tab:'structure', prereq:['factory'], z:12, flat:true},
@@ -488,7 +506,7 @@ UNIT_DEFS.drone.voice = null;
 const SOV_NAME = {rifle:'Trooper', rocket:'AT Trooper', ltank:'Bison Tank', htank:'Ironclad Tank', harv:'Ore Truck',
                   radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant', depot:'Repair Bay', shipyard:'Sea Works'};
 
-function dispName(def, team){ return team === ENEMY && SOV_NAME[def.key] ? SOV_NAME[def.key] : def.name; }
+function dispName(def, team){ return FACTION[team] === 'soviet' && SOV_NAME[def.key] ? SOV_NAME[def.key] : def.name; }
 
 // ---------- helpers ----------
 const dist = (a, b) => Math.hypot(a.x - b.x, a.y - b.y);
@@ -1647,15 +1665,23 @@ function setDifficulty(key){
   ai.waveSize = diff.waveStart;
 }
 
+// what the AI builds, by the side it plays
+const AI_QUEUE = {
+  soviet: ['rifle','arctrooper','ltank','rifle','halftrack','drone','sapper','rocket','ltank','arctrooper','isotope','launcher','rifle','drone'],
+  allied: ['rifle','dog','ltank','rifle','ifv','rocket','sniper','ltank','beamtank','rifle','veiltank','rocket','blink','ltank'],
+};
+const AI_SHIPS = {soviet: ['sub', 'flakboat'], allied: ['frigate', 'picket']};
+
 const ai = {
   waveTimer: 80,
   waveSize: 3,
-  prodQ: ['rifle','arctrooper','ltank','rifle','halftrack','drone','sapper','rocket','ltank','arctrooper','isotope','launcher','rifle','drone'],
+  prodQ: null,   // AI_QUEUE of its side, set by newWorld()
   prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0, engT: 0,
 };
 
 // an airship every few minutes once the AI has the tech, a couple at a time at most
 function airshipDue(){
+  if(FACTION[ENEMY] !== 'soviet') return false;   // the Allied AI keeps out of the air
   const ships = units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'airship').length;
   return state.time > 240 * diff.tech && state.time > ai.airT && ships < (diff === DIFFICULTY.hard ? 3 : 2);
 }
@@ -1689,13 +1715,14 @@ function tickAI(dt){
     ai.prodKey = ai.prodQ[ai.prodI % ai.prodQ.length];
     if(state.time > 240 * diff.tech && Math.random() < 0.25) ai.prodKey = 'htank';
     if(state.time > 150 * diff.tech && Math.random() < 0.3) ai.prodKey = 'ltank';
-    if(state.time > 200 * diff.tech && Math.random() < 0.12 && units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'psion').length < 2) ai.prodKey = 'psion';
+    if(FACTION[ENEMY] === 'soviet' && state.time > 200 * diff.tech && Math.random() < 0.12 &&
+       units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'psion').length < 2) ai.prodKey = 'psion';
     // now and then an engineer to steal one of the player's buildings
     if(state.time > 180 * diff.tech && state.time > ai.engT && !units.some(u => u.team === ENEMY && !u.dead && u.def.engineer)){
       ai.prodKey = 'engineer'; ai.engT = state.time + 120;
     }
     if(airshipDue()){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
-    else if(navyDue()){ ai.prodKey = ai.navI++ % 2 ? 'flakboat' : 'sub'; ai.navT = state.time + 90; }
+    else if(navyDue()){ ai.prodKey = AI_SHIPS[FACTION[ENEMY]][ai.navI++ % 2]; ai.navT = state.time + 90; }
     ai.prodI++;
     ai.prodProgress = 0;
   } else {
@@ -1744,7 +1771,7 @@ function tickAI(dt){
           tr.order = {type:'idle'}; tr.path = null;
           tr.holdT = state.time + 10; tr.goal = target;
         }
-        announce('Warning: Soviet forces inbound!', true, 'Warning');
+        announce(`Warning: ${SIDE_NAME[FACTION[ENEMY]]} forces inbound!`, true, 'Warning');
         sfx('alert');
       }
       ai.waveSize = Math.min(diff.waveMax, ai.waveSize + diff.waveGrow);
@@ -1982,7 +2009,7 @@ const cameoEls = {};
 
 const TAB_ITEMS = {
   structure: ['power','refinery','barracks','factory','radar','depot','airfield','shipyard'],
-  defense:   ['pillbox','beamtower'],
+  defense:   ['pillbox','beamtower','arctower'],
   infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','sapper','isotope','psion','jetpack','blink','infiltrator','striker'],
   vehicle:   ['ltank','ifv','halftrack','beamtank','veiltank','launcher','drone','htank','jet','heli','airship',
               'lander','frigate','picket','sub','flakboat','harv','mcv'],
@@ -2035,9 +2062,9 @@ function buildSidebar(){
     if(!available(def, PLAYER)) continue;
     const el = document.createElement('div');
     el.className = 'cameo';
-    el.title = `${def.name} — $${def.cost}`;
+    el.title = `${dispName(def, PLAYER)} — $${def.cost}`;
     el.appendChild(makeCameoIcon(key, isUnit));
-    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = def.name;
+    const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = dispName(def, PLAYER);
     const prog = document.createElement('div'); prog.className = 'prog';
     const ready = document.createElement('div'); ready.className = 'ready';
     const cnt = document.createElement('div'); cnt.className = 'cnt';
@@ -2554,12 +2581,12 @@ const scorches = [];
 
 const lowC = document.createElement('canvas');
 lowC.width = IW * LOW_SCALE; lowC.height = IH * LOW_SCALE;
-(function paintLow(){
+function paintLow(){
   const g = lowC.getContext('2d');
   const img = g.createImageData(lowC.width, lowC.height);
   TerrainGen.paint(img.data, lowC.width, lowC.height, 0, 0, LOW_SCALE);
   g.putImageData(img, 0, 0);
-})();
+}
 
 // does the chunk overlap the map diamond at all?
 function chunkInMap(ci, cj){
@@ -2573,8 +2600,11 @@ function chunkInMap(ci, cj){
 }
 
 const terrainJobs = [];
-let terrainWorkers = [];
+let terrainWorkers = [], terrainGen = 0;   // bumped per world so late chunks of an old map are dropped
 function startTerrainWorkers(focusX, focusY){
+  for(const w of terrainWorkers) w.terminate();
+  terrainWorkers = []; terrainJobs.length = 0; chunks.fill(null);
+  const gen = ++terrainGen;
   for(let cj = 0; cj < chunkRows; cj++)
     for(let ci = 0; ci < chunkCols; ci++){
       const id = cj * chunkCols + ci;
@@ -2588,7 +2618,7 @@ function startTerrainWorkers(focusX, focusY){
   try{
     for(let i = 0; i < n; i++){
       const w = new Worker('js/terrain-worker.js');
-      w.onmessage = ev => { finishChunk(ev.data.id, ev.data.data); feedWorker(w); };
+      w.onmessage = ev => { if(gen !== terrainGen) return; finishChunk(ev.data.id, ev.data.data); feedWorker(w); };
       terrainWorkers.push(w);
       feedWorker(w);
     }
@@ -2599,7 +2629,7 @@ function feedWorker(w){
   if(id == null){ w.terminate(); return; }
   chunks[id] = 'pending';
   const px = CHUNK * TERRAIN_SCALE;
-  w.postMessage({id, ix0: (id % chunkCols) * CHUNK, iy0: Math.floor(id / chunkCols) * CHUNK, w: px, h: px, scale: TERRAIN_SCALE});
+  w.postMessage({id, ix0: (id % chunkCols) * CHUNK, iy0: Math.floor(id / chunkCols) * CHUNK, w: px, h: px, scale: TERRAIN_SCALE, seed: setup.seed});
 }
 function finishChunk(id, data){
   const px = CHUNK * TERRAIN_SCALE;
@@ -3924,7 +3954,7 @@ function checkEnd(){
     document.getElementById('endTitle').textContent = win ? 'VICTORY' : 'DEFEAT';
     document.getElementById('endTitle').style.color = win ? '#39d353' : '#e04040';
     document.getElementById('endText').textContent = win
-      ? `The Soviet base has been reduced to rubble in ${clockEl.textContent} on ${diff.name}. Outstanding, Commander!`
+      ? `The ${SIDE_NAME[FACTION[ENEMY]]} base has been reduced to rubble in ${clockEl.textContent} on ${diff.name}. Outstanding, Commander!`
       : `Your base has fallen on ${diff.name}. The red banner flies over the ruins.`;
     document.getElementById('endScreen').style.display = 'flex';
     speak(win ? 'Mission accomplished' : 'Command link lost');
@@ -3943,7 +3973,7 @@ function setupScenery(){
                      [TOWN.x, TOWN.y, 8]];
   const clear = (x, y) => x > 1 && y > 1 && x < MW - 2 && y < MH - 2 && occ[idx(x, y)] === 0 && !onRoad(x, y) &&
     keepClear.every(([cx, cy, r]) => Math.hypot(x - cx, y - cy) > r);
-  let s = 777;
+  let s = 777 + (setup.seed - 1) * 7919;   // the map seed moves the trees and rocks too
   const rnd = () => (s = (s * 16807) % 2147483647) / 2147483647;
   const trees = Sprites.get('tree'), rocks = Sprites.get('rock');
   if(!trees) return;
@@ -4006,8 +4036,9 @@ function setupMap(){
   placeBuilding('barracks', 52, 12, ENEMY, true);
   placeBuilding('factory', 55, 6, ENEMY, true);
   placeBuilding('radar', 58, 12, ENEMY, true);     // keeps the factory yard open to the east
-  placeBuilding('arctower', 50, 14, ENEMY, true);
-  placeBuilding('arctower', 54, 15, ENEMY, true);
+  const tower = FACTION[ENEMY] === 'soviet' ? 'arctower' : 'beamtower';
+  placeBuilding(tower, 50, 14, ENEMY, true);
+  placeBuilding(tower, 54, 15, ENEMY, true);
   placeBuilding('depot', 57, 15, ENEMY, true);
   placeBuilding('shipyard', 54, 0, ENEMY, true);
   const eh = spawnUnit('harv', 53 * T, 16 * T, ENEMY);
@@ -4115,12 +4146,35 @@ document.querySelectorAll('#diffRow button').forEach(b => b.addEventListener('cl
   showDifficulty();
 }));
 showDifficulty();
+// skirmish setup: side, starting credits and map seed, remembered like the difficulty
+const setup = {side: 'allied', credits: 8000, seed: 1};
+try { Object.assign(setup, JSON.parse(localStorage.getItem('rh-setup') || '{}')); } catch(e){}
+if(!SIDE_NAME[setup.side]) setup.side = 'allied';
+if(![5000, 8000, 12000].includes(setup.credits)) setup.credits = 8000;
+setup.seed = clamp(Math.floor(setup.seed) || 1, 1, 99999);
+function saveSetup(){ try { localStorage.setItem('rh-setup', JSON.stringify(setup)); } catch(e){} showSetup(); }
+function showSetup(){
+  document.querySelectorAll('[data-side]').forEach(b => b.classList.toggle('on', b.dataset.side === setup.side));
+  document.querySelectorAll('[data-credits]').forEach(b => b.classList.toggle('on', +b.dataset.credits === setup.credits));
+  document.getElementById('seedIn').value = setup.seed;
+  document.getElementById('sideMe').textContent = SIDE_NAME[setup.side];
+  document.getElementById('sideThem').textContent = SIDE_NAME[setup.side === 'allied' ? 'soviet' : 'allied'];
+}
+document.querySelectorAll('[data-side]').forEach(b => b.addEventListener('click', () => { setup.side = b.dataset.side; saveSetup(); }));
+document.querySelectorAll('[data-credits]').forEach(b => b.addEventListener('click', () => { setup.credits = +b.dataset.credits; saveSetup(); }));
+document.getElementById('seedIn').addEventListener('change', e => { setup.seed = clamp(Math.floor(+e.target.value) || 1, 1, 99999); saveSetup(); });
+document.getElementById('seedRnd').addEventListener('click', () => { setup.seed = 2 + Math.floor(Math.random() * 99990); saveSetup(); });
+document.getElementById('seedClassic').addEventListener('click', () => { setup.seed = 1; saveSetup(); });
+
 document.getElementById('startBtn').addEventListener('click', () => {
   document.getElementById('help').style.display = 'none';
   if(!state.started){
+    if(JSON.stringify(setup) !== worldSetup) newWorld();   // the settings changed since the preview map was built
     state.started = true;
     setDifficulty(diffKey);
-    document.getElementById('diffRow').style.display = 'none';
+    state.credits[PLAYER] = setup.credits;
+    state.credits[ENEMY] = Math.round(diff.credits * setup.credits / 8000);
+    document.getElementById('setupBox').style.display = 'none';
     document.getElementById('startBtn').textContent = 'RESUME';
     audio();
     announce('Command link established', false, 'Command link established');
@@ -4139,13 +4193,32 @@ document.getElementById('voiceBtn').addEventListener('click', function(){
   if(!state.voiceOn && window.speechSynthesis) speechSynthesis.cancel();
 });
 
+// Build (or rebuild) the whole world from the skirmish setup: sides, terrain seed, map.
+let worldSetup = '';
+function newWorld(){
+  units.length = buildings.length = projectiles.length = effects.length = 0;
+  radPuddles.length = doodads.length = scorches.length = 0;
+  occ.fill(0); walk.fill(0); water.fill(0); ore.fill(0); explored.fill(0);
+  selection = []; for(const k in groups) delete groups[k];
+  for(const k in prodQ) prodQ[k].length = 0;
+  state.placing = null; state.mode = null; state.blackout.fill(0);
+  shroudDirty = true; mmBaseDirty = true;
+  FACTION[PLAYER] = setup.side; FACTION[ENEMY] = setup.side === 'allied' ? 'soviet' : 'allied';
+  Object.assign(ai, {prodQ: AI_QUEUE[FACTION[ENEMY]], prodI: 0, prodProgress: 0, prodKey: null});
+  TerrainGen.setSeed(setup.seed);
+  paintLow();
+  setupMap();
+  startTerrainWorkers(state.camX + VW / 2, state.camY + VH / 2);
+  buildSidebar();
+  showSetup();
+  worldSetup = JSON.stringify(setup);
+}
+
 // sprites first (the map scatters trees from the sheet), then the world
 Sprites.load(TEAM_COLOR)
   .catch(err => console.warn('Sprite sheets unavailable, using fallback drawing:', err))
   .finally(() => {
-    setupMap();
-    startTerrainWorkers(state.camX + VW / 2, state.camY + VH / 2);
-    buildSidebar();
+    newWorld();
     requestAnimationFrame(loop);
     window.__RH.ready = true;
   });
@@ -4162,7 +4235,8 @@ window.__RH = {
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
   deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
-  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised, sailable, passable, unload: t => unloadTransport(t), reveal: (tx, ty, r) => revealAround(tx * T, ty * T, r),
+  canPlace, canBoard, applyDamage, powerOf, get prodQ(){ return prodQ; }, radiation: () => radSources(), treeDisguised, sailable, passable, unload: t => unloadTransport(t), reveal: (tx, ty, r) => revealAround(tx * T, ty * T, r), faction: FACTION,
+  world: () => ({water: Array.from(water).join(''), trees: doodads.filter(d => d.name !== 'lamp').map(d => d.tx + ',' + d.ty).join(';')}),
   orderMove,
   block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },
