@@ -2,7 +2,8 @@
 import {NEUTRAL, PLAYER, T, angDiff, bareOcc, buildings, clamp, dist, effects, flags, groundZ, hasTurret, idx, isInf, occ, onMap, projectiles, state, turnToward, uName, units, vsMult, walk, weaponOf} from './data.js';
 import {orderMove} from './pathfinding.js';
 import {CHUNK, LOW_SCALE, TERRAIN_SCALE, chunkCols, chunks, lowC, paintScorch, scorches} from './render.js';
-import {announce, sfx, underAttackAlert} from './ui.js';
+import {announce, underAttackAlert} from './ui.js';
+import {sfx} from './sound.js';
 import {followPath, fooledBy, hiddenFrom, mindControl, mindable, radPuddles, releaseMind, unloadTransport} from './units.js';
 import {rand} from './rng.js';
 
@@ -50,7 +51,7 @@ export function kill(e){
   if(e.cargo && e.kind === 'building'){                // a garrison bails out of a falling building, hurt
     for(const p of unloadTransport(e)) p.hp = Math.max(1, p.hp * 0.5);
   } else if(e.cargo) for(const p of e.cargo) p.dead = true;   // nobody gets out of a burning transport
-  sfx('explosion');
+  sfx(e.kind === 'building' ? 'collapse' : isInf(e.def) ? 'death' : 'explosion', e);
   const dieSprite = e.kind === 'unit' ? uName(e) + '_die' : null;
   if(e.kind === 'unit' && isInf(e.def) && Sprites.has(dieSprite)){
     effects.push({type:'corpse', x: e.x, y: e.y, name: dieSprite, team: e.team, t: 0, dur: 4});
@@ -140,40 +141,40 @@ export function fireWeapon(e, target){
       applyDamage(next, w.dmg * 0.5, w.vs, e);
       hit.add(next); from = next;
     }
-    sfx('zap');
+    sfx(w.kind === 'arc' ? 'arc' : 'zap', e);
   } else if(w.kind === 'snipe'){
     effects.push({type: 'tracer', x1: e.x, y1: e.y, x2: target.x, y2: target.y, t: 0, dur: 0.12});
     applyDamage(target, w.dmg, w.vs, e);
-    sfx('snipe');
+    sfx('snipe', e);
   } else if(w.kind === 'bite'){
     applyDamage(target, w.dmg, w.vs, e);
-    sfx('bite');
+    sfx('bite', e);
     return;
   } else if(w.kind === 'latch'){
-    if(target.def.armor === 'inf'){ applyDamage(target, w.dmg, w.vs, e); sfx('bite'); return; }
+    if(target.def.armor === 'inf'){ applyDamage(target, w.dmg, w.vs, e); sfx('bite', e); return; }
     // crawl inside the vehicle and take it apart from within
     e.latched = target;
     e.order = {type: 'idle'}; e.path = null;
     e.x = target.x; e.y = target.y;
-    sfx('latch');
+    sfx('latch', e);
     if(target.team === PLAYER) announce('Vehicle infested!', true, 'Vehicle infested');
     return;
   } else if(w.kind === 'charge'){
     // a timed charge stuck to the target; it goes off after `fuse` seconds
     effects.push({type:'charge', target, x: target.x, y: target.y, t: 0, dur: w.fuse, dmg: w.dmg, vs: w.vs, src: e, team: e.team});
-    sfx('click');
+    sfx('click', e);
     if(target.team === PLAYER && state.time - state.chargeMsgT > 8){ state.chargeMsgT = state.time; announce('Explosive charge planted!', true); }
     return;
   } else if(w.kind === 'mind'){
     effects.push({type:'arc', x1: e.x, y1: e.y, z1: zSrc, x2: target.x, y2: target.y, t: 0, dur: 0.35, col: '200,120,255'});
     mindControl(e, target);
-    sfx('zap');
+    sfx('mind', e);
     return;
   } else if(w.kind === 'rad'){
     effects.push({type:'beam', x1: e.x, y1: e.y, z1: zSrc, x2: target.x, y2: target.y, t: 0, dur: 0.2, col: '140,255,90'});
     applyDamage(target, w.dmg, w.vs, e);
     radPuddles.push({x: target.x, y: target.y, r: T, team: e.team, until: state.time + 5, dps: 18, src: e});
-    sfx('zap');
+    sfx('rad', e);
     return;
   } else if(w.kind === 'bomb'){
     // dropped from altitude: a jet lays a pair across its path, the airship one at a time
@@ -184,7 +185,7 @@ export function fireWeapon(e, target){
                         z0: e.z || 0, z: e.z || 0, t: 0, fall: 0.7 + i * 0.12, target: null,
                         dmg: w.dmg, vs: w.vs, kind: 'bomb', splash: w.splash * T, team: e.team, src: e, life: 5});
     }
-    sfx('bomb');
+    sfx('bomb', e);
     return;
   } else if(w.kind === 'missile'){
     // lobbed at the ground where the target stands now; splash hurts everything nearby
@@ -193,7 +194,7 @@ export function fireWeapon(e, target){
       total: Math.max(1, dist(e, target)), speed: 150,
       dmg: w.dmg, vs: w.vs, kind: 'missile', splash: w.splash * T, team: e.team, src: e, life: 12,
     });
-    sfx('missile');
+    sfx('missile', e);
     return;
   } else {
     projectiles.push({
@@ -202,7 +203,7 @@ export function fireWeapon(e, target){
       speed: w.kind === 'rocket' ? 210 : w.kind === 'torpedo' ? 160 : 380,
       dmg: w.dmg, vs: w.vs, kind: w.kind, team: e.team, src: e, life: 3,
     });
-    sfx(w.kind === 'shell' || w.kind === 'torpedo' ? 'cannon' : w.kind === 'rocket' ? 'rocket' : 'shoot');
+    sfx(w.kind === 'shell' ? 'cannon' : w.kind === 'torpedo' || w.kind === 'rocket' || w.kind === 'flak' ? w.kind : 'shoot', e);
   }
   effects.push({type:'muzzle', x: e.x, y: e.y, z: zSrc, a: Math.atan2(target.y - e.y, target.x - e.x), t: 0, dur: 0.07});
 }
@@ -251,7 +252,7 @@ export function updateProjectiles(dt){
       p.x = p.sx + (p.tx - p.sx) * f; p.y = p.sy + (p.ty - p.sy) * f; p.z = p.z0 * (1 - f * f);
       if(f >= 1){
         splashDamage(p.tx, p.ty, p.splash, p.dmg, p.vs, p.src, p.team);
-        boom(p.tx, p.ty, 30); scorch(p.tx, p.ty, 24); sfx('explosion');
+        boom(p.tx, p.ty, 30); scorch(p.tx, p.ty, 24); sfx('explosion', {x: p.tx, y: p.ty});
         p.dead = true;
       }
       continue;
@@ -263,7 +264,7 @@ export function updateProjectiles(dt){
     if(d <= step + 6 || p.life <= 0){
       if(p.splash){
         splashDamage(p.tx, p.ty, p.splash, p.dmg, p.vs, p.src, p.team);
-        boom(p.tx, p.ty, 26); scorch(p.tx, p.ty, 22); sfx('explosion');
+        boom(p.tx, p.ty, 26); scorch(p.tx, p.ty, 22); sfx('explosion', {x: p.tx, y: p.ty}, 0.8);
       } else {
         if(p.target && !p.target.dead) applyDamage(p.target, p.dmg, p.vs, p.src);
         effects.push({type:'hit', x: p.tx, y: p.ty, z: p.zt || 0, t: 0, dur: 0.22, big: p.kind !== 'bullet'});

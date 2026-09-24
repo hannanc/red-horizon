@@ -25,6 +25,9 @@ http rather than opened from disk). The start screen sets up the skirmish:
 Games save to five slots in the browser (pause menu, **Save / Load**); **Load game** on the start screen
 picks one up again.
 
+There are no audio files: every sound effect is synthesised in the browser with WebAudio, placed in stereo
+by where it happens on screen, and the announcer and unit replies use the browser's speech voice.
+
 ## Controls
 
 Right-click gives orders.

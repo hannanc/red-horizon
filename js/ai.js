@@ -2,7 +2,8 @@
 import {canHurt} from './combat.js';
 import {BUILD_DEFS, ENEMY, FACTION, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, UNIT_DEFS, buildings, dist, idx, inMap, isInf, occ, onMap, ore, passable, state, units} from './data.js';
 import {findPath, freeTileNear, orderMove} from './pathfinding.js';
-import {announce, sfx} from './ui.js';
+import {announce} from './ui.js';
+import {sfx} from './sound.js';
 import {canBoard, canGarrison, canPlace, deliverUnit, engineerCan, fooledBy, hiddenFrom, onFootprint, placeBuilding, powerOf, prereqOk, prodQ, spawnUnit, unloadTransport} from './units.js';
 import {rand} from './rng.js';
 

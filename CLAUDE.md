@@ -30,7 +30,8 @@ This file covers how the code works, the rules, and what to build next.
 | `js/units.js` | Building placement, `spawnUnit`, production, harvesters, `updateUnit` and every unit behaviour (aircraft, transports, engineers, garrisons, specialists, depot) |
 | `js/ai.js` | `DIFFICULTY`, the `ai` state and `tickAI` with its helpers |
 | `js/render.js` | Canvas, zoom and camera size, terrain chunks and workers, sprite and fallback drawing, effects, `draw()`, the minimap |
-| `js/ui.js` | Sound and speech, announcer, sidebar, mouse and keyboard input (`initUI`), `issueCommand`, sell/repair, the HUD |
+| `js/sound.js` | Synthesised sound effects: `SOUNDS`, `sfx(type, at, size)`, the mixing bus, `renderSfx()` for tests |
+| `js/ui.js` | Speech, announcer, sidebar, mouse and keyboard input (`initUI`), `issueCommand`, sell/repair, the HUD |
 | `js/save.js` | Save and load: `pack` / `unpack` (object graph to JSON), `snapshot()` / `restore()`, localStorage slots |
 | `js/main.js` | Map setup, `tick()` and the fixed-step `loop()`, `newWorld()`, the start screen, `window.__RH` |
 | `js/sprites.js` | `Sprites`: loads `assets/sprites/manifest.json`, tints team colour, and has draw, facing and bbox helpers |
@@ -164,7 +165,17 @@ This file covers how the code works, the rules, and what to build next.
 - **Rendering:**
   - `draw()` paints terrain chunks, ore, then entities sorted by `x + y`, then health bars, projectiles, effects, shroud and cursor.
   - `drawUnitSprite` falls back to simple procedural shapes when a sheet is missing.
-- **Sound:** synthesised with WebAudio in `sfx(type)`. Voices use browser speech: `announce()` for the announcer, `ack()` for unit replies, with per-unit `def.voice` lines.
+- **Sound** (`js/sound.js`): no audio files (their licences need a human check); everything is synthesised with
+  WebAudio from `tone()`, `noise()` and `bell()`. `SOUNDS[type]` has `play(ac, out, t, pitch, size)`, `gap` (least
+  time between two), `max` (most at once), `dur`, and `ui: true` for interface cues that ignore position.
+  - `sfx(type, at, size)`: pass where it happens (`at` = a unit, building or `{x, y}`) for anything in the world; it
+    is panned by screen x and fades out 1.5 screens beyond the view. Leave `at` out for interface sounds.
+  - Everything goes through one gain and compressor bus (`makeBus`), scaled by `settings.sfx`; pitch varies a few %.
+  - Weapon kinds map to sounds in `fireWeapon()` (`shell` -> `cannon`, `beam` -> `zap`, `arc`, `rocket`, `flak`,
+    `torpedo`, `snipe`, `mind`, `rad`, ...); `kill()` plays `death` (infantry), `explosion` or `collapse` (buildings).
+  - Tests read `__RH.sfxLog` (what played, or why it was skipped) and `__RH.renderSfx(type)` (renders offline and
+    measures peak, RMS and length). A new sound goes in `SOUNDS` and in the list in `tests/sound.spec.js`.
+- **Voices** use browser speech: `announce()` for the announcer, `ack()` for unit replies, with per-unit `def.voice` lines.
 
 ## Adding a unit
 
@@ -205,6 +216,7 @@ so code-only work can land first and the art can follow.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - `tests/determinism.spec.js`: the same seed replays the same game.
   - `tests/menu.spec.js`: the pause menu and its settings.
+  - `tests/sound.spec.js`: every sound renders without clipping; panning, fading, caps, mute; event sounds.
   - `tests/save.spec.js`: a loaded game continues exactly like the saved one (same page and after a reload); the slot UI.
   - `tests/aibase.spec.js`: the AI builds a full base on each level, rebuilds a lost factory, keeps its doors open,
     and an idle defended base falls later on Easy than Normal than Hard.
@@ -212,7 +224,7 @@ so code-only work can land first and the art can follow.
     and lets a new factory out; random maps are balanced and repeatable; the AI's doors reach the player on each.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `save(slot)`, `load(slot)`, `rebuild({map, seed, ...})` (a new world from other setup choices, before `start()`), `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `sfx(type, tx, ty, size)`, `sfxLog`, `renderSfx(type, size)`, `save(slot)`, `load(slot)`, `rebuild({map, seed, ...})` (a new world from other setup choices, before `start()`), `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
