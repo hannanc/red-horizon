@@ -87,7 +87,7 @@ test('right-clicking a depot with a tank selected parks it there', async ({ page
 
 test('the AI sends damaged vehicles at home to its depot', async ({ page }) => {
   const r = await page.evaluate(() => {
-    const depot = __RH.buildings.find(b => b.team === 1 && b.def.key === 'depot');
+    const depot = __RH.place('depot', 57, 15, 1);                // the AI builds one early; here it's given one
     const tank = __RH.units.find(u => u.team === 1 && u.def.key === 'ltank');
     tank.hp = 90;
     __RH.step(15);

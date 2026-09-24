@@ -126,7 +126,20 @@ This file covers how the code works, the rules, and what to build next.
 - **Orders:** the `order.type` values are `idle`, `move`, `attack`, `attackmove`, `capture` (engineer) and `board`.
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.
 - **AI** (`tickAI`): one production queue (`ai.prodQ`), attack waves on a timer, and `aiTransports()` to fill and unload halftracks.
-  `DIFFICULTY[key]` (picked on the start screen, applied by `setDifficulty()`, read through `diff`) scales starting credits, income, first-wave time, wave gap, wave size and army cap. Hard is the original tuning.
+  `DIFFICULTY[key]` (picked on the start screen, applied by `setDifficulty()`, read through `diff`) scales starting credits,
+  income, first-wave time, wave gap, wave size, army cap, and base building (`build` speed, `towers`, `expand`, `navy`, `repairAt`).
+  - It starts from a Construction Hub and a few units, like the player, and builds its own base (`aiBase`):
+    `aiNextBuilding()` walks a plan (power, refinery, barracks, factory, power, radar, a second refinery, then towers,
+    depot, dockyard, more refineries and towers), puts power first whenever the next building would overdraw, and
+    rebuilds anything lost (the counts drop). The first `CORE` entries come first; the rest wait for spare money or a
+    decent army, so units keep coming.
+  - `aiSpot(key)` picks the tile: compact round the hub, towers towards the player (`playerHome`) and spread out,
+    refineries by free ore on its side of the map (`aiOreTargets`, creeping with a power plant when it's too far), the
+    dockyard on water. Every spot keeps a one-tile gap round other buildings, leaves the rows in front of doors clear
+    (`inYard`) and is only used if every factory, barracks and refinery door can still path to the map centre
+    (`doorsStayOpen`).
+  - Units come from the queue only when it has the buildings for them (`prereqOk(def, ENEMY)`); one it can't build
+    yet keeps its turn. It keeps a harvester per refinery plus a spare, and repairs buildings below `diff.repairAt`.
 - **Rendering:**
   - `draw()` paints terrain chunks, ore, then entities sorted by `x + y`, then health bars, projectiles, effects, shroud and cursor.
   - `drawUnitSprite` falls back to simple procedural shapes when a sheet is missing.
@@ -169,9 +182,11 @@ so code-only work can land first and the art can follow.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - `tests/determinism.spec.js`: the same seed replays the same game.
+  - `tests/aibase.spec.js`: the AI builds a full base on each level, rebuilds a lost factory, keeps its doors open,
+    and an idle defended base falls later on Easy than Normal than Hard.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `world()` (water and tree layout, for seed tests), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `world()` (water and tree layout, for seed tests), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.

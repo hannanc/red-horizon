@@ -2,8 +2,8 @@
 import {AI_QUEUE, DIFFICULTY, ai, diff, setDifficulty, tickAI} from './ai.js';
 import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js';
 import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, ROADS, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, TOWN, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf} from './data.js';
-import {orderMove} from './pathfinding.js';
-import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers} from './render.js';
+import {orderMove, findPath} from './pathfinding.js';
+import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers, setZoom} from './render.js';
 import {initUI, announce, audio, buildSidebar, clockEl, drawHUD, groups, sfx, speak, tickCamera} from './ui.js';
 import {canBoard, canPlace, deliverUnit, placeBuilding, powerOf, prodQ, radPuddles, radSources, revealAround, spawnUnit, tickProduction, tickRadiation, treeDisguised, unloadTransport, updateBuilding, updateUnit} from './units.js';
 import {rand, seedRandom} from './rng.js';
@@ -126,20 +126,8 @@ export function setupMap(){
   spawnUnit('ltank', 13 * T, 52 * T, PLAYER);
   revealAround(9.5 * T, 51.5 * T, 11);
 
+  // the AI starts like the player, from a construction hub and a few units, and builds its own base (aiBase)
   placeBuilding('conyard', 52, 8, ENEMY, true);
-  placeBuilding('power', 49, 8, ENEMY, true);
-  placeBuilding('power', 49, 11, ENEMY, true);
-  placeBuilding('refinery', 55, 11, ENEMY, true);
-  placeBuilding('barracks', 52, 12, ENEMY, true);
-  placeBuilding('factory', 55, 6, ENEMY, true);
-  placeBuilding('radar', 58, 12, ENEMY, true);     // keeps the factory yard open to the east
-  const tower = FACTION[ENEMY] === 'soviet' ? 'arctower' : 'beamtower';
-  placeBuilding(tower, 50, 14, ENEMY, true);
-  placeBuilding(tower, 54, 15, ENEMY, true);
-  placeBuilding('depot', 57, 15, ENEMY, true);
-  placeBuilding('shipyard', 54, 0, ENEMY, true);
-  const eh = spawnUnit('harv', 53 * T, 16 * T, ENEMY);
-  eh.hState = 'seek';
   spawnUnit('rifle', 51 * T, 15 * T, ENEMY);
   spawnUnit('rifle', 52 * T, 16 * T, ENEMY);
   spawnUnit('ltank', 55 * T, 16.5 * T, ENEMY);
@@ -304,7 +292,7 @@ export function newWorld(){
   state.placing = null; state.mode = null; state.blackout.fill(0);
   flags.shroudDirty = true; flags.mmBaseDirty = true;
   FACTION[PLAYER] = setup.side; FACTION[ENEMY] = setup.side === 'allied' ? 'soviet' : 'allied';
-  Object.assign(ai, {prodQ: AI_QUEUE[FACTION[ENEMY]], prodI: 0, prodProgress: 0, prodKey: null});
+  Object.assign(ai, {prodQ: AI_QUEUE[FACTION[ENEMY]], prodI: 0, prodProgress: 0, prodKey: null, picked: false, bKey: null, bProg: 0, bThink: 0, bSkip: {}});
   TerrainGen.setSeed(setup.seed);
   paintLow();
   setupMap();
@@ -347,6 +335,9 @@ window.__RH = {
       if(inMap(x, y) && occ[idx(x, y)] === BLOCKED && !(keepWater && water[idx(x, y)])){ occ[idx(x, y)] = 0; water[idx(x, y)] = 0; }
     for(let i = doodads.length - 1; i >= 0; i--){ const d = doodads[i]; if(d.tx >= tx && d.tx < tx + w && d.ty >= ty && d.ty < ty + h) doodads.splice(i, 1); }
   },
+  get ai(){ return ai; },
+  zoom: z => setZoom(z),
+  pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },
   step(seconds){ // advance the simulation manually (testing / hidden-tab)

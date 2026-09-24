@@ -16,7 +16,8 @@ http rather than opened from disk). The start screen sets up the skirmish:
 - **Side:** play the Allies or the Soviets; the AI takes the other side.
 - **Credits:** 5,000, 8,000 or 12,000 to start with (the AI's start scales with it).
 - **Map seed:** any number gives its own lakes, coastline and woods; 1 (Classic) is the original map.
-- **Difficulty:** Easy, Normal or Hard sets the AI's income, army size and how often and how hard it attacks.
+- **Difficulty:** Easy, Normal or Hard sets the AI's income, how fast and how well it builds its base, its army size
+  and how often and how hard it attacks. The AI starts from a Construction Hub, like you, and builds up from there.
 
 ## Controls
 
