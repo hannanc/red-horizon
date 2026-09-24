@@ -63,6 +63,14 @@ This file covers how the code works, the rules, and what to build next.
   its occupants' team and `garrisonFire()` shoots each occupant's weapon from it; emptied or destroyed, it goes back to
   `NEUTRAL` and survivors walk out. Garrisons don't count for placement range, the win check, engineers or sell/repair.
   The AI (`aiInfantry`) garrisons empty buildings near a fight.
+- **Special infantry**:
+  - `weaponFor(e, target)` picks a unit's weapon for a particular target (`def.demolish` for the Striker vs buildings); `canHurt`, `combatStep` and `fireWeapon` use it. Scans skip buildings for units with `demolish`.
+  - `charge` weapons (Sapper, Striker) add a `charge` effect that follows its target and detonates in `tick()` after `fuse` s.
+  - Weapons with range 1 tile or less measure to a building's footprint edge in `combatStep`.
+  - Psion (`mind` weapon): `mindControl` switches a unit's `team` (`origTeam`, `mindOwner`); `releaseMind` on the psion's death. It holds one unit at a time (`weaponOf` returns null while it does).
+  - Isotope Trooper: `rad` shots leave `radPuddles`; deployed (`def.radiate`) it is a radiation source too. `tickRadiation` damages with `RAD_VS`.
+  - Infiltrator (`def.spy`, `def.disguise`): ignored by enemy targeting except hounds (`fooledBy`); walks in like an engineer (`updateEngineer` → `spyEnter`). Power sabotage sets `state.blackout[team]`, which `powerOf` honours.
+  - Blink Trooper (`def.blink`): `orderMove` gives it a straight waypoint and `followPath` hands off to `blinkStep`, which charges and jumps.
 - **Sandbags**: units with `def.deploy` (the rifleman) toggle `u.deployed` with `D`: `weaponOf` returns `def.deployWeapon`,
   `applyDamage` halves damage, they don't chase targets, and any move or board order undeploys them. AI troopers at home dig in.
 - **Service Depot** (`def.flat`): drawn before everything else so vehicles sit on it. `serviceDepot()` repairs the most
@@ -107,11 +115,12 @@ so code-only work can land first and the art can follow.
   - `tests/air.spec.js`: aircraft, the air armour class, jets and the Airfield, stealth.
   - `tests/depot.spec.js`: the Service Depot.
   - `tests/garrison.spec.js`: garrisons and sandbags.
+  - `tests/infantry.spec.js`: the special infantry.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
@@ -152,7 +161,7 @@ fallback drawing.
 3. **Done: Garrisoning (code).** Infantry enter civilian buildings (reuse the `cargo`
    and `inside` mechanics) and fire out of them. Rifle-type infantry can deploy
    behind sandbags for more range and armour.
-4. **Special infantry (code plus art):**
+4. **Done: Special infantry (code plus art):** models written, not rendered yet.
    - demolitions expert (timed charge on buildings and vehicles)
    - elite commando (kills infantry in one shot, demolishes buildings)
    - psychic infantry (takes over one enemy unit)
