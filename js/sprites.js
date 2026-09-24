@@ -89,7 +89,7 @@ const Sprites = (() => {
       jobs.push((async () => {
         const img = await loadImage(e.img);
         const mask = e.mask ? await loadImage(e.mask) : null;
-        if(e.kind === 'building' || e.kind === 'vehicle' && name.endsWith('_body')) measure(name, e, img);
+        if(e.kind === 'building' || (e.kind === 'vehicle' || e.kind === 'aircraft') && name.endsWith('_body')) measure(name, e, img);
         if(e.kind === 'infantry' && !name.endsWith('_die')) measure(name, e, img);
         if(mask) teamColors.forEach((rgb, t) => { baked[name + '|' + t] = tint(img, mask, rgb); });
         else baked[name + '|*'] = tint(img, null, null);
