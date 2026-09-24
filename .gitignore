@@ -1,0 +1,7 @@
+# personal Claude Code permissions
+.claude/settings.local.json
+
+.DS_Store
+__pycache__/
+*.pyc
+*.blend1
