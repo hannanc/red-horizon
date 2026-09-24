@@ -6,6 +6,10 @@ pre-rendered 3D sprites.
 
 ## Play
 
+Play it online at **https://hannanc.github.io/red-horizon/**: every push to `main` is published there by
+`.github/workflows/pages.yml` (once GitHub Pages is enabled for the repo with "GitHub Actions" as its source).
+To run it locally:
+
 ```bash
 python3 tools/serve.py 8347
 ```
