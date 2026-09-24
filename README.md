@@ -33,6 +33,7 @@ Right-click gives orders.
 | Sabotage with an Infiltrator | Right-click an enemy building: a Refinery loses half its credits to you, a Power Plant blacks out their power for 45 s, a Radar reveals the map |
 | Blow up a building with the Striker | Right-click it (the Striker only shoots infantry on its own) |
 | Switch on an Isotope Trooper's radiation field | `D` |
+| Load a Landing Craft | Bring it to the shore and right-click it with infantry or vehicles selected; unload with `D` (it must be next to a beach) |
 | Repair vehicles | Right-click your Service Depot with vehicles selected; they park on it and are fixed for credits (a latched Leech Drone is removed) |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
@@ -43,6 +44,9 @@ Right-click gives orders.
 | Zoom | Mouse wheel or `+` / `-` |
 
 The minimap only works while you have a powered Radar.
+
+The map has a sea along its west and north edges, so both bases have a coast.
+Ships only move on water.
 
 Aircraft fly straight over water, trees and buildings. Only rockets (Rocket
 Soldiers, AT Troopers, the Ranger IFV) and the halftrack's flak can hit them.
@@ -56,7 +60,8 @@ Each side has its own roster.
 | Infantry | Rifleman, Rocket Soldier, Engineer, Hound (fast melee anti-infantry), Marksman (long-range anti-infantry), Skytrooper (jetpack; hovers over obstacles, needs an Airfield), Striker (elite commando, one at a time: kills infantry in one shot, demolishes buildings), Infiltrator (the enemy ignores it; sabotages buildings), Blink Trooper (teleports instead of walking) | Trooper, AT Trooper, Engineer, Arc Trooper (electric anti-armour), Sapper (timed charges on buildings and vehicles), Psion (takes over one enemy unit until it dies), Isotope Trooper (shots leave radiation; deploys to irradiate the area) |
 | Vehicles | Warden Tank, Ranger IFV (carries 1; its weapon changes with the passenger, and an Engineer inside repairs nearby vehicles), Lancer Tank (beam that arcs to nearby enemies), Veil Tank (stealth missile tank: looks like a tree while parked, and the enemy doesn't pick it as a target until it fires), Paladin Tank, Ore Hauler, Construction Vehicle | Bison Tank, Bulwark Halftrack (carries 5, flak gun), Siege Launcher (long-range missile artillery), Leech Drone (crawls into vehicles and eats them from within), Ironclad Tank, Ore Truck, Construction Vehicle |
 | Aircraft | Talon Jet (one bomb run, then rearms on an Airfield pad; two jets per Airfield), Shade Transport (helicopter for 5 infantry; the enemy can't see it in flight unless something is close) | Tempest Airship (very slow and tough, bombs what's below it, repairs itself) |
-| Structures | Airfield (builds jets and the helicopter, and rearms jets), Service Depot | Repair Bay (the same depot) |
+| Ships | Landing Craft (carries 5 infantry or vehicles), Frigate (shells ships and the shore; the only thing that can hurt a sub), Picket Cruiser (anti-air) | Landing Craft, Barracuda Sub (torpedoes; attacks ships only), Hornet Flak Boat (fast; anti-air and anti-infantry) |
+| Structures | Airfield (builds jets and the helicopter, and rearms jets), Service Depot, Dockyard (built on water; builds ships) | Repair Bay (the same depot), Sea Works (the same dockyard) |
 
 ## Display
 

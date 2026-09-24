@@ -918,8 +918,8 @@ def sub(f):
     return {'body': body}
 
 
-def gunboat(f):
-    """Fast patrol gunboat with a twin flak mount midships and a wheelhouse aft."""
+def flakboat(f):
+    """Fast patrol boat with a twin flak mount midships and a wheelhouse aft."""
     C = palette(f)
     skin, deck = navy(f)
     body, tur = Part('body'), Part('turret')
