@@ -10,9 +10,12 @@ pre-rendered 3D sprites.
 python3 tools/serve.py 8347
 ```
 
-Then open http://localhost:8347. Pick Easy, Normal or Hard on the start screen;
-the level sets the Soviet AI's starting credits, income, army size and how
-often and how hard it attacks.
+Then open http://localhost:8347. The start screen sets up the skirmish:
+
+- **Side:** play the Allies or the Soviets; the AI takes the other side.
+- **Credits:** 5,000, 8,000 or 12,000 to start with (the AI's start scales with it).
+- **Map seed:** any number gives its own lakes, coastline and woods; 1 (Classic) is the original map.
+- **Difficulty:** Easy, Normal or Hard sets the AI's income, army size and how often and how hard it attacks.
 
 ## Controls
 

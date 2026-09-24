@@ -2,8 +2,10 @@
 // Paints terrain chunks off the main thread (see TerrainGen.paint).
 importScripts('terrain.js');
 
+let seed = 1;
 onmessage = e => {
   const {id, ix0, iy0, w, h, scale} = e.data;
+  if(e.data.seed !== seed){ seed = e.data.seed; TerrainGen.setSeed(seed); }
   const data = new Uint8ClampedArray(w * h * 4);
   TerrainGen.paint(data, w, h, ix0, iy0, scale);
   postMessage({id, data}, [data.buffer]);
