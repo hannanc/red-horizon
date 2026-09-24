@@ -31,6 +31,7 @@ This file covers how the code works, the rules, and what to build next.
 | `js/ai.js` | `DIFFICULTY`, the `ai` state and `tickAI` with its helpers |
 | `js/render.js` | Canvas, zoom and camera size, terrain chunks and workers, sprite and fallback drawing, effects, `draw()`, the minimap |
 | `js/ui.js` | Sound and speech, announcer, sidebar, mouse and keyboard input (`initUI`), `issueCommand`, sell/repair, the HUD |
+| `js/save.js` | Save and load: `pack` / `unpack` (object graph to JSON), `snapshot()` / `restore()`, localStorage slots |
 | `js/main.js` | Map setup, `tick()` and the fixed-step `loop()`, `newWorld()`, the start screen, `window.__RH` |
 | `js/sprites.js` | `Sprites`: loads `assets/sprites/manifest.json`, tints team colour, and has draw, facing and bbox helpers |
 | `js/terrain.js`, `js/terrain-worker.js` | Procedural ground painting (noise, roads, lakes), run in a worker pool |
@@ -152,6 +153,14 @@ This file covers how the code works, the rules, and what to build next.
   `state.paused`. `settings = {sfx, voice, scroll}` (in `data.js`, saved as `rh-settings`) scale `sfx()` gain, speech
   volume and `tickCamera()` speed. Restart rebuilds the same skirmish with `newWorld()`; Quit reloads the page.
   Anything time-based that must reset with a restart belongs in `state` (e.g. `attackAlertT`, `chargeMsgT`).
+- **Save and load** (`js/save.js`, `saveGame` / `loadGame` in `main.js`, 5 slots `rh-save-1..5`): a save stores
+  `setup`, the difficulty and a `snapshot()`. `pack()` gives every object a row in a table, so shared references
+  (targets, cargo, `inside`) and cycles survive; `UNIT_DEFS`, `BUILD_DEFS` and the other constant tables are stored
+  by path, so `u.def === UNIT_DEFS[key]` still holds. It handles plain objects, arrays, typed arrays and `Set`s;
+  `-0`, `NaN`, `Infinity` and `undefined` round-trip. Loading runs `newWorld()` for the map, then `restore()` puts
+  the arrays, map layers, `state`, `ai`, the RNG state and the next id back. **Any new simulation state must live
+  in something `snapshot()` saves** (an entity, `state`, `ai`, or a new root added there), or loaded games drift;
+  `tests/save.spec.js` catches it. Bump `VERSION` in `save.js` when old saves can't load any more.
 - **Rendering:**
   - `draw()` paints terrain chunks, ore, then entities sorted by `x + y`, then health bars, projectiles, effects, shroud and cursor.
   - `drawUnitSprite` falls back to simple procedural shapes when a sheet is missing.
@@ -196,13 +205,14 @@ so code-only work can land first and the art can follow.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - `tests/determinism.spec.js`: the same seed replays the same game.
   - `tests/menu.spec.js`: the pause menu and its settings.
+  - `tests/save.spec.js`: a loaded game continues exactly like the saved one (same page and after a reload); the slot UI.
   - `tests/aibase.spec.js`: the AI builds a full base on each level, rebuilds a lost factory, keeps its doors open,
     and an idle defended base falls later on Easy than Normal than Hard.
   - `tests/maps.spec.js`: every handmade map and a spread of random seeds joins the bases, reaches every ore field
     and lets a new factory out; random maps are balanced and repeatable; the AI's doors reach the player on each.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
-  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `rebuild({map, seed, ...})` (a new world from other setup choices, before `start()`), `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
+  `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `save(slot)`, `load(slot)`, `rebuild({map, seed, ...})` (a new world from other setup choices, before `start()`), `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
   finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.

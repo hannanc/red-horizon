@@ -22,6 +22,9 @@ http rather than opened from disk). The start screen sets up the skirmish:
 - **Difficulty:** Easy, Normal or Hard sets the AI's income, how fast and how well it builds its base, its army size
   and how often and how hard it attacks. The AI starts from a Construction Hub, like you, and builds up from there.
 
+Games save to five slots in the browser (pause menu, **Save / Load**); **Load game** on the start screen
+picks one up again.
+
 ## Controls
 
 Right-click gives orders.
@@ -48,7 +51,7 @@ Right-click gives orders.
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
 | Control groups | `Ctrl+1-9` to assign, `1-9` to recall |
 | Stop | `S` |
-| Pause menu (resume, restart, quit, sound and voice volume, scroll speed) | `Esc` or the Options button (`Esc` first cancels a placement or sell/repair mode) |
+| Pause menu (resume, restart, quit, save / load, sound and voice volume, scroll speed) | `Esc` or the Options button (`Esc` first cancels a placement or sell/repair mode) |
 | Scroll | Arrow keys or the screen edge |
 | Zoom | Mouse wheel or `+` / `-` |
 
