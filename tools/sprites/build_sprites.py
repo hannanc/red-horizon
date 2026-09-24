@@ -43,6 +43,7 @@ BUILDINGS = {  # key: (footprint, height in BU, builder, factions, frames, frame
     'pillbox':  ((1, 1), 0.45, M.pillbox, FACTIONS, 1, None),
     'beamtower': ((1, 1), 1.9, M.beam_tower, ('allied',), 1, None),
     'arctower':  ((1, 1), 1.55, M.arc_tower, ('soviet',), 1, None),
+    'airfield':  ((3, 3), 1.3, M.airfield, ('allied',), 1, None),
 }
 VEHICLES = {  # key: (builder, (W, H, ax, ay), cameo zoom, factions)
     'ltank':    (M.light_tank, (104, 72, 58, 44), 1.9, FACTIONS),
@@ -62,7 +63,17 @@ INFANTRY = {  # key: (kind, frame, cameo zoom, factions)
     'sniper':     ('sniper', (64, 48, 38, 38), 3.4, ('allied',)),
     'arctrooper': ('arc', (64, 48, 38, 38), 3.2, ('soviet',)),
     'dog':        ('dog', (64, 48, 38, 38), 3.6, ('allied',)),
+    'jetpack':    ('jetpack', (64, 56, 32, 40), 3.2, ('allied',)),
 }
+AIRBORNE_INF = {'jetpack'}      # rendered without ground; the game draws the shadow
+# Aircraft: rendered without ground around their centre. (builder, (W, H, ax, ay), cameo zoom, factions)
+# A part named 'rotor' gets ROTOR_FRAMES spin frames at one facing instead of 32 facings.
+AIRCRAFT = {
+    'jet':     (M.jet, (100, 72, 50, 36), 2.2, ('allied',)),
+    'airship': (M.airship, (156, 108, 78, 54), 1.25, ('soviet',)),
+    'heli':    (M.heli, (120, 88, 60, 44), 1.9, ('allied',)),
+}
+ROTOR_FRAMES = 4
 VEHICLE_FACINGS = 32
 INF_FACINGS = 8
 INF_SEQ = [('stand', 0), ('walk', 0), ('walk', 1), ('walk', 2), ('walk', 3), ('walk', 4), ('walk', 5),
@@ -73,14 +84,15 @@ def wanted(name):
     return ONLY is None or name in ONLY or name.split('_')[0] in ONLY
 
 
-def fresh_scene(W, H, ax, ay, zoom=1.0):
+def fresh_scene(W, H, ax, ay, zoom=1.0, ground=True):
     L.reset_scene()
     L.clear_material_cache()
     sc = bpy.context.scene
     sc.cycles.samples = SAMPLES
     L.setup_world(0.85)
     L.setup_lights()
-    L.setup_ground()
+    if ground:
+        L.setup_ground()
     L.setup_camera(round(W * S), round(H * S), ax * S, ay * S, zoom * S)
 
 
@@ -202,7 +214,8 @@ def do_vehicle(key, builder, frame, czoom, faction):
 def do_infantry(key, kind, frame, czoom, faction):
     name = f'{key}_{faction}'
     W, H, ax, ay = frame
-    fresh_scene(W, H, ax, ay)
+    airborne = key in AIRBORNE_INF
+    fresh_scene(W, H, ax, ay, ground=not airborne)
     s = M.Dog(faction) if kind == 'dog' else M.Soldier(faction, kind)
     frames, masks = [], []
     for fi in range(INF_FACINGS):
@@ -214,7 +227,7 @@ def do_infantry(key, kind, frame, czoom, faction):
             masks.append(m)
     anims = {'stand': [0, 1], 'walk': [1, 6], 'fire': [7, 2]}
     save(name, frames, masks, len(INF_SEQ),
-         dict(ax=ax, ay=ay, facings=INF_FACINGS, seq=len(INF_SEQ), anims=anims, kind='infantry'))
+         dict(ax=ax, ay=ay, facings=INF_FACINGS, seq=len(INF_SEQ), anims=anims, kind='infantry', air=airborne))
     # death sequence (one facing is enough; it is drawn at the unit's facing-0 frame)
     frames, masks = [], []
     s.body.root.rotation_euler.z = -math.pi / 4
@@ -228,6 +241,45 @@ def do_infantry(key, kind, frame, czoom, faction):
     s.pose('stand', 0)
     s.body.root.rotation_euler.z = -math.pi / 4 - 0.35
     set_camera(CAMEO_W, CAMEO_H, CAMEO_W / 2, CAMEO_H - 10, czoom)
+    save_cameo(name)
+
+
+def do_aircraft(key, builder, frame, czoom, faction):
+    name = f'{key}_{faction}'
+    W, H, ax, ay = frame
+    fresh_scene(W, H, ax, ay, ground=False)
+    parts = builder(faction)
+    meshes = {n: [o for o in p.root.children_recursive if o.type == 'MESH'] for n, p in parts.items()}
+    for pname, part in parts.items():
+        for other, obs in meshes.items():
+            for ob in obs:
+                ob.hide_render = other != pname
+        frames, masks = [], []
+        if pname == 'rotor':
+            for k in range(ROTOR_FRAMES):
+                part.root.rotation_euler.z = k * (math.pi / 2) / ROTOR_FRAMES   # 4 blades: a quarter turn loops
+                c, m = shoot()
+                frames.append(c)
+                masks.append(m)
+            part.root.rotation_euler.z = 0
+            save(f'{name}_{pname}', frames, masks, ROTOR_FRAMES,
+                 dict(ax=ax, ay=ay, facings=1, seq=ROTOR_FRAMES, kind='aircraft'))
+            continue
+        for i in range(VEHICLE_FACINGS):
+            ang = 2 * math.pi * i / VEHICLE_FACINGS
+            for n, p in parts.items():
+                if n != 'rotor':
+                    p.root.rotation_euler.z = -ang
+            c, m = shoot()
+            frames.append(c)
+            masks.append(m)
+        save(f'{name}_{pname}', frames, masks, 8, dict(ax=ax, ay=ay, facings=VEHICLE_FACINGS, seq=1, kind='aircraft'))
+    for obs in meshes.values():
+        for ob in obs:
+            ob.hide_render = False
+    for p in parts.values():
+        p.root.rotation_euler.z = -0.45
+    set_camera(CAMEO_W, CAMEO_H, CAMEO_W / 2, CAMEO_H / 2, czoom)
     save_cameo(name)
 
 
@@ -272,6 +324,10 @@ for key, (kind, frame, cz, facs) in INFANTRY.items():
     for fac in facs:
         if wanted(f'{key}_{fac}'):
             t = time.time(); do_infantry(key, kind, frame, cz, fac); print(f'[sprites] {key}_{fac} {time.time() - t:.1f}s', flush=True)
+for key, (builder, frame, cz, facs) in AIRCRAFT.items():
+    for fac in facs:
+        if wanted(f'{key}_{fac}'):
+            t = time.time(); do_aircraft(key, builder, frame, cz, fac); print(f'[sprites] {key}_{fac} {time.time() - t:.1f}s', flush=True)
 if wanted('civ'):
     do_civ(); print('[sprites] civ', flush=True)
 if wanted('lamp'):

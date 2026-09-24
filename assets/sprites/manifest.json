@@ -1,5 +1,15 @@
 {
  "cameos": {
+  "airfield_allied": {
+   "img": "assets/cameos/airfield_allied.png",
+   "mask": "assets/cameos/airfield_allied_mask.png",
+   "scale": 2
+  },
+  "airship_soviet": {
+   "img": "assets/cameos/airship_soviet.png",
+   "mask": "assets/cameos/airship_soviet_mask.png",
+   "scale": 2
+  },
   "arctower_soviet": {
    "img": "assets/cameos/arctower_soviet.png",
    "mask": "assets/cameos/arctower_soviet_mask.png",
@@ -85,6 +95,11 @@
    "mask": "assets/cameos/harv_soviet_mask.png",
    "scale": 2
   },
+  "heli_allied": {
+   "img": "assets/cameos/heli_allied.png",
+   "mask": "assets/cameos/heli_allied_mask.png",
+   "scale": 2
+  },
   "htank_allied": {
    "img": "assets/cameos/htank_allied.png",
    "mask": "assets/cameos/htank_allied_mask.png",
@@ -98,6 +113,16 @@
   "ifv_allied": {
    "img": "assets/cameos/ifv_allied.png",
    "mask": "assets/cameos/ifv_allied_mask.png",
+   "scale": 2
+  },
+  "jet_allied": {
+   "img": "assets/cameos/jet_allied.png",
+   "mask": "assets/cameos/jet_allied_mask.png",
+   "scale": 2
+  },
+  "jetpack_allied": {
+   "img": "assets/cameos/jetpack_allied.png",
+   "mask": "assets/cameos/jetpack_allied_mask.png",
    "scale": 2
   },
   "launcher_soviet": {
@@ -192,6 +217,38 @@
   }
  },
  "sprites": {
+  "airfield_allied": {
+   "ax": 334,
+   "ay": 208,
+   "cols": 1,
+   "facings": 1,
+   "fh": 316,
+   "fp": [
+    3,
+    3
+   ],
+   "frames": 1,
+   "fw": 540,
+   "img": "assets/sprites/airfield_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/airfield_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "airship_soviet_body": {
+   "ax": 156,
+   "ay": 108,
+   "cols": 8,
+   "facings": 32,
+   "fh": 216,
+   "frames": 32,
+   "fw": 312,
+   "img": "assets/sprites/airship_soviet_body.png",
+   "kind": "aircraft",
+   "mask": "assets/sprites/airship_soviet_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
   "arctower_soviet": {
    "ax": 230,
    "ay": 164,
@@ -620,6 +677,34 @@
    "scale": 2,
    "seq": 1
   },
+  "heli_allied_body": {
+   "ax": 120,
+   "ay": 88,
+   "cols": 8,
+   "facings": 32,
+   "fh": 176,
+   "frames": 32,
+   "fw": 240,
+   "img": "assets/sprites/heli_allied_body.png",
+   "kind": "aircraft",
+   "mask": "assets/sprites/heli_allied_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "heli_allied_rotor": {
+   "ax": 120,
+   "ay": 88,
+   "cols": 4,
+   "facings": 1,
+   "fh": 176,
+   "frames": 4,
+   "fw": 240,
+   "img": "assets/sprites/heli_allied_rotor.png",
+   "kind": "aircraft",
+   "mask": "assets/sprites/heli_allied_rotor_mask.png",
+   "scale": 2,
+   "seq": 4
+  },
   "htank_allied_body": {
    "ax": 140,
    "ay": 100,
@@ -703,6 +788,77 @@
    "mask": "assets/sprites/ifv_allied_turret_mask.png",
    "scale": 2,
    "seq": 1
+  },
+  "jet_allied_body": {
+   "ax": 100,
+   "ay": 72,
+   "cols": 8,
+   "facings": 32,
+   "fh": 144,
+   "frames": 32,
+   "fw": 200,
+   "img": "assets/sprites/jet_allied_body.png",
+   "kind": "aircraft",
+   "mask": "assets/sprites/jet_allied_body_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "jet_allied_bombs": {
+   "ax": 100,
+   "ay": 72,
+   "cols": 8,
+   "facings": 32,
+   "fh": 144,
+   "frames": 32,
+   "fw": 200,
+   "img": "assets/sprites/jet_allied_bombs.png",
+   "kind": "aircraft",
+   "mask": "assets/sprites/jet_allied_bombs_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "jetpack_allied": {
+   "air": true,
+   "anims": {
+    "fire": [
+     7,
+     2
+    ],
+    "stand": [
+     0,
+     1
+    ],
+    "walk": [
+     1,
+     6
+    ]
+   },
+   "ax": 64,
+   "ay": 80,
+   "cols": 9,
+   "facings": 8,
+   "fh": 112,
+   "frames": 72,
+   "fw": 128,
+   "img": "assets/sprites/jetpack_allied.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/jetpack_allied_mask.png",
+   "scale": 2,
+   "seq": 9
+  },
+  "jetpack_allied_die": {
+   "ax": 64,
+   "ay": 80,
+   "cols": 4,
+   "facings": 1,
+   "fh": 112,
+   "frames": 4,
+   "fw": 128,
+   "img": "assets/sprites/jetpack_allied_die.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/jetpack_allied_die_mask.png",
+   "scale": 2,
+   "seq": 4
   },
   "lamp": {
    "ax": 44,
