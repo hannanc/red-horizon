@@ -10,7 +10,9 @@ pre-rendered 3D sprites.
 python3 tools/serve.py 8347
 ```
 
-Then open http://localhost:8347.
+Then open http://localhost:8347. Pick Easy, Normal or Hard on the start screen;
+the level sets the Soviet AI's starting credits, income, army size and how
+often and how hard it attacks.
 
 ## Controls
 

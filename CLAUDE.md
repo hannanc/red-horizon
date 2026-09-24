@@ -51,7 +51,8 @@ This file covers how the code works, the rules, and what to build next.
   - `u.fac` is the sprite faction. Captured buildings keep their original `b.fac` and only change `team`.
 - **Orders:** the `order.type` values are `idle`, `move`, `attack`, `attackmove`, `capture` (engineer) and `board`.
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.
-- **AI** (`tickAI`): one production queue (`ai.prodQ`), attack waves on a timer, and `aiTransports()` to fill and unload halftracks. There is no difficulty setting yet.
+- **AI** (`tickAI`): one production queue (`ai.prodQ`), attack waves on a timer, and `aiTransports()` to fill and unload halftracks.
+  `DIFFICULTY[key]` (picked on the start screen, applied by `setDifficulty()`, read through `diff`) scales starting credits, income, first-wave time, wave gap, wave size and army cap. Hard is the original tuning.
 - **Rendering:**
   - `draw()` paints terrain chunks, ore, then entities sorted by `x + y`, then health bars, projectiles, effects, shroud and cursor.
   - `drawUnitSprite` falls back to simple procedural shapes when a sheet is missing.
@@ -99,11 +100,7 @@ so code-only work can land first and the art can follow.
 tasks also need new models rendered locally; do the code part first with the
 fallback drawing.
 
-1. **Difficulty and balance (code).** Since the enemy base layout fix, enemy
-   vehicles reach the player and the game got much harder.
-   - Add Easy/Normal/Hard on the start screen. Scale AI income (`state.credits[ENEMY] += 9 * dt`), the wave timer, wave size and army cap.
-   - Re-check unit costs against each other.
-2. **Aircraft (code plus art).**
+1. **Aircraft (code plus art).**
    - An altitude layer: units with `air: true` ignore `occ` and path in straight lines, draw higher with a ground shadow, and sort last.
    - A new armour class `air`: most weapons get `vs.air = 0`; flak, rockets and the IFV missiles get `air > 0`.
    - An Airfield building where jets land and rearm (limited ammo per sortie).
@@ -125,25 +122,25 @@ fallback drawing.
      on the aircraft's centre. Draw them at `toIso(x, y)` shifted up by the altitude
      in px, and paint a ground shadow (dark ellipse) at `toIso(x, y)` yourself.
      Jetpack infantry are anchored at the feet, so shift them up by their hover height the same way.
-3. **Repair Depot (code plus art).**
+2. **Repair Depot (code plus art).**
    - A building that repairs vehicles parked on it, for credits.
    - It also ejects latched drones, which gives the drone a counter.
-4. **Garrisoning (code).** Infantry enter civilian buildings (reuse the `cargo`
+3. **Garrisoning (code).** Infantry enter civilian buildings (reuse the `cargo`
    and `inside` mechanics) and fire out of them. Rifle-type infantry can deploy
    behind sandbags for more range and armour.
-5. **Special infantry (code plus art):**
+4. **Special infantry (code plus art):**
    - demolitions expert (timed charge on buildings and vehicles)
    - elite commando (kills infantry in one shot, demolishes buildings)
    - psychic infantry (takes over one enemy unit)
    - radiation trooper (deploys to contaminate an area)
    - spy (disguise; steals money or shuts off power)
    - teleporting infantry
-6. **Stealth tank (code plus art).** It looks like a tree while stationary and
+5. **Stealth tank (code plus art).** It looks like a tree while stationary and
    can't be auto-targeted until it fires.
-7. **Naval (code plus art).** Needs a map with a real sea (terrain generation,
+6. **Naval (code plus art).** Needs a map with a real sea (terrain generation,
    plus water pathing for ships), a Shipyard, transports that carry vehicles,
    destroyers, subs and AA cruisers. This is the biggest item.
-8. **Polish:**
+7. **Polish:**
    - animated explosion sprites
    - terrain height levels and cliffs
    - a gun on the Soviet ore truck, and teleport-to-refinery for the Allied hauler
