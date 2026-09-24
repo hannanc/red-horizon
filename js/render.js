@@ -280,16 +280,22 @@ export function buildingFrame(b, e){
   return 0;
 }
 
+// hit flash: a canvas brightness filter where the browser has one (not Safari), else the sprite drawn again additively
+const HAS_FILTER = typeof mainCx.filter === 'string';
+function flashed(on, bright, paint){
+  if(on && HAS_FILTER) cx.filter = `brightness(${bright})`;
+  paint();
+  if(on && !HAS_FILTER){ cx.globalCompositeOperation = 'lighter'; cx.globalAlpha *= 0.55; paint(); }
+}
 export function drawBuildingSprite(b){
   const name = bName(b);
   if(Sprites.has(name)){
     const p = toIso(b.x, b.y);
     const e = Sprites.get(name);
     cx.save();
-    if(b.flash > 0) cx.filter = 'brightness(1.8)';
     // build-up: the structure rises out of the ground
     const clipTop = b.buildUp < 1 ? e.fh * (1 - b.buildUp) : 0;
-    Sprites.draw(cx, name, b.team, buildingFrame(b, e), p.x, p.y, clipTop);
+    flashed(b.flash > 0, 1.8, () => Sprites.draw(cx, name, b.team, buildingFrame(b, e), p.x, p.y, clipTop));
     cx.restore();
     drawBuildingFx(b, p, e);
     return;
@@ -578,20 +584,21 @@ export function drawUnitSprite(u){
   }
   if(inf || body){
     cx.save();
-    if(u.flash > 0) cx.filter = 'brightness(1.9)';
     if(ghost) cx.globalAlpha = 0.45;
-    if(inf) Sprites.draw(cx, name, tint, infantryFrame(u, inf), p.x, p.y);
-    else {
-      Sprites.draw(cx, name + '_body', tint, Sprites.facing(body, u.face), p.x, p.y);
-      const tur = Sprites.get(name + '_turret');
-      if(tur) Sprites.draw(cx, name + '_turret', tint, Sprites.facing(tur, u.tface), p.x, p.y);
-      const msl = Sprites.get(name + '_missile');       // reloaded when the cooldown is nearly over
-      if(msl && u.cool < 1.5) Sprites.draw(cx, name + '_missile', tint, Sprites.facing(msl, u.face), p.x, p.y);
-      const bombs = Sprites.get(name + '_bombs');       // a jet's bombs hang under it until dropped
-      if(bombs && u.ammo > 0) Sprites.draw(cx, name + '_bombs', tint, Sprites.facing(bombs, u.face), p.x, p.y);
-      const rotor = Sprites.get(name + '_rotor');
-      if(rotor) Sprites.draw(cx, name + '_rotor', tint, u.moving ? Math.floor(state.time * 24) % rotor.frames : 0, p.x, p.y);
-    }
+    flashed(u.flash > 0, 1.9, () => {
+      if(inf) Sprites.draw(cx, name, tint, infantryFrame(u, inf), p.x, p.y);
+      else {
+        Sprites.draw(cx, name + '_body', tint, Sprites.facing(body, u.face), p.x, p.y);
+        const tur = Sprites.get(name + '_turret');
+        if(tur) Sprites.draw(cx, name + '_turret', tint, Sprites.facing(tur, u.tface), p.x, p.y);
+        const msl = Sprites.get(name + '_missile');       // reloaded when the cooldown is nearly over
+        if(msl && u.cool < 1.5) Sprites.draw(cx, name + '_missile', tint, Sprites.facing(msl, u.face), p.x, p.y);
+        const bombs = Sprites.get(name + '_bombs');       // a jet's bombs hang under it until dropped
+        if(bombs && u.ammo > 0) Sprites.draw(cx, name + '_bombs', tint, Sprites.facing(bombs, u.face), p.x, p.y);
+        const rotor = Sprites.get(name + '_rotor');
+        if(rotor) Sprites.draw(cx, name + '_rotor', tint, u.moving ? Math.floor(state.time * 24) % rotor.frames : 0, p.x, p.y);
+      }
+    });
     cx.restore();
     return;
   }
