@@ -38,7 +38,7 @@ test('AI builds, attacks with every unit type and never gets stuck @slow', async
     return {endText, mine, time: __RH.state.time, over: __RH.state.over, built: [...built], leftBase: leftBase.size, maxCargo, stuck, airRaid: airRaid.size, aground};
   });
   expect(r.over, JSON.stringify({t: r.time, end: r.over && r.endText, mine: r.mine})).toBe(false);   // ran the full length
-  expect(r.built).toEqual(expect.arrayContaining(['rifle', 'arctrooper', 'ltank', 'drone', 'halftrack', 'launcher', 'airship', 'sapper', 'isotope', 'sub']));
+  expect(r.built).toEqual(expect.arrayContaining(['rifle', 'arctrooper', 'ltank', 'drone', 'halftrack', 'launcher', 'airship', 'sapper', 'isotope', 'sub', 'engineer']));
   expect(r.leftBase).toBeGreaterThan(3);                 // vehicles get out of the enemy base
   expect(r.maxCargo).toBeGreaterThan(1);                 // halftracks carry troops
   expect(r.airRaid).toBeGreaterThan(0);                  // airships join the attack waves

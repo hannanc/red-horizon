@@ -440,7 +440,10 @@ const IFV_WEAPONS = {
   sniper:   {dmg:125, rof:2.5,  range:10,  kind:'snipe',  vs:{inf:1, heavy:0, building:0}},
   engineer: null,
 };
+// the Soviet ore truck has a machine gun on a post behind the cab
+const TRUCK_GUN = {dmg:10, rof:0.5, range:4.5, kind:'bullet', vs:{inf:1.4, heavy:0.3, building:0.2}};
 function weaponOf(e){
+  if(e.def.harvester) return e.fac === 'soviet' ? TRUCK_GUN : null;
   if(e.def.ifv && e.cargo && e.cargo.length){
     const k = e.cargo[0].def.key;
     if(k in IFV_WEAPONS) return IFV_WEAPONS[k];
@@ -665,7 +668,7 @@ function applyDamage(target, dmg, vs, attacker){
   target.hp -= dmg * mult * (1 + vet * 0.25) * armor * (target.deployed ? 0.5 : 1);   // sandbags halve it
   target.flash = 0.12;
   if(target.team === PLAYER) underAttackAlert(target);
-  if(target.kind === 'unit' && weaponOf(target) && target.order.type === 'idle' && attacker && onMap(attacker)
+  if(target.kind === 'unit' && weaponOf(target) && !target.def.harvester && target.order.type === 'idle' && attacker && onMap(attacker)
      && attacker.team !== NEUTRAL && canHurt(target, attacker))
     target.order = {type:'attack', target: attacker, auto:true};
   if(target.hp <= 0){
@@ -863,8 +866,36 @@ function nearestRefinery(u){
   return best;
 }
 
+// the truck's gun shoots whatever comes close while it keeps working
+function truckGun(u, dt){
+  const w = weaponOf(u);
+  let t = u.gTarget;
+  if(t && (!onMap(t) || t.team === u.team || hiddenFrom(t, u.team) || dist(u, t) > w.range * T)) t = null;
+  if(!t && u.scanT <= 0){ u.scanT = 0.4; t = findEnemyInRange(u, w.range); }
+  u.gTarget = t;
+  if(!t){ u.tface = turnToward(u.tface, u.face, 3 * dt); return; }
+  const a = Math.atan2(t.y - u.y, t.x - u.x);
+  u.tface = turnToward(u.tface, a, 6 * dt);
+  if(u.cool <= 0 && Math.abs(angDiff(u.tface, a)) < 0.2) fireWeapon(u, t);
+}
+
+// the Allied hauler jumps home to its refinery with a full load
+function haulerJump(u, dt){
+  if(u.jumpT == null){ u.jumpT = 1.5; effects.push({type:'blink', x: u.x, y: u.y, t: 0, dur: 1.5}); }
+  u.jumpT -= dt;
+  if(u.jumpT > 0) return;
+  u.jumpT = null;
+  const b = u.retB, spot = freeTileNear(b.tx + 1, b.ty + b.h, 3);
+  if(!spot) return;
+  u.x = spot.x * T + T / 2; u.y = spot.y * T + T / 2; u.path = null;
+  effects.push({type:'blink', x: u.x, y: u.y, t: 0, dur: 0.4, arrive: true});
+  u.hState = 'unload'; u.hTimer = 0;
+  if(u.team === PLAYER) sfx('zap');
+}
+
 function updateHarvester(u, dt){
   const CAP = 700;
+  if(weaponOf(u)) truckGun(u, dt);
   if(u.hState === 'seek'){
     if(!u.oreTile || ore[idx(u.oreTile.x, u.oreTile.y)] <= 0){
       u.oreTile = nearestOreTile(u);
@@ -895,6 +926,7 @@ function updateHarvester(u, dt){
       if(!u.retB){ u.hState = 'idle'; return; }
       orderMove(u, u.retB.x, (u.retB.ty + u.retB.h) * T + T/2);
     }
+    if(u.fac === 'allied'){ haulerJump(u, dt); return; }
     followPath(u, dt);
     if(dist(u, u.retB) < T * 2.4){
       u.hState = 'unload'; u.hTimer = 0;
@@ -977,7 +1009,7 @@ function fireWeapon(e, target){
   e.fireT = 0;
   if(e.kind === 'unit'){
     const a = Math.atan2(target.y - e.y, target.x - e.x);
-    if(hasTurret(e.def)) e.tface = a; else e.face = a;
+    if(hasTurret(e.def) || e.def.harvester) e.tface = a; else e.face = a;
   }
   const zSrc = (e.kind === 'building' ? e.def.z - 4 : isInf(e.def) ? 10 : 14) + (e.z || 0);
   if(w.kind === 'beam' || w.kind === 'arc'){
@@ -1619,7 +1651,7 @@ const ai = {
   waveTimer: 80,
   waveSize: 3,
   prodQ: ['rifle','arctrooper','ltank','rifle','halftrack','drone','sapper','rocket','ltank','arctrooper','isotope','launcher','rifle','drone'],
-  prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0,
+  prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0, engT: 0,
 };
 
 // an airship every few minutes once the AI has the tech, a couple at a time at most
@@ -1658,6 +1690,10 @@ function tickAI(dt){
     if(state.time > 240 * diff.tech && Math.random() < 0.25) ai.prodKey = 'htank';
     if(state.time > 150 * diff.tech && Math.random() < 0.3) ai.prodKey = 'ltank';
     if(state.time > 200 * diff.tech && Math.random() < 0.12 && units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'psion').length < 2) ai.prodKey = 'psion';
+    // now and then an engineer to steal one of the player's buildings
+    if(state.time > 180 * diff.tech && state.time > ai.engT && !units.some(u => u.team === ENEMY && !u.dead && u.def.engineer)){
+      ai.prodKey = 'engineer'; ai.engT = state.time + 120;
+    }
     if(airshipDue()){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
     else if(navyDue()){ ai.prodKey = ai.navI++ % 2 ? 'flakboat' : 'sub'; ai.navT = state.time + 90; }
     ai.prodI++;
@@ -1782,6 +1818,20 @@ function aiInfantry(){
   }
 }
 
+// idle AI engineers go for the player's most valuable building within reach
+function aiEngineers(){
+  for(const u of units){
+    if(!onMap(u) || u.team !== ENEMY || !u.def.engineer || u.order.type !== 'idle') continue;
+    let best = null, bv = -1e9;
+    for(const b of buildings){
+      if(!engineerCan(b, ENEMY) || b.team !== PLAYER) continue;
+      const v = b.def.cost - dist(u, b) / T * 20 - (b.def.weapon ? 3000 : 0);   // rich and close, not a gun tower
+      if(v > bv){ bv = v; best = b; }
+    }
+    if(best){ u.order = {type: 'capture', target: best}; u.path = null; u.repathT = 0; u.role = 'attacker'; }
+  }
+}
+
 // damaged vehicles at home drive onto the depot until they are fixed
 function aiRepairs(dt){
   ai.repT = (ai.repT || 0) - dt;
@@ -1789,6 +1839,7 @@ function aiRepairs(dt){
   ai.repT = 2;
   aiInfantry();
   aiNavy();
+  aiEngineers();
   const depot = buildings.find(b => !b.dead && b.team === ENEMY && b.def.flat);
   if(!depot) return;
   for(const u of units){
@@ -3410,7 +3461,13 @@ function drawProjectile(p){
 function drawEffect(e){
   if(e.t < 0 || e.type === 'delay' || e.type === 'smokecol') return;
   const f = e.t / e.dur;
-  if(e.type === 'boom'){
+  if(e.type === 'boom' && Sprites.has('explosion')){
+    // rendered fireball: frames 0-4 flame, 5-7 smoke; scaled to the blast
+    const p = toIso(e.x, e.y), sheet = Sprites.get('explosion'), k = e.size / 26;
+    cx.save(); cx.translate(p.x, p.y); cx.scale(k, k);
+    Sprites.draw(cx, 'explosion', 0, Math.min(sheet.frames - 1, Math.floor(f * sheet.frames)), 0, 0);
+    cx.restore();
+  } else if(e.type === 'boom'){
     // fireball: bright core that swells upward, then fades into the puffs around it
     const p = toIso(e.x, e.y);
     const r = e.size * (0.5 + Math.sqrt(f) * 0.9);
