@@ -456,53 +456,191 @@ def harvester(f):
     body.cyl((-L / 2 + 0.12, 0.2, 0.32), 0.035, 0.32, C['steel'], seg=8)
     return {'body': body}
 
+def beam_tank(f):
+    """Light hull with a turret-mounted focusing crystal."""
+    C = palette(f)
+    body, tur = Part('body'), Part('turret')
+    L, W = 0.98, 0.6
+    tracks(body, L, W / 2 - 0.09, 0.2, 0.17, C)
+    body.hull((0, 0, 0.08), L * 0.98, W - 0.1, 0.16, C['hull'], nose=0.22, tail=0.1, top_w=0.85)
+    for s in (-1, 1):
+        body.box((0, s * (W / 2 - 0.09), 0.17), (L * 0.96, 0.22, 0.03), C['hull2'])
+    body.box((-0.12, 0, 0.24), (L * 0.36, W * 0.5, 0.018), C['team'], bevel=0.004)
+    body.box((-L / 2 + 0.07, 0, 0.18), (0.08, 0.3, 0.06), C['dark'])
+    crystal = mat('#bdefff', metal=0.1, rough=0.05, emit=2.5, name='crystal')
+    tur.cyl((-0.02, 0, 0.24), 0.2, 0.07, C['team'], seg=16, r2=0.17)
+    tur.cyl((-0.02, 0, 0.31), 0.13, 0.05, C['metal'], seg=12)
+    tur.box((0.02, 0, 0.33), (0.24, 0.17, 0.13), C['trim'], taper=(0.65, 0.75), shift=(0.03, 0))
+    for s in (-1, 1):
+        tur.box((0.0, s * 0.1, 0.33), (0.16, 0.03, 0.16), C['steel'], taper=(0.5, 1), shift=(0.03, 0))
+    tur.cyl((0.04, 0, 0.46), 0.075, 0.07, crystal, seg=6, r2=0.09)
+    tur.cyl((0.04, 0, 0.53), 0.09, 0.13, crystal, seg=6, r2=0.0)
+    tur.cyl((0.12, 0, 0.4), 0.035, 0.12, C['steel'], axis='X', seg=10)
+    tur.cyl((0.24, 0, 0.4), 0.03, 0.025, crystal, axis='X', seg=10)
+    return {'body': body, 'turret': tur}
+
+
+def siege_launcher(f):
+    """Six-wheeled truck with an inclined launch rail; the missile is its own
+    part so the game can hide it while the launcher reloads."""
+    C = palette(f)
+    body, msl = Part('body'), Part('missile')
+    L, W = 1.2, 0.56
+    for x in (-0.42, -0.14, 0.38):
+        for s in (-1, 1):
+            body.cyl((x, -0.3 if s < 0 else 0.23, 0.1), 0.1, 0.07, C['tread'], axis='Y', seg=14)
+            body.cyl((x, -0.305 if s < 0 else 0.3, 0.1), 0.05, 0.005, C['steel'], axis='Y', seg=10)
+    body.box((0, 0, 0.1), (L, W - 0.14, 0.1), C['hull2'])
+    for s in (-1, 1):
+        body.box((-0.28, s * 0.25, 0.2), (0.62, 0.06, 0.04), C['hull2'], bevel=0.01)
+        body.box((0.38, s * 0.25, 0.2), (0.24, 0.06, 0.04), C['hull2'], bevel=0.01)
+    cab_x = L / 2 - 0.16
+    body.box((cab_x, 0, 0.18), (0.3, W - 0.06, 0.28), C['hull'], taper=(0.8, 0.95), shift=(-0.03, 0))
+    body.box((cab_x + 0.12, 0, 0.33), (0.02, W - 0.2, 0.09), C['glass'], bevel=0)
+    body.box((cab_x - 0.03, 0, 0.46), (0.2, W - 0.16, 0.02), C['team'], bevel=0.004)
+    body.box((-0.15, 0, 0.2), (0.82, W - 0.04, 0.05), C['hull'])
+    body.box((-0.47, 0, 0.25), (0.12, 0.22, 0.08), C['dark'])
+    body.box((-0.06, 0, 0.25), (0.06, 0.09, 0.13), C['steel'])
+    rail = Part('rail', body)
+    rail.root.location = (-0.5, 0, 0.29)
+    rail.root.rotation_euler.y = math.radians(-16)
+    rail.box((0.42, 0, 0), (0.86, 0.13, 0.035), C['steel'])
+    for s in (-1, 1):
+        rail.box((0.42, s * 0.06, 0.035), (0.8, 0.015, 0.03), C['dark'], bevel=0)
+    tilt = Part('mtilt', msl)
+    tilt.root.location = (-0.5, 0, 0.29)
+    tilt.root.rotation_euler.y = math.radians(-16)
+    white = mat('#d9d6cc', metal=0.3, rough=0.45, name='missile')
+    tilt.cyl((0.02, 0, 0.1), 0.07, 0.72, white, axis='X', seg=14)
+    tilt.cyl((0.3, 0, 0.1), 0.072, 0.06, C['team'], axis='X', seg=14)
+    tilt.cyl((0.74, 0, 0.1), 0.07, 0.2, mat('#c8452f', rough=0.5, name='warhead'), axis='X', seg=14, r2=0.0)
+    tilt.box((0.08, 0, 0.094), (0.12, 0.26, 0.012), C['dark'], bevel=0)     # tail fins
+    tilt.box((0.08, 0, -0.03), (0.12, 0.012, 0.26), C['dark'], bevel=0)
+    return {'body': body, 'missile': msl}
+
+
+def leech_drone(f):
+    """Small six-legged robot."""
+    C = palette(f)
+    body = Part('body')
+    body.sphere((0, 0, 0.13), 0.1, C['steel'], scale=(1.25, 1, 0.55))
+    body.sphere((-0.01, 0, 0.15), 0.075, C['team'], scale=(1.1, 1, 0.6), half=True)
+    body.sphere((0.1, 0, 0.13), 0.028, mat('#ff4030', emit=6.0, name='eye'))
+    for s in (-1, 1):
+        body.box((0.11, s * 0.035, 0.08), (0.05, 0.012, 0.02), C['dark'], bevel=0, shift=(0.03, 0))
+    for x in (0.07, 0.0, -0.07):
+        for s in (-1, 1):
+            kx, ky, kz = x * 1.6, s * 0.17, 0.2
+            body.box((x, s * 0.07, 0.12), (0.022, 0.022, kz - 0.12), C['metal'], bevel=0,
+                     shift=(kx - x, ky - s * 0.07))
+            fx, fy = x * 2.0, s * 0.25
+            body.box((fx, fy, 0), (0.02, 0.02, kz), C['dark'], bevel=0, shift=(kx - fx, ky - fy))
+    return {'body': body}
+
 # ================================================================ infantry
 
 class Soldier:
-    """Articulated soldier. Limb Parts pivot at the hip / shoulder."""
+    """Articulated soldier. Limb Parts pivot at the hip / shoulder.
+    kind: rifle | rocket | engineer | sniper | arc"""
     def __init__(self, f, kind):
         C = palette(f)
         self.kind = kind
         self.body = Part('body')
         b = self.body
         vest = C['team']
+        bulky = kind == 'arc'
+        uniform = C['uniform']
+        if kind == 'sniper':
+            uniform = mat('#55603f', rough=0.9, name='ghillie')
+        elif kind == 'arc':
+            uniform = C['steel']
+        lw, tw = (0.09, 0.2) if bulky else (0.075, 0.17)
         # legs
         self.legs = []
         for s in (-1, 1):
             leg = Part('leg', b)
-            leg.root.location = (0, s * 0.045, 0.24)
-            leg.box((0, 0, -0.24), (0.075, 0.07, 0.24), C['uniform'], bevel=0.01)
-            leg.box((0.015, 0, -0.24), (0.1, 0.075, 0.05), C['dark'], bevel=0.01)
+            leg.root.location = (0, s * (0.05 if bulky else 0.045), 0.24)
+            leg.box((0, 0, -0.24), (lw, lw - 0.005, 0.24), uniform, bevel=0.01)
+            leg.box((0.015, 0, -0.24), (lw + 0.025, lw, 0.05), C['dark'], bevel=0.01)
+            if bulky:
+                leg.box((0.01, 0, -0.14), (lw + 0.02, lw + 0.01, 0.06), vest, bevel=0.01)
             self.legs.append(leg)
         # torso, belt, pack
-        b.box((0, 0, 0.23), (0.13, 0.17, 0.2), vest, bevel=0.02)
-        b.box((0, 0, 0.225), (0.135, 0.175, 0.03), C['dark'], bevel=0.005)
-        b.box((-0.085, 0, 0.27), (0.06, 0.13, 0.13), C['uniform'], bevel=0.015)
+        b.box((0, 0, 0.23), (0.15 if bulky else 0.13, tw, 0.21 if bulky else 0.2), vest, bevel=0.02)
+        b.box((0, 0, 0.225), (0.14 if bulky else 0.135, tw + 0.005, 0.03), C['dark'], bevel=0.005)
+        if kind == 'engineer':
+            # big tool pack with a coil of cable
+            b.box((-0.1, 0, 0.25), (0.08, 0.15, 0.17), C['hull2'], bevel=0.015)
+            b.torus((-0.1, 0, 0.42), 0.05, 0.014, C['dark'])
+        elif kind == 'arc':
+            # generator pack: casing, copper coils and a glowing core
+            b.box((-0.12, 0, 0.22), (0.1, 0.18, 0.2), C['dark'], bevel=0.015)
+            for k in range(3):
+                b.torus((-0.13, 0, 0.27 + k * 0.05), 0.06, 0.016, C['copper'])
+            b.sphere((-0.13, 0, 0.43), 0.032, C['glow'])
+            for s in (-1, 1):
+                b.sphere((0, s * 0.11, 0.42), 0.045, vest, scale=(1.2, 1, 0.8))
+        else:
+            b.box((-0.085, 0, 0.27), (0.06, 0.13, 0.13), uniform, bevel=0.015)
         # head
         b.sphere((0, 0, 0.475), 0.055, C['skin'])
-        b.sphere((0, 0, 0.488), 0.066, C['helmet'], scale=(1.05, 1, 0.85), half=True)
+        if kind == 'engineer':
+            hat = mat('#e8c23c', rough=0.45, name='hardhat')
+            b.sphere((0, 0, 0.49), 0.064, hat, scale=(1.05, 1, 0.9), half=True)
+            b.cyl((0.012, 0, 0.485), 0.078, 0.008, hat, seg=16)
+        elif kind == 'sniper':
+            b.cyl((0, 0, 0.49), 0.085, 0.01, uniform, seg=14)
+            b.cyl((0, 0, 0.495), 0.055, 0.04, uniform, seg=12, r2=0.045)
+        elif kind == 'arc':
+            b.sphere((0, 0, 0.475), 0.07, C['steel'], scale=(1.05, 1, 1.05))
+            b.box((0.05, 0, 0.46), (0.03, 0.08, 0.035), C['glow'], bevel=0.004)
+        else:
+            b.sphere((0, 0, 0.488), 0.066, C['helmet'], scale=(1.05, 1, 0.85), half=True)
         # arms
         self.arms = []
         for s in (-1, 1):
             arm = Part('arm', b)
-            arm.root.location = (0, s * 0.105, 0.41)
-            arm.box((0, 0, -0.17), (0.055, 0.05, 0.17), C['uniform'], bevel=0.01)
-            arm.sphere((0, 0, -0.18), 0.028, C['skin'])
+            arm.root.location = (0, s * (0.12 if bulky else 0.105), 0.41)
+            aw = 0.065 if bulky else 0.055
+            arm.box((0, 0, -0.17), (aw, aw - 0.005, 0.17), uniform, bevel=0.01)
+            arm.sphere((0, 0, -0.18), 0.028, C['dark'] if bulky else C['skin'])
             self.arms.append(arm)
-        # weapon
-        self.gun = Part('gun', b)
+        # weapon (or tools)
         flash_mat = mat('#ffd36b', emit=12.0, name='flash')
-        if kind == 'rocket':
+        if kind == 'engineer':
+            self.gun = Part('gun', self.arms[0])
+            self.gun.box((0.0, 0, -0.29), (0.12, 0.05, 0.08), mat('#c83c32', rough=0.5, name='toolbox'), bevel=0.008)
+            self.gun.box((0.0, 0, -0.21), (0.05, 0.012, 0.012), C['dark'], bevel=0)
+            self.flash = self.gun.ico((0, 0, -0.3), 0.01, flash_mat, subdiv=1)
+        elif kind == 'rocket':
+            self.gun = Part('gun', b)
             self.gun.root.location = (-0.02, -0.1, 0.47)
             self.gun.cyl((-0.16, 0, 0), 0.038, 0.38, C['hull2'], axis='X', seg=10)
             self.gun.cyl((0.22, 0, 0), 0.03, 0.07, mat('#c8452f', rough=0.5, name='warhead'), axis='X', seg=10, r2=0.01)
             self.flash = self.gun.ico((0.32, 0, 0), 0.06, flash_mat, subdiv=1)
+        elif kind == 'sniper':
+            self.gun = Part('gun', b)
+            self.gun.root.location = (0.06, -0.035, 0.34)
+            self.gun.box((0.1, 0, -0.015), (0.4, 0.02, 0.035), C['dark'], bevel=0.004)
+            self.gun.box((-0.06, 0, -0.04), (0.1, 0.024, 0.06), mat('#5a4330', rough=0.8, name='stock'), bevel=0.006)
+            self.gun.cyl((0.0, 0, 0.035), 0.016, 0.12, C['steel'], axis='X', seg=8)
+            self.flash = self.gun.ico((0.33, 0, 0), 0.04, flash_mat, subdiv=1)
+        elif kind == 'arc':
+            self.gun = Part('gun', b)
+            self.gun.root.location = (0.06, -0.05, 0.33)
+            self.gun.box((0.05, 0, -0.035), (0.2, 0.05, 0.07), C['dark'], bevel=0.008)
+            for k in range(3):
+                self.gun.cyl((0.08 + k * 0.045, 0, 0), 0.034, 0.022, C['copper'], axis='X', seg=10)
+            self.gun.cyl((0.2, 0, 0), 0.016, 0.06, C['metal'], axis='X', seg=8)
+            self.flash = self.gun.ico((0.27, 0, 0), 0.05, mat('#9fdcff', emit=14.0, name='arcflash'), subdiv=1)
         else:
+            self.gun = Part('gun', b)
             self.gun.root.location = (0.06, -0.035, 0.34)
             self.gun.box((0.06, 0, -0.02), (0.28, 0.025, 0.045), C['dark'], bevel=0.005)
             self.gun.box((-0.05, 0, -0.04), (0.08, 0.024, 0.06), C['hull2'], bevel=0.005)
             self.flash = self.gun.ico((0.23, 0, 0), 0.045, flash_mat, subdiv=1)
         self.flash.hide_render = True
+        self.gun_x = self.gun.root.location.x
 
     def pose(self, anim, k):
         legL, legR = self.legs
@@ -510,24 +648,100 @@ class Soldier:
         self.body.root.rotation_euler.y = 0
         self.body.root.location.z = 0
         self.flash.hide_render = True
-        self.gun.root.location.x = 0.06 if self.kind != 'rocket' else -0.02
-        hold = math.radians(-65) if self.kind != 'rocket' else math.radians(-150)
-        armR.root.rotation_euler.y = hold
-        armL.root.rotation_euler.y = math.radians(-50) if self.kind != 'rocket' else math.radians(-120)
+        self.gun.root.location.x = self.gun_x
+        if self.kind == 'rocket':
+            armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-150), math.radians(-120)
+        elif self.kind == 'engineer':
+            armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-6), math.radians(-10)
+        else:
+            armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-65), math.radians(-50)
         legL.root.rotation_euler.y = legR.root.rotation_euler.y = 0
         if anim == 'walk':
             ph = k / 6 * 2 * math.pi
             legL.root.rotation_euler.y = math.sin(ph) * math.radians(32)
             legR.root.rotation_euler.y = -math.sin(ph) * math.radians(32)
             self.body.root.location.z = abs(math.cos(ph)) * 0.012
+            if self.kind == 'engineer':
+                armL.root.rotation_euler.y = -math.sin(ph) * math.radians(22)
+                armR.root.rotation_euler.y = math.sin(ph) * math.radians(10) - math.radians(4)
         elif anim == 'fire':
             if k == 0:
-                self.flash.hide_render = False
-            else:
+                self.flash.hide_render = self.kind == 'engineer'
+            elif self.kind != 'engineer':
                 self.gun.root.location.x -= 0.02
         elif anim == 'die':
             self.body.root.rotation_euler.y = -math.radians([0, 30, 62, 88][k])
             armR.root.rotation_euler.y = armL.root.rotation_euler.y = math.radians(-160)
+
+
+class Dog:
+    """Attack hound: same frame layout as a Soldier (stand, walk x6, lunge x2, die x4)."""
+    def __init__(self, f):
+        C = palette(f)
+        self.kind = 'dog'
+        fur = mat('#7a5634' if f == 'allied' else '#4a4440', rough=0.85, name='fur_' + f)
+        fur2 = mat('#b08a5e' if f == 'allied' else '#8a7c6e', rough=0.85, name='fur2_' + f)
+        self.body = Part('body')
+        b = self.body
+        self.torso = Part('torso', b)
+        t = self.torso
+        t.sphere((-0.02, 0, 0.2), 0.075, fur, scale=(1.9, 0.85, 0.85))
+        t.sphere((0.08, 0, 0.215), 0.07, fur, scale=(1.05, 0.95, 1.05))
+        t.sphere((0.1, 0, 0.19), 0.05, fur2, scale=(1.0, 0.8, 0.9))
+        t.torus((0.13, 0, 0.245), 0.042, 0.013, C['team'])
+        self.head = Part('head', t)
+        self.head.root.location = (0.15, 0, 0.27)
+        h = self.head
+        h.sphere((0.02, 0, 0.02), 0.05, fur, scale=(1.2, 0.9, 0.95))
+        h.box((0.075, 0, -0.005), (0.08, 0.042, 0.04), fur2, bevel=0.012, taper=(0.9, 0.8))
+        h.sphere((0.118, 0, 0.03), 0.012, C['dark'])
+        for s in (-1, 1):
+            h.box((0.0, s * 0.028, 0.05), (0.025, 0.018, 0.05), fur, bevel=0.004, taper=(0.4, 0.5))
+        self.legs = []
+        for x, s in ((0.09, -1), (0.09, 1), (-0.12, -1), (-0.12, 1)):
+            leg = Part('leg', t)
+            leg.root.location = (x, s * 0.042, 0.18)
+            leg.box((0, 0, -0.17), (0.034, 0.034, 0.18), fur, bevel=0.008)
+            leg.box((0.012, 0, -0.18), (0.052, 0.038, 0.022), fur2, bevel=0.006)
+            self.legs.append(leg)
+        self.tail = Part('tail', t)
+        self.tail.root.location = (-0.15, 0, 0.23)
+        self.tail.cyl((-0.13, 0, 0), 0.014, 0.13, fur, axis='X', seg=8, r2=0.02)
+        self.flash = self.head.ico((0.12, 0, 0), 0.01, fur2, subdiv=1)
+        self.flash.hide_render = True
+
+    def pose(self, anim, k):
+        t = self.torso.root
+        t.rotation_euler = (0, 0, 0)
+        t.location = (0, 0, 0)
+        self.head.root.rotation_euler.y = 0
+        self.tail.root.rotation_euler.y = math.radians(-35)
+        for leg in self.legs:
+            leg.root.rotation_euler.y = 0
+        if anim == 'walk':      # bounding gallop
+            ph = k / 6 * 2 * math.pi
+            fl, fr, bl, br = self.legs
+            fl.root.rotation_euler.y = math.sin(ph) * math.radians(40)
+            fr.root.rotation_euler.y = math.sin(ph + 0.5) * math.radians(40)
+            bl.root.rotation_euler.y = -math.sin(ph) * math.radians(40)
+            br.root.rotation_euler.y = -math.sin(ph + 0.5) * math.radians(40)
+            t.rotation_euler.y = math.sin(ph) * math.radians(6)
+            t.location.z = abs(math.sin(ph)) * 0.02
+        elif anim == 'fire':    # lunge and bite
+            t.location.x = 0.05 + k * 0.03
+            t.location.z = 0.03
+            t.rotation_euler.y = math.radians(-12)
+            fl, fr, bl, br = self.legs
+            fl.root.rotation_euler.y = fr.root.rotation_euler.y = math.radians(-50)
+            bl.root.rotation_euler.y = br.root.rotation_euler.y = math.radians(35)
+            self.head.root.rotation_euler.y = math.radians(15 if k == 0 else -10)
+        elif anim == 'die':     # rolls onto its side
+            a = [0, 35, 70, 90][k]
+            t.rotation_euler.x = math.radians(a)
+            t.location.z = math.sin(math.radians(a)) * 0.05
+            for leg in self.legs:
+                leg.root.rotation_euler.y = math.radians(20)
+            self.tail.root.rotation_euler.y = 0
 
 # ================================================================ civilian town
 
