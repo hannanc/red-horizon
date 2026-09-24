@@ -280,5 +280,12 @@ export const state = {
   mode: null,          // 'sell' | 'repair' | null
   lowPower: false,
   blackout: [0, 0, 0],   // power sabotaged until this time, per team
+  attackAlertT: -99, chargeMsgT: -99,   // when the 'under attack' and 'charge planted' warnings were last given
+  menu: false,           // the pause menu is open
   sndOn: true, voiceOn: true,
 };
+
+// player settings from the pause menu: sound and voice volume (0-1), scroll speed (x)
+export const settings = {sfx: 0.8, voice: 0.9, scroll: 1};
+try { Object.assign(settings, JSON.parse(localStorage.getItem('rh-settings') || '{}')); } catch(e){}
+export function saveSettings(){ try { localStorage.setItem('rh-settings', JSON.stringify(settings)); } catch(e){} }

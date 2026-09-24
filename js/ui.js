@@ -1,9 +1,10 @@
 // Red Horizon: Sound, announcer, sidebar, mouse and keyboard input, orders, zoom and scrolling, the HUD.
 import {canHurt} from './combat.js';
-import {BUILD_DEFS, ENEMY, HPX, IH, IW, PLAYER, T, UNIT_DEFS, WPX, available, bareOcc, buildings, clamp, dispName, effects, explored, idx, inMap, isoAt, occ, onMap, ore, passable, pickWorld, sailable, selection, setSelection, state, tileOf, toIso, units, walk, weaponOf} from './data.js';
+import {BUILD_DEFS, ENEMY, HPX, IH, IW, PLAYER, T, UNIT_DEFS, WPX, available, bareOcc, buildings, clamp, dispName, effects, explored, idx, inMap, isoAt, occ, onMap, ore, passable, pickWorld, sailable, selection, setSelection, state, tileOf, toIso, units, walk, weaponOf, settings} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
 import {CH, CW, VH, VW, ZOOM, cv, makeCameoIcon, mmC, radarOn, stepZoom} from './render.js';
 import {MAX_QUEUE, canBoard, canPlace, capacity, engineerCan, hiddenFrom, padCount, padTaken, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
+import {toggleMenu} from './main.js';
 
 // ---------- sound ----------
 export let AC = null;
@@ -12,11 +13,11 @@ export function audio(){
   return AC;
 }
 export function sfx(type){
-  if(!state.sndOn || !state.started) return;
+  if(!state.sndOn || !state.started || settings.sfx < 0.01) return;
   try{
     const ac = audio(); const t0 = ac.currentTime;
     const g = ac.createGain(); g.connect(ac.destination);
-    const vol = v => { g.gain.setValueAtTime(v, t0); };
+    const vol = v => { g.gain.setValueAtTime(v * settings.sfx, t0); };
     const decay = d => { g.gain.exponentialRampToValueAtTime(0.0001, t0 + d); };
     if(type === 'shoot'){
       const o = ac.createOscillator(); o.type = 'square';
@@ -87,7 +88,7 @@ export function speak(text){
   if(!state.voiceOn || !window.speechSynthesis) return;
   try{
     const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.0; u.pitch = 0.7; u.volume = 0.9;
+    u.rate = 1.0; u.pitch = 0.7; u.volume = 0.9 * settings.voice;
     speechSynthesis.cancel();
     speechSynthesis.speak(u);
   }catch(e){}
@@ -95,7 +96,6 @@ export function speak(text){
 
 // ---------- announcer messages ----------
 export const announceEl = document.getElementById('announcer');
-export let lastAttackAlert = -99;
 export function announce(text, important, sayText){
   const d = document.createElement('div');
   d.className = 'announceMsg';
@@ -106,8 +106,8 @@ export function announce(text, important, sayText){
   if(sayText) speak(sayText);
 }
 export function underAttackAlert(e){
-  if(state.time - lastAttackAlert < 14) return;
-  lastAttackAlert = state.time;
+  if(state.time - state.attackAlertT < 14) return;
+  state.attackAlertT = state.time;
   if(e.kind === 'building') announce('Our base is under attack!', true, 'Our base is under attack');
   else announce('Our forces are under attack', true);
   sfx('alert');
@@ -413,7 +413,7 @@ export function ack(kind, u){
   if(u.def.voice === null){ sfx(u.def.key === 'dog' ? 'bark' : 'chirp'); return; }
   try{
     const m = new SpeechSynthesisUtterance(lines[Math.floor(Math.random() * lines.length)]);
-    m.rate = 1.15; m.pitch = u.def.armor === 'inf' ? 1.05 : 0.8; m.volume = 0.8;
+    m.rate = 1.15; m.pitch = u.def.armor === 'inf' ? 1.05 : 0.8; m.volume = 0.8 * settings.voice;
     speechSynthesis.speak(m);
   }catch(e){}
 }
@@ -494,7 +494,7 @@ export function mmJump(e){
 
 // ---------- camera scroll ----------
 export function tickCamera(dt){
-  const sp = 680 * dt / Math.sqrt(ZOOM);
+  const sp = 680 * dt / Math.sqrt(ZOOM) * settings.scroll;
   if(keys['arrowleft']) state.camX -= sp;
   if(keys['arrowright']) state.camX += sp;
   if(keys['arrowup']) state.camY -= sp;
@@ -638,7 +638,13 @@ export function initUI(){
   window.addEventListener('keydown', e => {
     keys[e.key.toLowerCase()] = true;
     if(!state.started) return;
-    if(e.key === 'Escape'){ state.placing = null; setSelection([]); setMode(null); }
+    // Esc drops a placement or sell/repair mode first; otherwise it opens or closes the pause menu
+    if(e.key === 'Escape'){
+      if(state.placing || state.mode){ state.placing = null; setMode(null); }
+      else toggleMenu();
+      return;
+    }
+    if(state.menu) return;
     if(e.key.toLowerCase() === 'k') setMode(state.mode === 'repair' ? null : 'repair');
     if(e.key.toLowerCase() === 'l') setMode(state.mode === 'sell' ? null : 'sell');
     if(e.key.toLowerCase() === 'h'){

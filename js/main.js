@@ -1,7 +1,7 @@
 // Red Horizon: Map setup, the main loop, world (re)building, the start screen and the window.__RH test handle.
 import {AI_QUEUE, DIFFICULTY, ai, diff, setDifficulty, tickAI} from './ai.js';
 import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js';
-import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, ROADS, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, TOWN, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf} from './data.js';
+import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, ROADS, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, TOWN, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf, settings, saveSettings} from './data.js';
 import {orderMove, findPath} from './pathfinding.js';
 import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers, setZoom} from './render.js';
 import {initUI, announce, audio, buildSidebar, clockEl, drawHUD, groups, sfx, speak, tickCamera} from './ui.js';
@@ -252,14 +252,20 @@ document.getElementById('seedIn').addEventListener('change', e => { setup.seed =
 document.getElementById('seedRnd').addEventListener('click', () => { setup.seed = 2 + Math.floor(Math.random() * 99990); saveSetup(); });
 document.getElementById('seedClassic').addEventListener('click', () => { setup.seed = 1; saveSetup(); });
 
+// money and AI timers for a new game on the chosen difficulty
+function beginGame(){
+  setDifficulty(diffKey);
+  state.credits[PLAYER] = setup.credits;
+  state.credits[ENEMY] = Math.round(diff.credits * setup.credits / 8000);
+}
+
 document.getElementById('startBtn').addEventListener('click', () => {
   document.getElementById('help').style.display = 'none';
+  if(state.started){ closeMenu(); return; }   // it reads RESUME once the game is on
   if(!state.started){
     if(JSON.stringify(setup) !== worldSetup) newWorld();   // the settings changed since the preview map was built
     state.started = true;
-    setDifficulty(diffKey);
-    state.credits[PLAYER] = setup.credits;
-    state.credits[ENEMY] = Math.round(diff.credits * setup.credits / 8000);
+    beginGame();
     document.getElementById('setupBox').style.display = 'none';
     document.getElementById('startBtn').textContent = 'RESUME';
     audio();
@@ -267,8 +273,51 @@ document.getElementById('startBtn').addEventListener('click', () => {
   }
 });
 document.getElementById('helpBtn').addEventListener('click', () => {
+  if(state.started) toggleMenu();
+  else document.getElementById('help').style.display = 'flex';
+});
+
+// ---------- pause menu ----------
+const menuEl = document.getElementById('menu');
+const SLIDERS = [['volSfx', 'sfx', 100, v => v + '%'], ['volVoice', 'voice', 100, v => v + '%'], ['scrollSpd', 'scroll', 100, v => (v / 100).toFixed(2) + 'x']];
+function showSettings(){
+  for(const [id, key, k, fmt] of SLIDERS){
+    const el = document.getElementById(id), v = Math.round(settings[key] * k);
+    el.value = v; el.nextElementSibling.textContent = fmt(v);
+  }
+}
+for(const [id, key, k] of SLIDERS)
+  document.getElementById(id).addEventListener('input', e => { settings[key] = +e.target.value / k; saveSettings(); showSettings(); });
+export function openMenu(){
+  if(!state.started || state.over || state.menu) return;
+  state.menu = true; state.paused = true;
+  showSettings();
+  menuEl.style.display = 'flex';
+  sfx('click');
+}
+export function closeMenu(){
+  if(!state.menu) return;
+  state.menu = false; state.paused = false;
+  menuEl.style.display = 'none';
+}
+export function toggleMenu(){ if(state.menu) closeMenu(); else openMenu(); }
+// the same skirmish again from the start: same side, map, credits and difficulty
+export function restartGame(){
+  closeMenu();
+  document.getElementById('endScreen').style.display = 'none';
+  Object.assign(state, {time: 0, over: false, paused: false, lowPower: false, attackAlertT: -99, chargeMsgT: -99});
+  newWorld();
+  beginGame();
+  announce('Command link established', false, 'Command link established');
+}
+document.getElementById('mResume').addEventListener('click', closeMenu);
+document.getElementById('mRestart').addEventListener('click', restartGame);
+document.getElementById('mQuit').addEventListener('click', () => location.reload());   // back to the start screen
+document.getElementById('mHelp').addEventListener('click', () => {
+  menuEl.style.display = 'none';
   document.getElementById('help').style.display = 'flex';
 });
+document.getElementById('endAgain').addEventListener('click', restartGame);
 document.getElementById('sndBtn').addEventListener('click', function(){
   state.sndOn = !state.sndOn;
   this.textContent = (state.sndOn ? '🔊' : '🔇') + ' SFX';
@@ -292,7 +341,8 @@ export function newWorld(){
   state.placing = null; state.mode = null; state.blackout.fill(0);
   flags.shroudDirty = true; flags.mmBaseDirty = true;
   FACTION[PLAYER] = setup.side; FACTION[ENEMY] = setup.side === 'allied' ? 'soviet' : 'allied';
-  Object.assign(ai, {prodQ: AI_QUEUE[FACTION[ENEMY]], prodI: 0, prodProgress: 0, prodKey: null, picked: false, bKey: null, bProg: 0, bThink: 0, bSkip: {}});
+  Object.assign(ai, {prodQ: AI_QUEUE[FACTION[ENEMY]], prodI: 0, prodProgress: 0, prodKey: null, picked: false, bKey: null, bProg: 0, bThink: 0, bSkip: {},
+                     airT: 0, navT: 0, navI: 0, engT: 0, repT: 0});
   TerrainGen.setSeed(setup.seed);
   paintLow();
   setupMap();
@@ -337,6 +387,7 @@ window.__RH = {
   },
   get ai(){ return ai; },
   zoom: z => setZoom(z),
+  settings, restart: () => restartGame(),
   pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },
