@@ -81,6 +81,10 @@ This file covers how the code works, the rules, and what to build next.
   (`atDoor`); `unloadTransport` refuses without a beach within 2 tiles. The Dockyard (`onWater`) must be placed on open
   water. AI: a dockyard in its base, `navyDue()` for a few ships outside the army cap, `aiNavy()` sends idle ships at the
   player's ships and dockyards; ships never join land waves.
+- **Harvesters**: the Soviet ore truck has `TRUCK_GUN` (`weaponOf` returns it by `u.fac`; `truckGun()` fires it from
+  `updateHarvester` without interrupting the job). The Allied hauler returns with `haulerJump()` instead of driving.
+- **Explosions**: `boom` effects draw the `explosion` sheet (8 frames) scaled to the blast when it exists, else the
+  procedural fireball.
 - **Veil Tank** (`def.treeDisguise`): `fooledBy` keeps enemy scans off it until it has fired in the last 3 s;
   `treeDisguised(u)` (parked for 1 s and quiet) draws it as a tree from the `tree` sheet.
 - **Sandbags**: units with `def.deploy` (the rifleman) toggle `u.deployed` with `D`: `weaponOf` returns `def.deployWeapon`,
@@ -130,6 +134,7 @@ so code-only work can land first and the art can follow.
   - `tests/infantry.spec.js`: the special infantry.
   - `tests/veiltank.spec.js`: the stealth tank.
   - `tests/naval.spec.js`: the sea, the Dockyard and ships.
+  - `tests/polish.spec.js`: ore truck gun, hauler jump, AI engineers, the skirmish setup, cliffs.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
@@ -188,13 +193,12 @@ fallback drawing.
    plus water pathing for ships), a Shipyard, transports that carry vehicles,
    destroyers, subs and AA cruisers. This is the biggest item.
 7. **Polish:**
-   - animated explosion sprites
+   - Done: animated explosion sprites (model `explosion` written, not rendered yet)
    - terrain height levels and cliffs
-   - a gun on the Soviet ore truck, and teleport-to-refinery for the Allied hauler
-   - AI engineers that capture player buildings
+   - Done: a gun on the Soviet ore truck (model updated, not rendered yet), and teleport-to-refinery for the Allied hauler
+   - Done: AI engineers that capture player buildings (`aiEngineers`)
    - a skirmish setup screen (map seed, starting credits, pick a side)
 
 ### Known issues
 
 - Engineers sent into the enemy base usually die to the Arc Towers before reaching a building. That's expected; there's no infiltration mechanic yet.
-- The AI never builds Engineers.
