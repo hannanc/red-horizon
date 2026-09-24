@@ -4,6 +4,7 @@
 <meta charset="utf-8">
 <title>Red Horizon — a 2.5D real-time strategy game</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<link rel="icon" href="data:,">
 <style>
   :root{
     --sidebar-w: 264px;
@@ -208,6 +209,7 @@
       <li><b>Army:</b> Barracks trains infantry, the Vehicle Factory builds tanks. Select with left-click / drag, command with right-click.</li>
       <li><b>Transports:</b> Right-click a friendly IFV or Halftrack with infantry selected to board. Click the transport again (or press <b>D</b>) to unload.</li>
       <li><b>Engineers:</b> Right-click an enemy structure to capture it, or one of yours to repair it fully. The engineer is used up.</li>
+      <li><b>Aircraft:</b> Jets make one bomb run on a right-clicked target, then fly back to the <b>Airfield</b> to rearm (right-click the Airfield to send them home). Only rockets and flak can hit aircraft.</li>
       <li><b>Win:</b> Destroy every Soviet structure. Lose all of yours and it's over.</li>
     </ul>
     <div id="diffRow">Difficulty:
@@ -308,7 +310,7 @@ const units = [];
 const projectiles = [];
 const effects = [];
 
-// armor: inf | heavy | building
+// armor: inf | heavy | building | air (aircraft and jetpack troops: most weapons can't reach them)
 const BUILD_DEFS = {
   conyard : {name:'Construction Hub',  cost:3000, power:0,    w:3, h:3, hp:1500, time:0,  tab:null, z:36},
   power   : {name:'Power Plant',       cost:800,  power:100,  w:2, h:2, hp:600,  time:10, tab:'structure', prereq:[], z:34},
@@ -323,6 +325,9 @@ const BUILD_DEFS = {
              weapon:{dmg:110, rof:3.2, range:7.6, kind:'beam', vs:{inf:1.2, heavy:1, building:0.8}}},
   arctower: {name:'Arc Tower',         cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:null, z:54, // enemy only
              weapon:{dmg:110, rof:3.2, range:7.2, kind:'arc', vs:{inf:1.4, heavy:1, building:0.8}}},
+  // jets land on its two pads to rearm; the helicopter is built here too
+  airfield: {name:'Airfield',          cost:1200, power:-40,  w:3, h:3, hp:1000, time:15, tab:'structure', prereq:['radar'], z:30, side:'allied',
+             pads: [[-0.62, 0.55], [0.55, -0.62]]},   // pad centres, tiles from the footprint centre
 };
 for(const k in BUILD_DEFS){ BUILD_DEFS[k].key = k; BUILD_DEFS[k].armor = 'building'; }
 
@@ -330,7 +335,7 @@ const UNIT_DEFS = {
   rifle  : {name:'Rifleman',      cost:200,  hp:125, speed:58,  r:8,  armor:'inf',  time:4,  tab:'infantry', from:'barracks',
             weapon:{dmg:9,  rof:0.55, range:4.6, kind:'bullet', vs:{inf:1.5, heavy:0.45, building:0.35}}},
   rocket : {name:'Rocket Soldier', cost:350,  hp:100, speed:52,  r:8,  armor:'inf',  time:6,  tab:'infantry', from:'barracks',
-            weapon:{dmg:34, rof:1.9,  range:5.6, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.6}}},
+            weapon:{dmg:34, rof:1.9,  range:5.6, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.6, air:1.2}}},
   ltank  : {name:'Warden Tank',   cost:700,  hp:320, speed:82,  r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory',
             weapon:{dmg:42, rof:1.6,  range:5.2, kind:'shell', vs:{inf:0.8, heavy:1, building:1}}},
   htank  : {name:'Paladin Tank',  cost:1600, hp:820, speed:52,  r:15, armor:'heavy',time:16, tab:'vehicle',  from:'factory', prereq:['radar'],
@@ -355,13 +360,25 @@ const UNIT_DEFS = {
   // transports: infantry board with a right-click, unload with D (or by clicking the transport again)
   ifv    : {name:'Ranger IFV',    cost:700,  hp:220, speed:104, r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory', side:'allied',
             transport:1, ifv:true,     // its weapon depends on who rides in it (IFV_WEAPONS)
-            weapon:{dmg:30, rof:1.4,  range:6,   kind:'rocket', vs:{inf:0.5, heavy:1.3, building:0.6}}},
+            weapon:{dmg:30, rof:1.4,  range:6,   kind:'rocket', vs:{inf:0.5, heavy:1.3, building:0.6, air:1.5}}},
   halftrack:{name:'Bulwark Halftrack', cost:500, hp:200, speed:90, r:14, armor:'heavy',time:8, tab:'vehicle',  from:'factory', side:'soviet',
             transport:5,
-            weapon:{dmg:20, rof:0.8,  range:5.5, kind:'flak', vs:{inf:1.3, heavy:0.5, building:0.4}}},
+            weapon:{dmg:20, rof:0.8,  range:5.5, kind:'flak', vs:{inf:1.3, heavy:0.5, building:0.4, air:1.8}}},
   drone  : {name:'Leech Drone',   cost:400,  hp:90,  speed:122, r:8,  armor:'heavy',time:5,  tab:'vehicle',  from:'factory', side:'soviet',
             turret:false, drain:45,   // damage per second once latched inside a vehicle
             weapon:{dmg:150,rof:1.0,  range:0.8, kind:'latch', vs:{inf:1, heavy:1, building:0}}},
+  // aircraft (air: true) fly straight over anything at altitude `alt` px and only take AA fire
+  jet    : {name:'Talon Jet',     cost:1200, hp:180, speed:230, r:12, armor:'air',  time:12, tab:'vehicle',  from:'airfield', side:'allied',
+            air:true, alt:64, turret:false, jet:true, ammo:1, rearm:8,   // one bomb run, then back to a pad
+            weapon:{dmg:170,rof:0.3,  range:0.9, kind:'bomb', splash:1.3, vs:{inf:0.9, heavy:1.3, building:1.4}}},
+  heli   : {name:'Shade Transport', cost:900, hp:360, speed:120, r:13, armor:'air',  time:10, tab:'vehicle',  from:'airfield', side:'allied',
+            air:true, alt:52, turret:false, transport:5, stealth:true, lands:true},   // unseen by the enemy while flying
+  airship: {name:'Tempest Airship', cost:2000, hp:1600, speed:22, r:22, armor:'air',  time:22, tab:'vehicle',  from:'factory', side:'soviet', prereq:['radar'],
+            air:true, alt:74, turret:false, selfRepair:7, scan:5,
+            weapon:{dmg:170,rof:2.6,  range:0.7, kind:'bomb', splash:1.4, vs:{inf:0.8, heavy:1, building:1.8}}},
+  jetpack: {name:'Skytrooper',    cost:600,  hp:110, speed:74,  r:8,  armor:'air',  time:7,  tab:'infantry', from:'barracks', side:'allied', prereq:['airfield'],
+            air:true, alt:22, turret:false, flyInf:true,
+            weapon:{dmg:12, rof:0.45, range:4.4, kind:'bullet', vs:{inf:1.5, heavy:0.4, building:0.3}}},
 };
 for(const k in UNIT_DEFS) UNIT_DEFS[k].key = k;
 const available = (def, team) => !def.side || def.side === FACTION[team];
@@ -370,7 +387,7 @@ const available = (def, team) => !def.side || def.side === FACTION[team];
 // turns it into a field repair vehicle (no weapon, fixes nearby vehicles).
 const IFV_WEAPONS = {
   rifle:    {dmg:14,  rof:0.35, range:5.5, kind:'bullet', vs:{inf:1.6, heavy:0.35, building:0.4}},
-  rocket:   {dmg:48,  rof:1.6,  range:6.5, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.3}},
+  rocket:   {dmg:48,  rof:1.6,  range:6.5, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.3, air:1.5}},
   sniper:   {dmg:125, rof:2.5,  range:10,  kind:'snipe',  vs:{inf:1, heavy:0, building:0}},
   engineer: null,
 };
@@ -392,6 +409,12 @@ UNIT_DEFS.launcher.voice = {select: ['Launcher ready', 'Missile loaded'],
                             move: ['Repositioning', 'Moving'], attack: ['Target locked', 'Missile away']};
 UNIT_DEFS.beamtank.voice = {select: ['Lancer ready', 'Lens charged'],
                             move: ['Rolling', 'Moving out'], attack: ['Focusing beam', 'Target acquired']};
+UNIT_DEFS.jet.voice = {select: ['Talon ready', 'Wings level'], move: ['Vector set', 'Heading out'], attack: ['Starting my run', 'Marking the target']};
+UNIT_DEFS.heli.voice = {select: ['Rotors turning', 'Transport ready'], move: ['Lifting off', 'En route']};
+UNIT_DEFS.airship.voice = {select: ['Airship holding altitude', 'Engines steady'], move: ['Adjusting course', 'Slow and steady'],
+                           attack: ['Payload armed', 'Target below']};
+UNIT_DEFS.jetpack.voice = {select: ['Skytrooper ready', 'Fuel topped off'], move: ['Taking to the air', 'Flying'],
+                           attack: ['Strafing', 'Engaging from above']};
 UNIT_DEFS.dog.voice = null;
 UNIT_DEFS.drone.voice = null;
 
@@ -410,8 +433,10 @@ const angDiff = (a, b) => {
 };
 const turnToward = (a, b, max) => { const d = angDiff(a, b); return a + (d > max ? max : d < -max ? -max : d); };
 const hasTurret = def => def.armor !== 'inf' && !def.harvester && !def.mcv && !def.engineer && def.turret !== false;
-// damage multiplier of a weapon against an armor class (0 = can't hurt it at all)
-const vsMult = (vs, armor) => vs && vs[armor] != null ? vs[armor] : 1;
+// foot soldiers, including the ones with jetpacks
+const isInf = def => def.armor === 'inf' || !!def.flyInf;
+// damage multiplier of a weapon against an armor class (0 = can't hurt it at all); only listed weapons reach aircraft
+const vsMult = (vs, armor) => vs && vs[armor] != null ? vs[armor] : armor === 'air' && vs ? 0 : 1;
 const canHurt = (e, t) => { const w = weaponOf(e); return !!(w && vsMult(w.vs, t.def.armor) > 0); };
 // latched drones are inside their victim: not on the map as far as anyone else is concerned
 const onMap = u => !u.dead && !u.latched && !u.inside;
@@ -446,7 +471,7 @@ function canPlace(key, tx, ty, team){
       if(team === PLAYER && !explored[idx(x, y)]) return false;
     }
   for(const u of units){
-    if(!onMap(u)) continue;
+    if(!onMap(u) || u.def.air) continue;
     const t = tileOf(u);
     if(t.x >= tx && t.x < tx + def.w && t.y >= ty && t.y < ty + def.h) return false;
   }
@@ -470,6 +495,8 @@ function spawnUnit(key, px, py, team){
     dead: false, flash: 0, role: 'defend', fac: def.side || FACTION[team],
     carry: 0, hState: 'seek', hTimer: 0, oreTile: null,
     cargo: def.transport ? [] : null, born: state.time,
+    z: def.air && !def.jet && !def.lands ? def.alt : 0,   // altitude in px; jets start on a pad, helicopters on the ground
+    ammo: def.ammo || 0,
   };
   units.push(u);
   if(team === PLAYER) revealAround(px, py, 6);
@@ -545,6 +572,10 @@ function findPath(sx, sy, txx, tyy){
 }
 
 function orderMove(u, wx, wy){
+  if(u.def.air){   // aircraft fly straight to the spot
+    u.path = [{x: clamp(wx, T / 2, WPX - T / 2), y: clamp(wy, T / 2, HPX - T / 2)}]; u.pathI = 0;
+    return;
+  }
   const t = tileOf(u);
   u.path = findPath(t.x, t.y, Math.floor(wx / T), Math.floor(wy / T));
   u.pathI = 0;
@@ -584,7 +615,7 @@ function kill(e){
   if(e.cargo) for(const p of e.cargo) p.dead = true;   // nobody gets out of a burning transport
   sfx('explosion');
   const dieSprite = e.kind === 'unit' ? uName(e) + '_die' : null;
-  if(e.kind === 'unit' && e.def.armor === 'inf' && Sprites.has(dieSprite)){
+  if(e.kind === 'unit' && isInf(e.def) && Sprites.has(dieSprite)){
     effects.push({type:'corpse', x: e.x, y: e.y, name: dieSprite, team: e.team, t: 0, dur: 4});
   } else if(e.kind === 'building'){
     // a building goes up in several staggered blasts
@@ -708,6 +739,14 @@ function tickProduction(dt){
 // A finished unit leaves its factory (door animation) and heads for the rally point.
 function deliverUnit(key, team){
   const def = UNIT_DEFS[key];
+  if(def.jet){   // jets appear on a free landing pad
+    const pad = freePad(team);
+    if(!pad) return null;
+    const pp = padPos(pad);
+    const u = spawnUnit(key, pp.x, pp.y, team);
+    u.pad = pad; u.docked = true;
+    return u;
+  }
   const srcs = buildings.filter(b => !b.dead && b.team === team && b.def.key === def.from && b.buildUp >= 1);
   const src = srcs.find(b => b.primary) || srcs[0];
   if(!src) return null;
@@ -728,7 +767,8 @@ function nearestOreTile(u){
   const t = tileOf(u);
   for(let y = 0; y < MH; y++)
     for(let x = 0; x < MW; x++){
-      if(ore[idx(x, y)] <= 0) continue;
+      // skip ore under buildings and tiles this harvester already failed to reach
+      if(ore[idx(x, y)] <= 0 || occ[idx(x, y)] !== 0 || (u.badOre && u.badOre.has(idx(x, y)))) continue;
       const d = Math.hypot(x - t.x, y - t.y);
       if(d < bd){ bd = d; best = {x, y}; }
     }
@@ -755,7 +795,10 @@ function updateHarvester(u, dt){
     const done = followPath(u, dt);
     const d = Math.hypot(u.x - (u.oreTile.x * T + T/2), u.y - (u.oreTile.y * T + T/2));
     if(d < T * 0.8){ u.hState = 'mine'; u.hTimer = 0; }
-    else if(done && d > T){ u.oreTile = null; }
+    else if(done && d > T){
+      (u.badOre = u.badOre || new Set()).add(idx(u.oreTile.x, u.oreTile.y));
+      u.oreTile = null;
+    }
   } else if(u.hState === 'mine'){
     u.hTimer += dt;
     if(u.hTimer >= 0.45){
@@ -800,9 +843,17 @@ function followPath(u, dt){
   const wp = u.path[u.pathI];
   const dx = wp.x - u.x, dy = wp.y - u.y;
   const d = Math.hypot(dx, dy);
-  if(d < 6){ u.pathI++; return u.pathI >= u.path.length; }
+  if(d < (u.def.air ? Math.max(6, u.def.r * 0.8) : 6)){ u.pathI++; return u.pathI >= u.path.length; }
   const sp = u.def.speed * dt;
   const want = Math.atan2(dy, dx);
+  if(u.def.air){   // no terrain up here: turn while flying
+    u.face = isInf(u.def) ? want : turnToward(u.face, want, 5 * dt);
+    u.moving = true;
+    u.walkPhase += dt * u.def.speed / 7;
+    const k = Math.min(1, sp / d);
+    u.x += dx * k; u.y += dy * k;
+    return false;
+  }
   if(u.def.armor === 'inf') u.face = want;
   else {
     // vehicles turn on the spot before driving off
@@ -828,7 +879,7 @@ function findEnemyInRange(e, rangeTiles){
   let best = null, bd = 1e9;
   const rp = rangeTiles * T;
   for(const u of units){
-    if(!onMap(u) || u.team === e.team || u.team === NEUTRAL || !canHurt(e, u)) continue;
+    if(!onMap(u) || u.team === e.team || u.team === NEUTRAL || !canHurt(e, u) || hiddenFrom(u, e.team)) continue;
     const d = dist(e, u);
     if(d <= rp && d < bd){ bd = d; best = u; }
   }
@@ -848,7 +899,7 @@ function fireWeapon(e, target){
     const a = Math.atan2(target.y - e.y, target.x - e.x);
     if(hasTurret(e.def)) e.tface = a; else e.face = a;
   }
-  const zSrc = e.kind === 'building' ? e.def.z - 4 : e.def.armor === 'inf' ? 10 : 14;
+  const zSrc = (e.kind === 'building' ? e.def.z - 4 : isInf(e.def) ? 10 : 14) + (e.z || 0);
   if(w.kind === 'beam' || w.kind === 'arc'){
     effects.push({type: w.kind, x1: e.x, y1: e.y, z1: zSrc, x2: target.x, y2: target.y, t: 0, dur: 0.18});
     applyDamage(target, w.dmg, w.vs, e);
@@ -858,7 +909,7 @@ function fireWeapon(e, target){
     for(let i = 0; i < (w.chain || 0); i++){
       let next = null, nd = 2.6 * T;
       for(const v of units){
-        if(!onMap(v) || hit.has(v) || v.team === e.team || v.team === NEUTRAL || !canHurt(e, v)) continue;
+        if(!onMap(v) || hit.has(v) || v.team === e.team || v.team === NEUTRAL || !canHurt(e, v) || hiddenFrom(v, e.team)) continue;
         const d = dist(from, v);
         if(d < nd){ nd = d; next = v; }
       }
@@ -885,6 +936,17 @@ function fireWeapon(e, target){
     sfx('latch');
     if(target.team === PLAYER) announce('Vehicle infested!', true, 'Vehicle infested');
     return;
+  } else if(w.kind === 'bomb'){
+    // dropped from altitude: a jet lays a pair across its path, the airship one at a time
+    const n = e.def.jet ? 2 : 1, side = e.face + Math.PI / 2;
+    for(let i = 0; i < n; i++){
+      const off = (i - (n - 1) / 2) * 0.7 * T;
+      projectiles.push({x: e.x, y: e.y, sx: e.x, sy: e.y, tx: target.x + Math.cos(side) * off, ty: target.y + Math.sin(side) * off,
+                        z0: e.z || 0, z: e.z || 0, t: 0, fall: 0.7 + i * 0.12, target: null,
+                        dmg: w.dmg, vs: w.vs, kind: 'bomb', splash: w.splash * T, team: e.team, src: e, life: 5});
+    }
+    sfx('bomb');
+    return;
   } else if(w.kind === 'missile'){
     // lobbed at the ground where the target stands now; splash hurts everything nearby
     projectiles.push({
@@ -897,6 +959,7 @@ function fireWeapon(e, target){
   } else {
     projectiles.push({
       x: e.x, y: e.y, target, tx: target.x, ty: target.y,
+      z0: e.z || 0, zt: target.z || 0, total: Math.max(1, dist(e, target)),
       speed: w.kind === 'rocket' ? 210 : 380,
       dmg: w.dmg, vs: w.vs, kind: w.kind, team: e.team, src: e, life: 3,
     });
@@ -916,10 +979,11 @@ function combatStep(u, target, dt){
     if(hasTurret(u.def)){
       u.tface = turnToward(u.tface, a, 5 * dt);
       aimed = Math.abs(angDiff(u.tface, a)) < 0.15;
-    } else if(u.def.armor !== 'inf'){       // turretless vehicles swing the whole hull round
+    } else if(isInf(u.def)) u.face = a;
+    else if(w.kind !== 'bomb'){             // turretless vehicles swing the whole hull round
       u.face = turnToward(u.face, a, 4 * dt);
       aimed = Math.abs(angDiff(u.face, a)) < 0.12;
-    } else u.face = a;
+    }
     if(u.cool <= 0 && aimed) fireWeapon(u, target);
   } else {
     u.repathT -= dt;
@@ -936,6 +1000,11 @@ function updateUnit(u, dt){
   u.fireT += dt; u.moving = false;
   if(u.inside){ u.x = u.inside.x; u.y = u.inside.y; return; }
   if(u.latched){ updateLatched(u, dt); return; }
+  if(u.def.stealth) stealthTick(u, dt);
+  if(u.def.selfRepair && u.hp < u.maxHp) u.hp = Math.min(u.maxHp, u.hp + u.def.selfRepair * dt);
+  if(u.def.jet){ updateJet(u, dt); return; }
+  if(u.def.lands){ updateHeli(u, dt); return; }
+  if(u.def.air) u.z = approach(u.z, u.def.alt, 40 * dt);
   if(u.order.type === 'board'){ updateBoarding(u, dt); applySeparation(u, dt); return; }
   if(u.def.harvester){ updateHarvester(u, dt); applySeparation(u, dt); return; }
   if(u.def.engineer){ updateEngineer(u, dt); applySeparation(u, dt); return; }
@@ -948,7 +1017,7 @@ function updateUnit(u, dt){
     if(o.type === 'attack' || o.type === 'attackmove') u.order = o = {type: o.type === 'attackmove' ? 'move' : 'idle'};
     if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
   } else if(o.type === 'attack'){
-    if(!o.target || !onMap(o.target) || o.target.team === u.team){
+    if(!o.target || !onMap(o.target) || o.target.team === u.team || hiddenFrom(o.target, u.team)){
       if(o.resume){ u.order = {type:'attackmove', x: o.resume.x, y: o.resume.y}; orderMove(u, o.resume.x, o.resume.y); }
       else { u.order = {type:'idle'}; u.path = null; }
     }
@@ -981,6 +1050,95 @@ function updateLatched(u, dt){
     effects.push({type:'spark', x: h.x, y: h.y, vx:(Math.random()-.5)*90, vy:(Math.random()-.5)*90 - 30, t:0, dur:.35});
 }
 
+// ---------- aircraft ----------
+const approach = (a, b, d) => a < b ? Math.min(b, a + d) : Math.max(b, a - d);
+
+// Stealth units can't be seen or targeted by the other side unless something of
+// theirs is close by, or the unit has just fired (or, for a helicopter, landed).
+function hiddenFrom(u, team){ return !!u.def.stealth && u.team !== team && !u.revealed; }
+function stealthTick(u, dt){
+  u.stealthT = (u.stealthT || 0) - dt;
+  if(u.stealthT > 0) return;
+  u.stealthT = 0.3;
+  const near = e => !e.dead && e.team !== u.team && e.team !== NEUTRAL && dist(u, e) < (e.kind === 'building' ? 3.2 : 2.5) * T;
+  u.revealed = u.fireT < 3 || (u.def.lands && u.z < 8) || units.some(v => onMap(v) && near(v)) || buildings.some(near);
+}
+
+// jet landing pads: {b: airfield, i: pad index}
+function padPos(p){ const [ox, oy] = p.b.def.pads[p.i]; return {x: p.b.x + ox * T, y: p.b.y + oy * T}; }
+function padTaken(b, i){ return units.some(j => !j.dead && j.pad && j.pad.b === b && j.pad.i === i); }
+function freePad(team){
+  for(const b of buildings){
+    if(b.dead || b.team !== team || !b.def.pads || b.buildUp < 1) continue;
+    for(let i = 0; i < b.def.pads.length; i++) if(!padTaken(b, i)) return {b, i};
+  }
+  return null;
+}
+function padCount(team){ return buildings.reduce((n, b) => n + (!b.dead && b.team === team && b.def.pads ? b.def.pads.length : 0), 0); }
+
+// Strike jet: sits on its pad until ordered out, makes one bomb run, flies back
+// to a pad and rearms there. With no pad to go to it circles where it is.
+function updateJet(u, dt){
+  const o = u.order, alt = u.def.alt;
+  if(u.pad && (u.pad.b.dead || u.pad.b.team !== u.team)) u.pad = null;
+  let goal = null, bombing = false, landing = false;
+  if(o.type === 'attack' && u.ammo > 0 && o.target && onMap(o.target) && o.target.team !== u.team && !hiddenFrom(o.target, u.team)){
+    goal = o.target; bombing = true;
+  } else if((o.type === 'move' || o.type === 'attackmove') && u.path && u.pathI < u.path.length){
+    goal = u.path[u.path.length - 1];
+  } else if(o.type !== 'idle') u.order = {type: 'idle'};
+  if(!goal){
+    if(!u.pad) u.pad = freePad(u.team);
+    if(u.pad){
+      const pp = padPos(u.pad);
+      if(u.docked || (dist(u, pp) < 5 && u.z < 8)){
+        u.docked = true; u.moving = false;
+        u.x = pp.x; u.y = pp.y; u.z = approach(u.z, 0, 50 * dt);
+        if(u.ammo < u.def.ammo && (u.rearmT = (u.rearmT || 0) + dt) >= u.def.rearm){ u.ammo = u.def.ammo; u.rearmT = 0; }
+        return;
+      }
+      goal = pp; landing = true;
+    }
+  }
+  u.docked = false; u.moving = true;
+  // climb off the pad before flying anywhere
+  const d = goal ? dist(u, goal) : 1e9;
+  u.z = approach(u.z, landing && d < 2.5 * T ? 0 : alt, 55 * dt);
+  if(u.z < 16 && !landing) return;
+  if(!goal){ u.face += 1.3 * dt; }   // nowhere to land: circle
+  else {
+    const want = Math.atan2(goal.y - u.y, goal.x - u.x);
+    u.face = turnToward(u.face, want, (d < 3 * T ? 7 : 2.4) * dt);
+  }
+  let sp = u.def.speed * dt;
+  if(landing) sp *= clamp(d / (3 * T), 0.2, 1);
+  if(goal && d <= sp && Math.abs(angDiff(u.face, Math.atan2(goal.y - u.y, goal.x - u.x))) < 1){ u.x = goal.x; u.y = goal.y; }
+  else { u.x += Math.cos(u.face) * sp; u.y += Math.sin(u.face) * sp; }
+  u.x = clamp(u.x, T / 2, WPX - T / 2); u.y = clamp(u.y, T / 2, HPX - T / 2);
+  if(bombing){
+    const pad = goal.kind === 'building' ? Math.max(goal.w, goal.h) * T * 0.4 : 0;
+    if(dist(u, goal) - pad <= u.def.weapon.range * T){
+      fireWeapon(u, goal);
+      u.ammo--;
+      u.order = {type: 'idle'};
+    }
+  } else if(goal && !landing && d < T * 0.6) u.order = {type: 'idle'};
+}
+
+// Transport helicopter: lands whenever it has nowhere to go, takes off to move.
+function updateHeli(u, dt){
+  const o = u.order;
+  const flying = o.type !== 'idle' && u.path && u.pathI < u.path.length;
+  if(!flying && o.type !== 'idle') u.order = {type: 'idle'};
+  const t = tileOf(u);
+  const canLand = passable(t.x, t.y) && !units.some(v => v !== u && v.def.lands && onMap(v) && v.z < 6 && dist(u, v) < T);
+  u.z = approach(u.z, flying || !canLand ? u.def.alt : 0, 45 * dt);
+  u.moving = u.z > 1;
+  if(flying && u.z > u.def.alt * 0.5 && followPath(u, dt)) u.order = {type: 'idle'};
+  if(u.unloadLanded && (u.z < 2 || !canLand)){ u.unloadLanded = false; unloadTransport(u, true); }
+  applySeparation(u, dt);
+}
+
 // ---------- transports ----------
 function canBoard(u, t){
   return !!t && !t.dead && t.kind === 'unit' && t.def.transport && t.team === u.team && t !== u &&
@@ -990,6 +1148,7 @@ function updateBoarding(u, dt){
   const t = u.order.target;
   if(!canBoard(u, t)){ u.order = {type:'idle'}; u.path = null; return; }
   if(dist(u, t) < T * 0.9){
+    if(t.def.lands && t.z > 4){ u.path = null; return; }   // wait for it to touch down
     u.inside = t; u.order = {type:'idle'}; u.path = null;
     t.cargo.push(u);
     if(u.team === PLAYER){ selection = selection.filter(s => s !== u); sfx('click'); }
@@ -1000,8 +1159,12 @@ function updateBoarding(u, dt){
   followPath(u, dt);
 }
 // everyone out, spread over the free tiles around the transport
-function unloadTransport(t){
+function unloadTransport(t, now){
   if(!t.cargo || !t.cargo.length) return [];
+  if(t.def.lands && t.z > 2 && !now){   // a helicopter sets down first
+    t.unloadLanded = true; t.order = {type:'idle'}; t.path = null;
+    return [];
+  }
   const out = t.cargo.splice(0);
   const tt = tileOf(t);
   out.forEach((u, i) => {
@@ -1019,7 +1182,7 @@ function unloadTransport(t){
 function ifvRepair(u, dt){
   let best = null, bd = 4 * T;
   for(const v of units){
-    if(!onMap(v) || v.team !== u.team || v === u || v.def.armor === 'inf' || v.hp >= v.maxHp) continue;
+    if(!onMap(v) || v.team !== u.team || v === u || v.def.armor !== 'heavy' || v.hp >= v.maxHp) continue;
     const d = dist(u, v);
     if(d < bd){ bd = d; best = v; }
   }
@@ -1069,15 +1232,17 @@ function engineerEnter(u, b){
 }
 
 function applySeparation(u, dt){
+  if(u.def.jet) return;
   for(const v of units){
-    if(v === u || !onMap(v)) continue;
+    if(v === u || !onMap(v) || !!v.def.air !== !!u.def.air || v.def.jet) continue;
+    if(u.def.harvester && !v.def.harvester) continue;   // everyone makes way for the ore trucks
     const dx = u.x - v.x, dy = u.y - v.y;
     const d = Math.hypot(dx, dy);
-    const min = u.def.r + v.def.r;
+    const min = (u.def.r + v.def.r) * (u.def.air ? 0.6 : 1);   // aircraft may overlap a bit
     if(d > 0.01 && d < min){
       const push = (min - d) * 2.4 * dt * 10;
       const nx = u.x + dx / d * push, ny = u.y + dy / d * push;
-      if(passable(Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
+      if(u.def.air || passable(Math.floor(nx / T), Math.floor(ny / T))){ u.x = nx; u.y = ny; }
     }
   }
   u.x = clamp(u.x, T/2, WPX - T/2);
@@ -1105,7 +1270,7 @@ function updateBuilding(b, dt){
   if(!b.def.weapon) return;
   const p = powerOf(b.team);
   if(p.used > p.prod) return;
-  if(b.target && (!onMap(b.target) || b.target.team === b.team || dist(b, b.target) > b.def.weapon.range * T * 1.1)) b.target = null;
+  if(b.target && (!onMap(b.target) || b.target.team === b.team || hiddenFrom(b.target, b.team) || dist(b, b.target) > b.def.weapon.range * T * 1.1)) b.target = null;
   if(!b.target && b.scanT <= 0){
     b.scanT = 0.4;
     b.target = findEnemyInRange(b, b.def.weapon.range);
@@ -1117,7 +1282,18 @@ function updateBuilding(b, dt){
 function updateProjectiles(dt){
   for(const p of projectiles){
     p.life -= dt;
-    if(p.target && !p.target.dead){ p.tx = p.target.x; p.ty = p.target.y; }
+    if(p.kind === 'bomb'){
+      p.t += dt;
+      const f = Math.min(1, p.t / p.fall);
+      p.x = p.sx + (p.tx - p.sx) * f; p.y = p.sy + (p.ty - p.sy) * f; p.z = p.z0 * (1 - f * f);
+      if(f >= 1){
+        splashDamage(p.tx, p.ty, p.splash, p.dmg, p.vs, p.src, p.team);
+        boom(p.tx, p.ty, 30); scorch(p.tx, p.ty, 24); sfx('explosion');
+        p.dead = true;
+      }
+      continue;
+    }
+    if(p.target && !p.target.dead){ p.tx = p.target.x; p.ty = p.target.y; p.zt = p.target.z || 0; }
     const dx = p.tx - p.x, dy = p.ty - p.y;
     const d = Math.hypot(dx, dy);
     const step = p.speed * dt;
@@ -1127,7 +1303,7 @@ function updateProjectiles(dt){
         boom(p.tx, p.ty, 26); scorch(p.tx, p.ty, 22); sfx('explosion');
       } else {
         if(p.target && !p.target.dead) applyDamage(p.target, p.dmg, p.vs, p.src);
-        effects.push({type:'hit', x: p.tx, y: p.ty, t: 0, dur: 0.22, big: p.kind !== 'bullet'});
+        effects.push({type:'hit', x: p.tx, y: p.ty, z: p.zt || 0, t: 0, dur: 0.22, big: p.kind !== 'bullet'});
       }
       p.dead = true;
     } else {
@@ -1148,7 +1324,7 @@ function missileZ(p){
 function splashDamage(x, y, r, dmg, vs, src, team){
   const c = {x, y};
   for(const u of units){
-    if(!onMap(u) || u.team === team) continue;
+    if(!onMap(u) || u.team === team || vsMult(vs, u.def.armor) <= 0) continue;
     const d = dist(c, u);
     if(d < r) applyDamage(u, dmg * (1 - d / r * 0.6), vs, src);
   }
@@ -1181,8 +1357,14 @@ const ai = {
   waveTimer: 80,
   waveSize: 3,
   prodQ: ['rifle','arctrooper','ltank','rifle','halftrack','drone','rocket','ltank','arctrooper','launcher','rifle','drone'],
-  prodI: 0, prodProgress: 0, prodKey: null,
+  prodI: 0, prodProgress: 0, prodKey: null, airT: 0,
 };
+
+// an airship every few minutes once the AI has the tech, a couple at a time at most
+function airshipDue(){
+  const ships = units.filter(u => u.team === ENEMY && !u.dead && u.def.key === 'airship').length;
+  return state.time > 270 * diff.tech && state.time > ai.airT && ships < (diff === DIFFICULTY.hard ? 3 : 2);
+}
 
 function tickAI(dt){
   state.credits[ENEMY] += diff.income * dt;
@@ -1191,13 +1373,16 @@ function tickAI(dt){
     ai.prodKey = ai.prodQ[ai.prodI % ai.prodQ.length];
     if(state.time > 240 * diff.tech && Math.random() < 0.25) ai.prodKey = 'htank';
     if(state.time > 150 * diff.tech && Math.random() < 0.3) ai.prodKey = 'ltank';
+    if(airshipDue()){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
     ai.prodI++;
     ai.prodProgress = 0;
   } else {
-    const def = UNIT_DEFS[ai.prodKey];
     const armyCount = units.filter(u => u.team === ENEMY && !u.dead && !u.def.harvester).length;
     const armyCap = Math.min(diff.capMax, Math.round((5 + Math.floor(state.time / 30) * 2) * diff.capMul));
-    if(armyCount < armyCap){
+    // airships have their own limit, and one that's due jumps a unit waiting for room in the army
+    if(armyCount >= armyCap && ai.prodProgress === 0 && !UNIT_DEFS[ai.prodKey].air && airshipDue()){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
+    const def = UNIT_DEFS[ai.prodKey];
+    if(armyCount < armyCap || def.air){
       const rate = dt / def.time;
       const cost = def.cost * rate;
       if(state.credits[ENEMY] >= cost){
@@ -1218,6 +1403,7 @@ function tickAI(dt){
     const army = units.filter(u => u.team === ENEMY && onMap(u) && !u.def.harvester && u.role !== 'attacker' &&
                                    u.order.type !== 'board' && !filling(u));
     if(army.length >= Math.min(ai.waveSize, 4)){
+      army.sort((a, b) => (b.def.air ? 1 : 0) - (a.def.air ? 1 : 0));   // airships lead (they are slow to arrive)
       const squad = army.slice(0, ai.waveSize + 2);
       const target = nearestPlayerTarget(squad[0]);
       if(target){
@@ -1299,7 +1485,7 @@ function nearestPlayerTarget(from){
     if(d < bd){ bd = d; best = b; }
   }
   if(!best) for(const u of units){
-    if(!onMap(u) || u.team !== PLAYER || !canHurt(from, u)) continue;
+    if(!onMap(u) || u.team !== PLAYER || !canHurt(from, u) || hiddenFrom(u, from.team)) continue;
     const d = dist(from, u);
     if(d < bd){ bd = d; best = u; }
   }
@@ -1372,6 +1558,10 @@ function sfx(type){
       const f = ac.createBiquadFilter(); f.type = 'bandpass';
       f.frequency.setValueAtTime(400, t0); f.frequency.exponentialRampToValueAtTime(1800, t0 + len);
       src.connect(f); f.connect(g); vol(0.2); decay(len); src.start(t0);
+    } else if(type === 'bomb'){
+      const o = ac.createOscillator(); o.type = 'sine';
+      o.frequency.setValueAtTime(1500, t0); o.frequency.exponentialRampToValueAtTime(420, t0 + 0.6);
+      vol(0.05); decay(0.65); o.connect(g); o.start(t0); o.stop(t0 + 0.66);
     } else if(type === 'click'){
       const o = ac.createOscillator(); o.type = 'square';
       o.frequency.setValueAtTime(1000, t0); vol(0.04); decay(0.05);
@@ -1417,10 +1607,10 @@ let activeTab = 'structure';
 const cameoEls = {};
 
 const TAB_ITEMS = {
-  structure: ['power','refinery','barracks','factory','radar'],
+  structure: ['power','refinery','barracks','factory','radar','airfield'],
   defense:   ['pillbox','beamtower'],
-  infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper'],
-  vehicle:   ['ltank','ifv','halftrack','beamtank','launcher','drone','htank','harv','mcv'],
+  infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','jetpack'],
+  vehicle:   ['ltank','ifv','halftrack','beamtank','launcher','drone','htank','jet','heli','airship','harv','mcv'],
 };
 
 function makeCameoIcon(key, isUnit){
@@ -1443,7 +1633,7 @@ function makeCameoIcon(key, isUnit){
       const mock = {x: 0, y: 0, def, team: PLAYER, face: Math.PI / 8, carry: 300, flash: 0};
       const p = toIso(0, 0);
       g.save();
-      g.translate(46 - p.x, (def.key === 'rifle' || def.key === 'rocket' ? 36 : 32) - p.y);
+      g.translate(46 - p.x, (isInf(def) ? 36 : 32) - p.y);
       drawUnitSprite(mock);
       g.restore();
     } else {
@@ -1497,6 +1687,9 @@ function onCameoClick(key, isUnit){
     if(head && head.key === key && head.ready){ state.placing = key; setMode(null); return; }
     if(head){ announce('Construction already in progress', false, 'Construction in progress'); return; }
   } else if(q.length >= MAX_QUEUE){ announce('Queue full'); return; }
+  if(def.jet && units.filter(u => !u.dead && u.team === PLAYER && u.def.jet).length + q.filter(s => s.key === key).length >= padCount(PLAYER)){
+    announce(padCount(PLAYER) ? 'All landing pads are in use' : 'Requires: Airfield'); return;
+  }
   if(!prereqOk(def)){ announce('Requires: ' + prereqLabel(def)); return; }
   if(state.credits[PLAYER] < 20){ announce('Insufficient funds', false, 'Insufficient funds'); return; }
   q.push({key, isUnit, progress: 0, spent: 0, ready: false, hold: false});
@@ -1601,6 +1794,7 @@ window.addEventListener('mouseup', e => {
     const picked = units.filter(u => {
       if(!onMap(u) || u.team !== PLAYER) return false;
       const p = toIso(u.x, u.y);
+      p.y -= u.z || 0;
       return p.x >= x1 && p.x <= x2 && p.y >= y1 - 10 && p.y <= y2 + 6;
     });
     if(picked.length){ selection = picked; sfx('click'); ack('select', picked[0]); }
@@ -1623,11 +1817,12 @@ window.addEventListener('mouseup', e => {
 
 function pickEntity(wx, wy){
   const c = toIso(wx, wy);
-  for(const u of units){
-    if(!onMap(u)) continue;
+  // aircraft first: they are drawn on top
+  const cand = units.filter(u => onMap(u) && !hiddenFrom(u, PLAYER)).sort((a, b) => (b.z || 0) - (a.z || 0));
+  for(const u of cand){
     const p = toIso(u.x, u.y);
     const r = u.def.r + 9;
-    if(Math.abs(p.x - c.x) < r && Math.abs(p.y - c.y + 6) < r * 0.85) return u;
+    if(Math.abs(p.x - c.x) < r && Math.abs(p.y - (u.z || 0) - c.y + 6) < r * 0.85) return u;
   }
   for(const b of buildings){
     if(b.dead) continue;
@@ -1636,7 +1831,7 @@ function pickEntity(wx, wy){
   return null;
 }
 
-const PRODUCERS = new Set(['barracks', 'factory']);
+const PRODUCERS = new Set(['barracks', 'factory', 'airfield']);
 
 // Right-click orders. Ctrl forces fire on anything / attack-moves on ground.
 function issueCommand(ev){
@@ -1668,6 +1863,20 @@ function issueCommand(ev){
     }
   }
   if(target && target.def.transport && selUnits.length === 1 && selUnits[0] === target && target.cargo.length){ unloadTransport(target); return; }
+  // jets sent back to base by right-clicking an airfield
+  const jets = selUnits.filter(u => u.def.jet);
+  if(jets.length && target && target.kind === 'building' && target.def.pads && target.team === PLAYER){
+    for(const u of jets){
+      u.order = {type:'idle'}; u.path = null;
+      if(!u.pad || u.pad.b !== target){
+        const i = target.def.pads.findIndex((_, k) => !padTaken(target, k));
+        if(i >= 0) u.pad = {b: target, i};
+      }
+    }
+    sfx('click'); ack('move', jets[0]);
+    selUnits = selUnits.filter(u => !u.def.jet);
+    if(!selUnits.length) return;
+  }
   // engineers walk into a building: capture it if it's the enemy's, fix it if it's ours
   const eng = selUnits.filter(u => u.def.engineer);
   if(eng.length && engineerCan(target, PLAYER) && !force){
@@ -2227,6 +2436,15 @@ function drawBuildingSprite(b){
     cylinder(ctr.x - 14, ctr.y - z + 2, 4.5, 24, '#5b626e');
     cx.strokeStyle = tc; cx.lineWidth = 2.5;
     cx.beginPath(); cx.moveTo(c.t.x, c.t.y - z); cx.lineTo(c.l.x, c.l.y - z); cx.stroke();
+  } else if(k === 'airfield'){
+    isoBox(b.tx, b.ty, b.w, b.h, 5 * up, '#6d737c', '#565c64');
+    for(const [ox, oy] of b.def.pads){
+      const pp = toIso(wxc + ox * T, wyc + oy * T);
+      cx.fillStyle = '#2e3238'; cx.beginPath(); cx.ellipse(pp.x, pp.y - 5 * up, 19, 9.5, 0, 0, 7); cx.fill();
+      cx.strokeStyle = '#f5c542'; cx.lineWidth = 1.5; cx.beginPath(); cx.ellipse(pp.x, pp.y - 5 * up, 15, 7.5, 0, 0, 7); cx.stroke();
+      cx.strokeStyle = tc; cx.beginPath(); cx.ellipse(pp.x, pp.y - 5 * up, 8, 4, 0, 0, 7); cx.stroke();
+    }
+    isoBox(b.tx, b.ty + b.h - 1, 1, 1, 26 * up, wall, '#9fb4c8');   // control tower
   } else if(k === 'pillbox'){
     // sandbag bunker: low dome
     cx.fillStyle = '#7a7a5c';
@@ -2332,14 +2550,25 @@ function infantryFrame(u, e){
   return f;
 }
 
+// shadow of an aircraft on the ground below it
+function drawAirShadow(u){
+  const p = toIso(u.x, u.y);
+  const r = u.def.r * (1.1 - Math.min(0.4, (u.z || 0) / 200));
+  cx.fillStyle = 'rgba(0,0,0,0.28)';
+  cx.beginPath(); cx.ellipse(p.x, p.y, r, r * 0.5, 0, 0, 7); cx.fill();
+}
+
 function drawUnitSprite(u){
   const p = toIso(u.x, u.y);
+  p.y -= u.z || 0;                                    // aircraft sheets are anchored on the aircraft itself
   const name = uName(u);
   const inf = Sprites.get(name);
   const body = Sprites.get(name + '_body');
+  const ghost = u.def.stealth && !u.revealed;         // our own stealth units show faintly
   if(inf || body){
     cx.save();
     if(u.flash > 0) cx.filter = 'brightness(1.9)';
+    if(ghost) cx.globalAlpha = 0.45;
     if(inf) Sprites.draw(cx, name, u.team, infantryFrame(u, inf), p.x, p.y);
     else {
       Sprites.draw(cx, name + '_body', u.team, Sprites.facing(body, u.face), p.x, p.y);
@@ -2347,6 +2576,10 @@ function drawUnitSprite(u){
       if(tur) Sprites.draw(cx, name + '_turret', u.team, Sprites.facing(tur, u.tface), p.x, p.y);
       const msl = Sprites.get(name + '_missile');       // reloaded when the cooldown is nearly over
       if(msl && u.cool < 1.5) Sprites.draw(cx, name + '_missile', u.team, Sprites.facing(msl, u.face), p.x, p.y);
+      const bombs = Sprites.get(name + '_bombs');       // a jet's bombs hang under it until dropped
+      if(bombs && u.ammo > 0) Sprites.draw(cx, name + '_bombs', u.team, Sprites.facing(bombs, u.face), p.x, p.y);
+      const rotor = Sprites.get(name + '_rotor');
+      if(rotor) Sprites.draw(cx, name + '_rotor', u.team, u.moving ? Math.floor(state.time * 24) % rotor.frames : 0, p.x, p.y);
     }
     cx.restore();
     return;
@@ -2357,12 +2590,16 @@ function drawUnitSprite(u){
 
   cx.save();
   if(u.flash > 0) cx.filter = 'brightness(1.9)';
+  if(ghost) cx.globalAlpha = 0.45;
 
-  // shadow
-  cx.fillStyle = 'rgba(0,0,0,0.3)';
-  cx.beginPath(); cx.ellipse(p.x, p.y + 1, u.def.r + 2, (u.def.r + 2) * 0.5, 0, 0, 7); cx.fill();
+  // shadow (aircraft get theirs from drawAirShadow)
+  if(!u.def.air){
+    cx.fillStyle = 'rgba(0,0,0,0.3)';
+    cx.beginPath(); cx.ellipse(p.x, p.y + 1, u.def.r + 2, (u.def.r + 2) * 0.5, 0, 0, 7); cx.fill();
+  }
 
-  if(k === 'rifle' || k === 'rocket'){
+  if(u.def.air && !isInf(u.def)) drawAircraftFallback(u, p, tc);
+  else if(isInf(u.def)){
     const d = isoDir(u.face);
     const uni = k === 'rifle' ? (allied ? '#5d7244' : '#8a7a5a') : (allied ? '#4e6a8c' : '#6d5b4c');
     // legs
@@ -2379,7 +2616,7 @@ function drawUnitSprite(u){
     cx.fillStyle = allied ? '#44522f' : '#6d3b32';
     cx.beginPath(); cx.arc(p.x, p.y - 15.4, 2.8, Math.PI, 0); cx.fill();
     // weapon
-    if(k === 'rifle'){
+    if(k !== 'rocket'){
       cx.strokeStyle = '#23272e'; cx.lineWidth = 2;
       cx.beginPath(); cx.moveTo(p.x, p.y - 9); cx.lineTo(p.x + d.x * 9, p.y - 9 + d.y * 9); cx.stroke();
     } else {
@@ -2469,6 +2706,45 @@ function drawUnitSprite(u){
       cx.fillStyle = tc;
       cx.beginPath(); cx.ellipse(-2, ty0 - 1, 2.6, 1.6, 0, 0, 7); cx.fill();
     }
+  }
+  cx.restore();
+}
+
+// simple shapes for aircraft without a sprite sheet
+function drawAircraftFallback(u, p, tc){
+  const k = u.def.key;
+  const skin = u.team === PLAYER ? '#a3adb8' : '#978d7e';
+  cx.save();
+  cx.translate(p.x, p.y);
+  cx.save();
+  cx.scale(1, 0.5);
+  cx.rotate(u.face + Math.PI / 4);
+  if(k === 'airship'){
+    cx.fillStyle = skin;
+    cx.beginPath(); cx.ellipse(0, 0, 40, 13, 0, 0, 7); cx.fill();
+    cx.fillStyle = tc; cx.fillRect(-2, -13, 5, 26);
+    cx.fillStyle = shade(skin, 0.6);
+    cx.beginPath(); cx.moveTo(-34, 0); cx.lineTo(-46, -12); cx.lineTo(-46, 12); cx.closePath(); cx.fill();
+  } else if(k === 'heli'){
+    cx.fillStyle = '#5f666e';
+    cx.beginPath(); cx.ellipse(4, 0, 16, 9, 0, 0, 7); cx.fill();
+    cx.fillRect(-28, -2, 20, 4);
+    cx.fillStyle = tc; cx.fillRect(-2, -9, 8, 3);
+  } else {   // jet: delta wing
+    cx.fillStyle = skin;
+    cx.beginPath(); cx.moveTo(18, 0); cx.lineTo(-12, -15); cx.lineTo(-8, 0); cx.lineTo(-12, 15); cx.closePath(); cx.fill();
+    cx.fillStyle = tc; cx.fillRect(-10, -14, 4, 4); cx.fillRect(-10, 10, 4, 4);
+    if(u.ammo > 0){ cx.fillStyle = '#2b2f36'; cx.fillRect(-4, -8, 8, 3); cx.fillRect(-4, 5, 8, 3); }
+  }
+  cx.restore();
+  if(k === 'airship'){   // gondola hangs below the envelope
+    cx.fillStyle = shade(skin, 0.7); cx.fillRect(-8, 6, 16, 6);
+  } else if(k === 'heli'){ // rotor disc
+    cx.strokeStyle = 'rgba(40,44,50,0.7)'; cx.lineWidth = 1.5;
+    const a = u.moving ? state.time * 20 : 0;
+    cx.beginPath();
+    for(let i = 0; i < 2; i++){ const b = a + i * Math.PI / 2; cx.moveTo(-Math.cos(b) * 22, -8 - Math.sin(b) * 11); cx.lineTo(Math.cos(b) * 22, -8 + Math.sin(b) * 11); }
+    cx.stroke();
   }
   cx.restore();
 }
@@ -2624,6 +2900,14 @@ function drawBrackets(sx, sy, w, h){
 }
 
 function drawProjectile(p){
+  if(p.kind === 'bomb'){
+    const g = toIso(p.x, p.y);
+    cx.fillStyle = 'rgba(0,0,0,0.22)';
+    cx.beginPath(); cx.ellipse(g.x, g.y, 4, 2, 0, 0, 7); cx.fill();
+    cx.fillStyle = '#2b2f36';
+    cx.beginPath(); cx.ellipse(g.x, g.y - p.z, 2.2, 4.5, 0, 0, 7); cx.fill();
+    return;
+  }
   if(p.kind === 'missile'){
     const g = toIso(p.x, p.y), z = missileZ(p);
     // shadow on the ground, then the missile pitched along its arc
@@ -2644,7 +2928,9 @@ function drawProjectile(p){
   }
   const s = toIso(p.x, p.y);
   const t = toIso(p.tx, p.ty);
-  s.y -= 8; t.y -= 6;
+  // shots to and from aircraft climb or drop along the way
+  const k = p.total ? clamp(1 - Math.hypot(p.tx - p.x, p.ty - p.y) / p.total, 0, 1) : 1;
+  s.y -= 8 + (p.z0 || 0) * (1 - k) + (p.zt || 0) * k; t.y -= 6 + (p.zt || 0);
   const a = Math.atan2(t.y - s.y, t.x - s.x);
   if(p.kind === 'bullet'){
     cx.strokeStyle = '#ffe9a0'; cx.lineWidth = 1.5;
@@ -2709,7 +2995,7 @@ function drawEffect(e){
   } else if(e.type === 'hit'){
     const p = toIso(e.x, e.y);
     cx.fillStyle = `rgba(255,200,90,${1 - f})`;
-    cx.beginPath(); cx.arc(p.x, p.y - 6, (e.big ? 9 : 4.5) * (0.5 + f), 0, 7); cx.fill();
+    cx.beginPath(); cx.arc(p.x, p.y - 6 - (e.z || 0), (e.big ? 9 : 4.5) * (0.5 + f), 0, 7); cx.fill();
   } else if(e.type === 'muzzle'){
     const p = toIso(e.x, e.y);
     const d = isoDir(e.a);
@@ -2774,6 +3060,7 @@ function visibleTileBounds(){
 // screen-space bounds of an entity's visible pixels (for brackets / health bars)
 function screenBox(e){
   const p = toIso(e.x, e.y);
+  p.y -= e.z || 0;
   const name = e.kind === 'unit' ? uName(e) : '';
   const fromSprite = (sp, bb, grow) => ({
     x0: p.x + bb.x0, y0: p.y + bb.y0 - (grow || 0), x1: p.x + bb.x1, y1: p.y + bb.y1,
@@ -2863,7 +3150,7 @@ function draw(){
   // entities + scenery, painter's order by world depth (x + y)
   const renderables = [];
   for(const b of buildings) if(!b.dead) renderables.push(b);
-  for(const u of units) if(onMap(u)) renderables.push(u);
+  for(const u of units) if(onMap(u) && !u.def.air) renderables.push(u);
   for(const d of doodads)
     if(d.tx >= vb.x0 && d.tx <= vb.x1 && d.ty >= vb.y0 && d.ty <= vb.y1) renderables.push(d);
   renderables.sort((a, b) => (a.x + a.y) - (b.x + b.y));
@@ -2872,6 +3159,10 @@ function draw(){
     else if(e.kind === 'unit') drawUnitSprite(e);
     else { const p = toIso(e.x, e.y); Sprites.draw(cx, e.name, 0, e.frame, p.x, p.y); }
   }
+  // aircraft go over everything on the ground: shadows first, then the craft
+  const air = units.filter(u => onMap(u) && u.def.air && !hiddenFrom(u, PLAYER)).sort((a, b) => (a.x + a.y) - (b.x + b.y));
+  for(const u of air) drawAirShadow(u);
+  for(const u of air){ drawUnitSprite(u); renderables.push(u); }
 
   // rally points of selected factories
   for(const b of selection){
@@ -2901,7 +3192,7 @@ function draw(){
       }
     } else {
       if(sel) drawBrackets(box.x0 - 3, box.y0 - 3, box.x1 - box.x0 + 6, box.y1 - box.y0 + 6);
-      drawHealthBar((box.x0 + box.x1) / 2, box.y0 - 9, e.def.armor === 'inf' ? 16 : 28, frac);
+      drawHealthBar((box.x0 + box.x1) / 2, box.y0 - 9, isInf(e.def) ? 16 : 28, frac);
       if(e.cargo && sel){
         const n = e.def.transport, x0 = (box.x0 + box.x1) / 2 - n * 3;
         for(let i = 0; i < n; i++){
@@ -3013,7 +3304,7 @@ function drawMinimap(){
     }
   }
   for(const u of units){
-    if(!onMap(u)) continue;
+    if(!onMap(u) || hiddenFrom(u, PLAYER)) continue;
     const t = tileOf(u);
     if(u.team === PLAYER || (inMap(t.x, t.y) && explored[idx(t.x, t.y)])){
       const p = toIso(u.x, u.y);
@@ -3303,6 +3594,9 @@ window.__RH = {
   get units(){ return units; }, get buildings(){ return buildings; },
   get selection(){ return selection; }, get state(){ return state; },
   spawn(key, tx, ty, team = PLAYER){ return spawnUnit(key, tx * T + T / 2, ty * T + T / 2, team); },
+  deliver(key, team = PLAYER){ return deliverUnit(key, team); },   // as if its factory had just finished it
+  orderMove,
+  block(tx, ty){ occ[idx(tx, ty)] = BLOCKED; },
   place(key, tx, ty, team = PLAYER){ return placeBuilding(key, tx, ty, team, true); },
   select(list){ selection = list; },
   // make a patch of ground open (no trees, rocks or water) so a test arena is predictable
