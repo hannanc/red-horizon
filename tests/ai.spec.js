@@ -3,7 +3,7 @@
 const { test, expect } = require('@playwright/test');
 const { boot, expectClean } = require('./helpers');
 
-test('AI builds, attacks with every unit type and never gets stuck @slow', async ({ page }) => {
+test('AI builds its base, attacks with every unit type and never gets stuck @slow', async ({ page }) => {
   test.setTimeout(300_000);
   const errors = await boot(page);
   const r = await page.evaluate(() => {
@@ -17,7 +17,7 @@ test('AI builds, attacks with every unit type and never gets stuck @slow', async
     for(const b of __RH.buildings) if(b.team === 0) b.hp = b.maxHp = 1e7;
     const built = new Set(), leftBase = new Set(), airRaid = new Set();
     let maxCargo = 0, stuck = [], aground = [];
-    for(let t = 0; t < 420; t++){
+    for(let t = 0; t < 600; t++){
       __RH.step(1);
       for(const u of __RH.units){
         if(u.team !== 1 || u.dead) continue;

@@ -113,6 +113,7 @@ export function findEnemyInRange(e, rangeTiles){
   return best;
 }
 
+let chargeMsgT = -99;   // the charge warning is said at most every few seconds
 export function fireWeapon(e, target){
   const w = weaponFor(e, target);
   e.cool = w.rof / (1 + (e.vet || 0) * 0.2);
@@ -162,7 +163,7 @@ export function fireWeapon(e, target){
     // a timed charge stuck to the target; it goes off after `fuse` seconds
     effects.push({type:'charge', target, x: target.x, y: target.y, t: 0, dur: w.fuse, dmg: w.dmg, vs: w.vs, src: e, team: e.team});
     sfx('click');
-    if(target.team === PLAYER) announce('Explosive charge planted!', true);
+    if(target.team === PLAYER && state.time - chargeMsgT > 8){ chargeMsgT = state.time; announce('Explosive charge planted!', true); }
     return;
   } else if(w.kind === 'mind'){
     effects.push({type:'arc', x1: e.x, y1: e.y, z1: zSrc, x2: target.x, y2: target.y, t: 0, dur: 0.35, col: '200,120,255'});

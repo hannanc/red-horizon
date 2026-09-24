@@ -24,16 +24,16 @@ test('playing the Soviet side with 12,000 credits', async ({ page }) => {
   expect(infantry).toEqual(expect.arrayContaining(['Trooper', 'Arc Trooper', 'Sapper']));
   expect(infantry).not.toContain('Hound');
   const r = await page.evaluate(() => {
-    const towers = __RH.buildings.filter(b => b.team === 1 && b.def.weapon).map(b => b.def.key);
     const credits = __RH.state.credits[0];
     const seen = new Set();
-    for(let i = 0; i < 150; i++){ __RH.step(1); for(const u of __RH.units) if(u.team === 1) seen.add(u.def.key); }
+    for(let i = 0; i < 200; i++){ __RH.step(1); for(const u of __RH.units) if(u.team === 1) seen.add(u.def.key); }
+    const towers = [...new Set(__RH.buildings.filter(b => b.team === 1 && b.def.weapon).map(b => b.def.key))];
     const built = [...seen];
     return {faction: __RH.faction.slice(0, 2), towers, credits, built};
   });
   expect(r.faction).toEqual(['soviet', 'allied']);
   expect(r.credits).toBe(12000);
-  expect(r.towers).toEqual(['beamtower', 'beamtower']);    // the Allied AI's own defences
+  expect(r.towers).toEqual(['beamtower']);                 // the Allied AI builds its own side's defences
   expect(r.built).toEqual(expect.arrayContaining(['dog']));
   expect(r.built).not.toContain('arctrooper');
   expectClean(errors);

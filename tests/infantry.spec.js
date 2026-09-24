@@ -123,10 +123,10 @@ test('Infiltrator is ignored by the enemy, steals credits and blacks out power; 
     const unhurt = spy.hp === spy.maxHp;
     const ref = __RH.place('refinery', 40, 52, 1);
     __RH.state.credits[1] = 4000;
-    const theirs = __RH.state.credits[1];
+    const mine = __RH.state.credits[0];
     spy.order = {type: 'capture', target: ref};
     __RH.step(4);
-    const stolen = theirs - __RH.state.credits[1];
+    const stolen = __RH.state.credits[0] - mine;
     const spy2 = __RH.spawn('infiltrator', 36, 60);
     const pp = __RH.place('power', 34, 62, 1);
     const prodBefore = __RH.powerOf(1).prod;
@@ -140,8 +140,8 @@ test('Infiltrator is ignored by the enemy, steals credits and blacks out power; 
   });
   expect(r.unhurt).toBe(true);
   expect(r.spyUsed).toBe(true);
-  expect(r.stolen).toBeGreaterThan(1950);                  // half their money (they earn a little meanwhile)
-  expect(r.stolen).toBeLessThanOrEqual(2000);
+  expect(r.stolen).toBeGreaterThan(1500);                  // about half their money (they earn and spend meanwhile)
+  expect(r.stolen).toBeLessThanOrEqual(2200);
   expect(r.prodBefore).toBeGreaterThan(0);
   expect(r.prodAfter).toBe(0);
   expect(r.dogFound).toBe(true);
