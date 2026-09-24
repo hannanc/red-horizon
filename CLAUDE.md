@@ -71,6 +71,8 @@ This file covers how the code works, the rules, and what to build next.
   - Isotope Trooper: `rad` shots leave `radPuddles`; deployed (`def.radiate`) it is a radiation source too. `tickRadiation` damages with `RAD_VS`.
   - Infiltrator (`def.spy`, `def.disguise`): ignored by enemy targeting except hounds (`fooledBy`); walks in like an engineer (`updateEngineer` → `spyEnter`). Power sabotage sets `state.blackout[team]`, which `powerOf` honours.
   - Blink Trooper (`def.blink`): `orderMove` gives it a straight waypoint and `followPath` hands off to `blinkStep`, which charges and jumps.
+- **Veil Tank** (`def.treeDisguise`): `fooledBy` keeps enemy scans off it until it has fired in the last 3 s;
+  `treeDisguised(u)` (parked for 1 s and quiet) draws it as a tree from the `tree` sheet.
 - **Sandbags**: units with `def.deploy` (the rifleman) toggle `u.deployed` with `D`: `weaponOf` returns `def.deployWeapon`,
   `applyDamage` halves damage, they don't chase targets, and any move or board order undeploys them. AI troopers at home dig in.
 - **Service Depot** (`def.flat`): drawn before everything else so vehicles sit on it. `serviceDepot()` repairs the most
@@ -116,6 +118,7 @@ so code-only work can land first and the art can follow.
   - `tests/depot.spec.js`: the Service Depot.
   - `tests/garrison.spec.js`: garrisons and sandbags.
   - `tests/infantry.spec.js`: the special infantry.
+  - `tests/veiltank.spec.js`: the stealth tank.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - Every test also fails on any console error.
@@ -168,7 +171,7 @@ fallback drawing.
    - radiation trooper (deploys to contaminate an area)
    - spy (disguise; steals money or shuts off power)
    - teleporting infantry
-5. **Stealth tank (code plus art).** It looks like a tree while stationary and
+5. **Done: Stealth tank (code plus art).** The Veil Tank; model `veiltank` written, not rendered yet. It looks like a tree while stationary and
    can't be auto-targeted until it fires.
 6. **Naval (code plus art).** Needs a map with a real sea (terrain generation,
    plus water pathing for ships), a Shipyard, transports that carry vehicles,
