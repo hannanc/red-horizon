@@ -16,7 +16,7 @@ const TerrainGen = (() => {
     h = Math.imul(h ^ (h >>> 13), 1274126177);
     return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
   }
-  // map seed: shifts every noise field; seed 1 is the classic map
+  // the map's noise offset: every map (and every random seed) gets its own ground
   let SX = 0, SY = 0;
   function vnoise(x, y){
     x += SX; y += SY;
@@ -28,12 +28,119 @@ const TerrainGen = (() => {
   }
   function fbm(x, y){ return vnoise(x, y) * 0.55 + vnoise(x * 2.1, y * 2.1) * 0.3 + vnoise(x * 4.3, y * 4.3) * 0.15; }
 
-  let F = null;   // painter fields, rebuilt when the seed changes
+  let F = null;   // painter fields, rebuilt when the map changes
 
-  // ---------- map features ----------
-  // roads: 'x' roads run along game x at centre line y = c, 'y' roads along game y
-  const ROADS = [{axis: 'x', c: 40, from: 8, to: 44}, {axis: 'y', c: 23, from: 20, to: 61}];
-  const TOWN = {x: 23, y: 40};
+  // ---------- maps ----------
+  // A map lays out a battlefield, in tiles: bases (the player's construction vehicle, the enemy's hub),
+  // ore fields [x, y, radius, amount], the sea along some edges ('n', 'e', 's', 'w'), lakes, roads
+  // ('x' roads run along game x at y = c, 'y' roads along game y), a town with its building lots, and
+  // at most one plateau (ramps are angles from its centre). `trees` seeds the woods, `seed` the noise.
+  const townLots = (x, y) => [[x - 4, y - 4], [x - 7, y - 4], [x + 2, y - 4], [x + 5, y - 4], [x - 4, y + 2], [x - 7, y + 2],
+                              [x + 2, y + 2], [x + 5, y + 2], [x - 4, y + 5], [x + 2, y - 7]];
+  const MAPS = {
+    classic: {id: 'classic', name: 'Classic', seed: 1, trees: 777,
+      bases: [{x: 9, y: 51}, {x: 52, y: 8}],
+      ore: [[14, 47, 4, 500], [49, 16, 4, 500], [32, 32, 5, 650], [50, 50, 3, 450], [13, 13, 3, 450]],
+      sea: {edges: 'wn', width: 4.5},
+      lakes: [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}],
+      roads: [{axis: 'x', c: 40, from: 8, to: 44}, {axis: 'y', c: 23, from: 20, to: 61}],
+      town: {x: 23, y: 40, lots: townLots(23, 40)},
+      plateau: {x: 44, y: 29, r: 5.5, ramps: [Math.PI, Math.PI / 2]}},
+    // two big lakes split the middle into three lanes; the town sits on the central crossroads
+    twinlakes: {id: 'twinlakes', name: 'Twin Lakes', seed: 3, trees: 4242,
+      bases: [{x: 9, y: 51}, {x: 52, y: 8}],
+      ore: [[15, 46, 4, 500], [48, 17, 4, 500], [12, 12, 4, 700], [51, 51, 4, 700], [26, 44, 3, 450], [37, 19, 3, 450]],
+      sea: null,
+      lakes: [{x: 22, y: 23, r: 6.5}, {x: 41, y: 40, r: 6.5}],
+      roads: [{axis: 'x', c: 32, from: 16, to: 48}, {axis: 'y', c: 32, from: 16, to: 48}],
+      town: {x: 32, y: 32, lots: townLots(32, 32)},
+      plateau: null},
+    // bases in the north-west and south-east; a high plateau in the middle with rich ore on top, four ramps up
+    highland: {id: 'highland', name: 'Highland Pass', seed: 5, trees: 9001,
+      bases: [{x: 9, y: 9}, {x: 52, y: 51}],
+      ore: [[15, 15, 4, 500], [48, 48, 4, 500], [32, 32, 3, 900], [12, 50, 4, 600], [51, 13, 4, 600]],
+      sea: {edges: 's', width: 3.5},
+      lakes: [{x: 20, y: 43, r: 3.4}, {x: 43, y: 20, r: 3.4}],
+      roads: [{axis: 'x', c: 12, from: 6, to: 22}, {axis: 'x', c: 51, from: 41, to: 57}],
+      town: null,
+      plateau: {x: 32, y: 32, r: 8.5, ramps: [-3 * Math.PI / 4, Math.PI / 4, 3 * Math.PI / 4, -Math.PI / 4]}},
+  };
+
+  // Random map from a seed: bases in opposite corners, and everything else mirrored through the
+  // centre so neither side is favoured: ore by each base, in the middle and on the flanks, lakes in
+  // pairs, maybe a sea joining one edge by each base, maybe a plateau in the middle, maybe a town.
+  function randomMap(seed){
+    let s = (seed * 2654435761) >>> 0 || 1;
+    const rnd = () => { s = (s + 0x6D2B79F5) | 0; let t = Math.imul(s ^ (s >>> 15), 1 | s); t = (t + Math.imul(t ^ (t >>> 7), 61 | t)) ^ t; return ((t ^ (t >>> 14)) >>> 0) / 4294967296; };
+    const mirror = p => ({x: MW - 1 - p.x, y: MH - 1 - p.y});
+    const CORNER = {sw: {x: 9, y: 51}, ne: {x: 52, y: 8}, nw: {x: 9, y: 9}, se: {x: 52, y: 51}};
+    const pair = rnd() < 0.5 ? ['sw', 'ne'] : ['nw', 'se'];
+    if(rnd() < 0.5) pair.reverse();
+    const bases = pair.map(c => ({...CORNER[c]}));
+    const far = (p, r) => bases.every(b => Math.hypot(p.x - b.x - 1, p.y - b.y - 1) > r);
+    const m = {id: 'random', name: 'Random #' + seed, seed: 1000 + seed, trees: 777 + seed * 7919, bases,
+               ore: [], sea: null, lakes: [], roads: [], town: null, plateau: null};
+    // a sea along one edge by each base, the two edges meeting in a corner
+    if(rnd() < 0.6){
+      const opp = {n: 's', s: 'n', e: 'w', w: 'e'};
+      const opts = [];
+      for(const a of pair[0]) for(const b of pair[1]) if(a !== b && opp[a] !== b) opts.push(a + b);
+      m.sea = {edges: opts[Math.floor(rnd() * opts.length)], width: 3.5 + rnd() * 1.5};
+    }
+    const awayFromTown = (p, d) => !m.town || Math.hypot(p.x - m.town.x, p.y - m.town.y) > d;
+    const seaD = p => m.sea ? Math.min(...[...m.sea.edges].map(e => e === 'w' ? p.x : e === 'n' ? p.y : e === 'e' ? MW - 1 - p.x : MH - 1 - p.y)) : 99;
+    // ore: a field by each base (towards the middle), one in the middle, a pair on the flanks
+    for(const b of bases){
+      const sx = Math.sign(32 - b.x), sy = Math.sign(32 - b.y);
+      m.ore.push([b.x + 1 + sx * 6, b.y + 1 + sy * 5, 4, 500]);
+    }
+    if(rnd() < 0.45) m.plateau = {x: 32, y: 32, r: 6 + rnd() * 2.5, ramps: [0, 1, 2, 3].map(k => k * Math.PI / 2 + Math.PI / 4)};
+    m.ore.push([32, 32, m.plateau ? 3 : 5, m.plateau ? 900 : 650]);
+    // a town off to one side of the line between the bases, with two roads through it (placed before
+    // the flank ore and lakes, which keep clear of it)
+    if(rnd() < 0.8) for(let tries = 0; tries < 8 && !m.town; tries++){
+      const side = rnd() < 0.5 ? 1 : -1, d = 15 + rnd() * 6;
+      const dx = bases[1].x - bases[0].x, dy = bases[1].y - bases[0].y, l = Math.hypot(dx, dy);
+      const t = {x: Math.round(32 - dy / l * d * side), y: Math.round(32 + dx / l * d * side)};
+      const clear = m.ore.every(o => Math.hypot(o[0] - t.x, o[1] - t.y) > o[2] + 8) &&
+                    far(t, 16) && seaD(t) > 12 && (!m.plateau || Math.hypot(t.x - 32, t.y - 32) > m.plateau.r + 9);
+      if(clear){
+        m.town = {x: t.x, y: t.y, lots: townLots(t.x, t.y)};
+        m.roads.push({axis: 'x', c: t.y, from: Math.max(4, t.x - 14), to: Math.min(MW - 5, t.x + 14)},
+                     {axis: 'y', c: t.x, from: Math.max(4, t.y - 14), to: Math.min(MH - 5, t.y + 14)});
+      }
+    }
+    const spots = [];
+    for(let tries = 0; tries < 200 && spots.length < 3; tries++){
+      const p = {x: Math.round(6 + rnd() * (MW - 12)), y: Math.round(6 + rnd() * (MH - 12))};
+      const q = mirror(p);
+      const ok = pt => far(pt, 15) && Math.hypot(pt.x - 32, pt.y - 32) > (m.plateau ? m.plateau.r + 5 : 11) && seaD(pt) > 8 &&
+                       spots.every(o => Math.hypot(o.x - pt.x, o.y - pt.y) > 11) && m.ore.every(o => Math.hypot(o[0] - pt.x, o[1] - pt.y) > 9) && awayFromTown(pt, 11);
+      if(Math.hypot(p.x - q.x, p.y - q.y) > 14 && ok(p) && ok(q)) spots.push(p, q);
+    }
+    if(spots.length >= 2) m.ore.push([spots[0].x, spots[0].y, 3, 450], [spots[1].x, spots[1].y, 3, 450]);
+    // lakes in mirrored pairs, clear of bases, ore, the middle and the sea
+    for(let tries = 0; tries < 300 && m.lakes.length < 4; tries++){
+      const r = 3.2 + rnd() * 2;
+      const p = {x: 6 + rnd() * (MW - 12), y: 6 + rnd() * (MH - 12)}, q = mirror(p);
+      const ok = pt => far(pt, 14 + r) && Math.hypot(pt.x - 32, pt.y - 32) > (m.plateau ? m.plateau.r + r + 4 : r + 8) && seaD(pt) > r + 5 &&
+                       m.ore.every(o => Math.hypot(o[0] - pt.x, o[1] - pt.y) > o[2] + r + 3) &&
+                       m.lakes.every(l => Math.hypot(l.x - pt.x, l.y - pt.y) > l.r + r + 5) && awayFromTown(pt, r + 9);
+      if(Math.hypot(p.x - q.x, p.y - q.y) > 2 * r + 6 && ok(p) && ok(q)){ m.lakes.push({x: p.x, y: p.y, r}, {x: q.x, y: q.y, r}); if(rnd() < 0.5) break; }
+    }
+    return m;
+  }
+
+  let MAP = MAPS.classic, ROADS = MAP.roads, LAKES = MAP.lakes, PLATEAU = MAP.plateau;
+  // make a map current (the game and each paint worker call this)
+  function setMap(map){
+    MAP = map; ROADS = map.roads; LAKES = map.lakes; PLATEAU = map.plateau;
+    SX = map.seed === 1 ? 0 : (map.seed * 7919) % 10007; SY = map.seed === 1 ? 0 : (map.seed * 104729) % 10009;
+    F = null;
+  }
+  // the map for a setup choice: a handmade one by name, or a random one from the seed
+  const makeMap = (id, seed) => MAPS[id] || randomMap(seed);
+
   function roadHits(u, v){
     const hits = [];
     for(const R of ROADS){
@@ -53,35 +160,29 @@ const TerrainGen = (() => {
   }
 
   // lakes: > 0 is water, a thin band below 0 is the sandy shore
-  let LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}];
-  // lake sites that keep clear of the bases, the town, the roads and the ore
-  const LAKE_SITES = [[24, 12], [40, 52], [31, 22], [16, 28], [46, 45], [36, 14]];
-  function setSeed(seed){
-    seed = Math.max(1, Math.floor(seed) || 1);
-    if(seed === 1){ SX = SY = 0; LAKES = [{x: 24, y: 12, r: 4.2}, {x: 40, y: 52, r: 4.6}]; }
-    else {
-      SX = (seed * 7919) % 10007; SY = (seed * 104729) % 10009;
-      const sites = LAKE_SITES.slice().sort((a, b) => hash2(seed, a[0] * 64 + a[1]) - hash2(seed, b[0] * 64 + b[1]));
-      LAKES = sites.slice(0, 2 + (seed % 2)).map(([x, y], i) => ({x, y, r: 3.4 + hash2(seed, i) * 1.4}));
-    }
-    F = null;   // repaint the low-frequency fields
+  // the sea: a band about sea.width tiles wide along the map's sea edges
+  function seaVal(u, v){
+    const S = MAP.sea;
+    if(!S) return -9;
+    let d = 99;
+    for(const e of S.edges) d = Math.min(d, e === 'w' ? u : e === 'n' ? v : e === 'e' ? MW - u : MH - v);
+    return (S.width - d) / 2 + (vnoise(u * 0.35 + 13, v * 0.35 + 17) - 0.5) * 0.8;
   }
-  // the sea: a band SEA tiles wide (give or take) along the west (u = 0) and north (v = 0) edges,
-  // joined at the top corner, so both bases have a coast
-  const SEA = 4.5;
-  function seaVal(u, v){ return (SEA - Math.min(u, v)) / 2 + (vnoise(u * 0.35 + 13, v * 0.35 + 17) - 0.5) * 0.8; }
   function lakeVal(u, v){
     let m = -9;
     for(const l of LAKES) m = Math.max(m, 1 - Math.hypot(u - l.x, v - l.y) / l.r);
     return Math.max(m + (vnoise(u * 0.45 + 7, v * 0.45 + 3) - 0.5) * 0.45, seaVal(u, v));
   }
 
-  // plateau: a raised table of land with cliff sides, climbed by two ramps.
+  // plateau: a raised table of land with cliff sides, climbed by its ramps.
   // platVal > 0 is the top; elevation() is 0 on the ground, 1 on top, in between on ramps and cliff faces.
-  const PLATEAU = {x: 44, y: 29, r: 5.5, ramps: [Math.PI, Math.PI / 2]};   // ramps face west and south
   const CLIFF_H = 26;                        // iso px from the ground to the top
-  function platVal(u, v){ return 1 - Math.hypot(u - PLATEAU.x, v - PLATEAU.y) / PLATEAU.r + (vnoise(u * 0.5 + 31, v * 0.5 + 47) - 0.5) * 0.25; }
+  function platVal(u, v){
+    if(!PLATEAU) return -9;
+    return 1 - Math.hypot(u - PLATEAU.x, v - PLATEAU.y) / PLATEAU.r + (vnoise(u * 0.5 + 31, v * 0.5 + 47) - 0.5) * 0.25;
+  }
   function onRamp(u, v){
+    if(!PLATEAU) return false;
     const a = Math.atan2(v - PLATEAU.y, u - PLATEAU.x);
     return PLATEAU.ramps.some(r => Math.abs(Math.atan2(Math.sin(a - r), Math.cos(a - r))) < 0.3);
   }
@@ -89,7 +190,7 @@ const TerrainGen = (() => {
     const [lo, hi] = onRamp(u, v) ? [-0.35, 0.15] : [-0.03, 0.03];   // a long ramp, or a sheer face
     return Math.min(1, Math.max(0, (p - lo) / (hi - lo)));
   }
-  const nearPlateau = (u, v) => Math.abs(u - PLATEAU.x) < PLATEAU.r + 3 && Math.abs(v - PLATEAU.y) < PLATEAU.r + 3;
+  const nearPlateau = (u, v) => !!PLATEAU && Math.abs(u - PLATEAU.x) < PLATEAU.r + 3 && Math.abs(v - PLATEAU.y) < PLATEAU.r + 3;
 
   // ---------- painter ----------
   // Low-frequency fields (dirt, tone, relief, lakes) on a 1/4-tile grid.
@@ -214,7 +315,7 @@ const TerrainGen = (() => {
       }
   }
 
-  return {T, MW, MH, hash2, vnoise, fbm, ROADS, TOWN, roadHits, nearRoad, SEA, seaVal, lakeVal, paint, setSeed,
-          PLATEAU, CLIFF_H, platVal, onRamp, elevation,
-          get LAKES(){ return LAKES; }};
+  return {T, MW, MH, hash2, vnoise, fbm, roadHits, nearRoad, seaVal, lakeVal, paint,
+          MAPS, randomMap, makeMap, setMap, CLIFF_H, platVal, onRamp, elevation, nearPlateau,
+          get map(){ return MAP; }, get PLATEAU(){ return PLATEAU; }};
 })();

@@ -6,16 +6,31 @@ pre-rendered 3D sprites.
 
 ## Play
 
+Play it online at **https://hannanc.github.io/red-horizon/**: every push to `main` is published there by
+`.github/workflows/pages.yml` (once GitHub Pages is enabled for the repo with "GitHub Actions" as its source).
+To run it locally:
+
 ```bash
 python3 tools/serve.py 8347
 ```
 
-Then open http://localhost:8347. The start screen sets up the skirmish:
+Then open http://localhost:8347 (the game is plain ES modules, so it has to be served over
+http rather than opened from disk). The start screen sets up the skirmish:
 
 - **Side:** play the Allies or the Soviets; the AI takes the other side.
 - **Credits:** 5,000, 8,000 or 12,000 to start with (the AI's start scales with it).
-- **Map seed:** any number gives its own lakes, coastline and woods; 1 (Classic) is the original map.
-- **Difficulty:** Easy, Normal or Hard sets the AI's income, army size and how often and how hard it attacks.
+- **Map:** Classic, Twin Lakes (two lakes split the middle into three lanes), Highland Pass (a big central
+  plateau with rich ore on top) or Random.
+- **Seed:** picks the random map (bases in opposite corners, ore and lakes mirrored so neither side is
+  favoured, often a town and sometimes a sea or a central plateau) and the game's luck; the same seed replays the same game.
+- **Difficulty:** Easy, Normal or Hard sets the AI's income, how fast and how well it builds its base, its army size
+  and how often and how hard it attacks. The AI starts from a Construction Hub, like you, and builds up from there.
+
+Games save to five slots in the browser (pause menu, **Save / Load**); **Load game** on the start screen
+picks one up again.
+
+There are no audio files: every sound effect is synthesised in the browser with WebAudio, placed in stereo
+by where it happens on screen, and the announcer and unit replies use the browser's speech voice.
 
 ## Controls
 
@@ -43,6 +58,7 @@ Right-click gives orders.
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
 | Control groups | `Ctrl+1-9` to assign, `1-9` to recall |
 | Stop | `S` |
+| Pause menu (resume, restart, quit, save / load, sound and voice volume, scroll speed) | `Esc` or the Options button (`Esc` first cancels a placement or sell/repair mode) |
 | Scroll | Arrow keys or the screen edge |
 | Zoom | Mouse wheel or `+` / `-` |
 

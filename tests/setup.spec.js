@@ -24,22 +24,22 @@ test('playing the Soviet side with 12,000 credits', async ({ page }) => {
   expect(infantry).toEqual(expect.arrayContaining(['Trooper', 'Arc Trooper', 'Sapper']));
   expect(infantry).not.toContain('Hound');
   const r = await page.evaluate(() => {
-    const towers = __RH.buildings.filter(b => b.team === 1 && b.def.weapon).map(b => b.def.key);
     const credits = __RH.state.credits[0];
     const seen = new Set();
-    for(let i = 0; i < 150; i++){ __RH.step(1); for(const u of __RH.units) if(u.team === 1) seen.add(u.def.key); }
+    for(let i = 0; i < 200; i++){ __RH.step(1); for(const u of __RH.units) if(u.team === 1) seen.add(u.def.key); }
+    const towers = [...new Set(__RH.buildings.filter(b => b.team === 1 && b.def.weapon).map(b => b.def.key))];
     const built = [...seen];
     return {faction: __RH.faction.slice(0, 2), towers, credits, built};
   });
   expect(r.faction).toEqual(['soviet', 'allied']);
   expect(r.credits).toBe(12000);
-  expect(r.towers).toEqual(['beamtower', 'beamtower']);    // the Allied AI's own defences
+  expect(r.towers).toEqual(['beamtower']);                 // the Allied AI builds its own side's defences
   expect(r.built).toEqual(expect.arrayContaining(['dog']));
   expect(r.built).not.toContain('arctrooper');
   expectClean(errors);
 });
 
-test('the same map seed gives the same map; another seed gives another', async ({ browser }) => {
+test('the same seed gives the same random map; another seed gives another', async ({ browser }) => {
   const world = async setup => {
     const page = await browser.newPage();
     const errors = await load(page, setup);
@@ -48,16 +48,19 @@ test('the same map seed gives the same map; another seed gives another', async (
     await page.close();
     return w;
   };
-  const a = await world({seed: 4242}), b = await world({seed: 4242}), c = await world({seed: 77}), classic = await world(null);
+  const a = await world({map: 'random', seed: 4242}), b = await world({map: 'random', seed: 4242}), c = await world({map: 'random', seed: 77}),
+        classic = await world(null), classic2 = await world({map: 'classic', seed: 77});
   expect(a).toEqual(b);
   expect(a.water).not.toEqual(c.water);
   expect(a.trees).not.toEqual(c.trees);
   expect(classic.water).not.toEqual(a.water);
+  expect(classic2).toEqual(classic);                       // a handmade map is the same whatever the seed
 });
 
-test('changing the seed on the start screen rebuilds the map when the game starts', async ({ page }) => {
+test('picking another map on the start screen rebuilds the world when the game starts', async ({ page }) => {
   const errors = await load(page);
   const before = await page.evaluate(() => __RH.world().water);
+  await page.click('[data-map="random"]');
   await page.fill('#seedIn', '321');
   await page.dispatchEvent('#seedIn', 'change');
   await page.click('#startBtn');
