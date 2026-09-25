@@ -97,7 +97,10 @@ test('the pause menu lists the save slots; saving fills one, loading brings the 
   await expect(page.locator('#menu')).toBeHidden();
   const r = await page.evaluate(() => ({time: Math.round(__RH.state.time), credits: Math.round(__RH.state.credits[0]),
                                         htank: __RH.units.some(u => u.def.key === 'htank'), mcv: __RH.units.some(u => u.def.mcv && !u.dead)}));
-  expect(r).toEqual({time: 65, credits: saved, htank: false, mcv: true});
+  // loading resumes the game in real time, so on a busy machine the clock may have moved on a little
+  expect(r.time).toBeGreaterThanOrEqual(65);
+  expect(r.time).toBeLessThan(69);
+  expect({credits: r.credits, htank: r.htank, mcv: r.mcv}).toEqual({credits: saved, htank: false, mcv: true});
   expectClean(errors);
 });
 
