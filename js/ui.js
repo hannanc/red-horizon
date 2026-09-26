@@ -346,10 +346,24 @@ export function issueCommand(ev){
   }
   if(target && target !== selUnits[0] && (target.team === ENEMY || (force && target.team !== PLAYER))){
     let any = false;
+    const tagAlong = [];
     for(const u of selUnits){
-      if(!canHurt(u, target)) continue;
+      if(!canHurt(u, target)){ tagAlong.push(u); continue; }
+      // dug in behind sandbags and the target is out of reach: get up and go after it
+      if(u.deployed){
+        const w = weaponOf(u), pad = target.kind === 'building' ? Math.max(target.w, target.h) * T * 0.4 : 0;
+        if(!w || Math.hypot(u.x - target.x, u.y - target.y) - pad > w.range * T) u.deployed = false;
+      }
       u.order = {type:'attack', target};
       any = true;
+    }
+    // the ones that can't hurt this target (anti-infantry vs a tank, say) come along and fight whatever
+    // they can on the way and around it, instead of standing still; unarmed units and harvesters stay out
+    for(const u of any ? tagAlong : []){
+      if(!weaponOf(u) || u.def.harvester) continue;
+      u.deployed = false;
+      u.order = {type:'attackmove', x: target.x, y: target.y};
+      orderMove(u, target.x, target.y);
     }
     if(any){
       effects.push({type:'cmd', x: mouse.wx, y: mouse.wy, t: 0, dur: 0.4, red: true});

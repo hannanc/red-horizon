@@ -66,6 +66,8 @@
     display:flex;align-items:center;gap:8px;padding:6px;opacity:0;transition:opacity .3s;
   }
   #advisor.show{opacity:1;}
+  #advisor[hidden]{display:none;}
+  #advisor{pointer-events:none;}   /* never blocks clicks on the minimap underneath */
   #advisorFace{flex:none;border:1px solid #0b0f15;box-shadow:0 0 6px rgba(0,0,0,.6);}
   #advisorText{font:12px/1.3 "Trebuchet MS",sans-serif;color:#cfe0ff;text-shadow:0 1px 0 #000;}
   #cmdRow{display:flex;gap:6px;align-items:stretch;}
