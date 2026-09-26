@@ -45,7 +45,7 @@ test("Lancer Tank's beam chains to nearby enemies", async ({ page }) => {
     const foes = [[40, 55], [41, 56], [41, 54]].map(([x, y]) => __RH.spawn('rifle', x, y, 1));
     foes.forEach(f => f.order = {type: 'move'});
     lancer.order = {type: 'attack', target: foes[0]};
-    __RH.step(1.5);                                    // one shot
+    __RH.step(3);                                      // time to turn and fire
     return foes.map(f => f.dead || f.hp < f.maxHp);
   });
   expect(r.filter(Boolean).length).toBeGreaterThanOrEqual(2);
