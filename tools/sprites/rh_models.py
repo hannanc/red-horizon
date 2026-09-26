@@ -1091,9 +1091,11 @@ class Soldier:
         b = self.body
         vest = C['team']
         bulky = kind in ('arc', 'sapper', 'isotope')
-        gloved = bulky or kind == 'blink'
+        gloved = bulky or kind in ('blink', 'rifle')
         uniform = C['uniform']
-        if kind == 'sniper':
+        if kind == 'rifle':   # field jacket, after the concept sheet
+            uniform = mat('#675a3b' if f == 'allied' else '#7d6f4c', rough=0.85, name='fieldjacket_' + f)
+        elif kind == 'sniper':
             uniform = mat('#55603f', rough=0.9, name='ghillie')
         elif kind == 'arc':
             uniform = C['steel']
@@ -1109,7 +1111,7 @@ class Soldier:
             uniform = mat('#b4bfcc', metal=0.45, rough=0.35, name='blinkarmor')
         elif kind == 'scout':
             uniform = mat('#9a8f6a', rough=0.85, name='scoutdrab')
-        torso = uniform if kind in ('psion', 'infiltrator') else vest   # coat / jacket instead of a vest
+        torso = uniform if kind in ('psion', 'infiltrator', 'rifle') else vest   # coat / jacket instead of a vest
         psy = mat('#d58cff', emit=6.0, name='psyglow')
         rad = mat('#7dff5a', emit=5.0, name='radglow')
         phase = mat('#d8f0ff', emit=6.0, name='blinkglow')
@@ -1210,6 +1212,18 @@ class Soldier:
             b.sphere((-0.16, 0, 0.45), 0.035, phase)
             for s in (-1, 1):
                 b.sphere((0, s * 0.1, 0.415), 0.04, vest, scale=(1.2, 1, 0.7))
+        elif kind == 'rifle':
+            web = mat('#a1936a', rough=0.8, name='webbing')
+            olive = mat('#6f7049', rough=0.85, name='packolive')
+            for s in (-1, 1):   # shoulder straps down to the belt
+                b.box((0.058, s * 0.045, 0.24), (0.012, 0.022, 0.18), web, bevel=0, shift=(0, -s * 0.02))
+            b.box((0, 0, 0.235), (0.118, 0.172, 0.03), web, bevel=0.01)                  # belt
+            for y in (-0.055, 0.0, 0.055):                                                # ammo pouches
+                b.box((0.062, y, 0.225), (0.022, 0.04, 0.045), web, bevel=0.006)
+            b.cyl((-0.01, -0.095, 0.2), 0.022, 0.045, mat('#4f5a3a', rough=0.6, name='canteen'), seg=10)
+            b.box((-0.095, 0, 0.26), (0.075, 0.15, 0.15), olive, bevel=0.018)            # pack
+            b.cyl((-0.1, -0.085, 0.425), 0.028, 0.17, mat('#4f5a3a', rough=0.8, name='bedroll'), axis='Y', seg=12)
+            b.cyl((-0.12, 0.06, 0.38), 0.004, 0.24, C['dark'], seg=4)                    # radio antenna
         elif kind == 'scout':
             # small radio pack with a whip antenna
             b.box((-0.085, 0, 0.27), (0.06, 0.12, 0.12), C['hull2'], bevel=0.014)
@@ -1270,6 +1284,11 @@ class Soldier:
         elif kind == 'blink':
             b.sphere((0, 0, 0.48), 0.066, uniform, scale=(1.08, 1, 1.0))
             b.box((0.045, 0, 0.463), (0.03, 0.09, 0.028), phase, bevel=0.006)          # visor
+        elif kind == 'rifle':   # helmet in team colour, rim band, star badge
+            b.sphere((0, 0, 0.482), 0.068, C['team'], scale=(1.07, 1.02, 0.9), half=True)
+            b.cyl((0, 0, 0.476), 0.071, 0.014, C['dark'], seg=18)
+            b.cyl((0.066, 0, 0.51), 0.014, 0.004, mat('#f2f0e8', rough=0.5, name='star'), axis='X', seg=5)
+            b.box((0.05, 0, 0.43), (0.01, 0.05, 0.008), C['dark'], bevel=0)             # chin strap
         else:
             b.sphere((0, 0, 0.488), 0.066, C['helmet'], scale=(1.05, 1, 0.85), half=True)
         for ob in b.objects[head_first:]:
@@ -1371,6 +1390,17 @@ class Soldier:
             self.gun.box((0.05, 0, 0.03), (0.12, 0.012, 0.006), phase, bevel=0)
             self.gun.box((-0.07, 0, -0.035), (0.06, 0.024, 0.05), C['dark'], bevel=0.005)
             self.flash = self.gun.ico((0.19, 0, 0.005), 0.04, mat('#e6f6ff', emit=14.0, name='blinkflash'), subdiv=1)
+        elif kind == 'rifle':   # wooden furniture, magazine, muzzle brake
+            wood = mat('#7a4a28', rough=0.6, name='riflewood')
+            self.gun = Part('gun', b)
+            self.gun.root.location = (0.06, -0.035, 0.34)
+            self.gun.box((0.05, 0, -0.022), (0.16, 0.026, 0.045), C['dark'], bevel=0.005)
+            self.gun.box((0.16, 0, -0.018), (0.08, 0.028, 0.036), wood, bevel=0.006)
+            self.gun.box((-0.07, 0, -0.045), (0.1, 0.024, 0.06), wood, bevel=0.008, shift=(-0.01, 0))
+            self.gun.box((0.06, 0, -0.07), (0.026, 0.02, 0.05), C['dark'], bevel=0.004, shift=(-0.01, 0))
+            self.gun.cyl((0.2, 0, 0.0), 0.009, 0.07, C['dark'], axis='X', seg=8)
+            self.gun.cyl((0.265, 0, 0.0), 0.016, 0.035, C['steel'], axis='X', seg=8)
+            self.flash = self.gun.ico((0.32, 0, 0), 0.045, flash_mat, subdiv=1)
         else:
             self.gun = Part('gun', b)
             self.gun.root.location = (0.06, -0.035, 0.34)
