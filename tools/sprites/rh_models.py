@@ -1065,19 +1065,31 @@ class Soldier:
         rad = mat('#7dff5a', emit=5.0, name='radglow')
         phase = mat('#d8f0ff', emit=6.0, name='blinkglow')
         lw, tw = (0.09, 0.2) if bulky else (0.075, 0.17)
-        # legs
-        self.legs = []
+        k = 1.22 if bulky else 1.0            # limb thickness
+        # legs: tapered thigh and shin with a knee between them, and a boot
+        self.legs, self.knees = [], []
         for s in (-1, 1):
             leg = Part('leg', b)
-            leg.root.location = (0, s * (0.05 if bulky else 0.045), 0.24)
-            leg.box((0, 0, -0.24), (lw, lw - 0.005, 0.24), uniform, bevel=0.01)
-            leg.box((0.015, 0, -0.24), (lw + 0.025, lw, 0.05), C['dark'], bevel=0.01)
+            leg.root.location = (0, s * (0.05 if bulky else 0.044), 0.24)
+            leg.sphere((0, 0, -0.005), 0.036 * k, uniform)
+            leg.cyl((0, 0, -0.12), 0.028 * k, 0.12, uniform, seg=12, r2=0.037 * k)
+            knee = Part('knee', leg)
+            knee.root.location = (0, 0, -0.12)
+            knee.sphere((0, 0, 0), 0.028 * k, uniform)
+            knee.cyl((0, 0, -0.095), 0.022 * k, 0.095, uniform, seg=12, r2=0.028 * k)
+            knee.box((0.018, 0, -0.12), (0.078, 0.042 * k, 0.034), C['dark'], bevel=0.014)
+            knee.cyl((0, 0, -0.1), 0.026 * k, 0.03, C['dark'], seg=10)
             if bulky:
-                leg.box((0.01, 0, -0.14), (lw + 0.02, lw + 0.01, 0.06), vest, bevel=0.01)
+                knee.box((0.016, 0, -0.03), (0.035, 0.05, 0.05), vest, bevel=0.012)
             self.legs.append(leg)
+            self.knees.append(knee)
         # torso, belt, pack
-        b.box((0, 0, 0.23), (0.15 if bulky else 0.13, tw, 0.21 if bulky else 0.2), torso, bevel=0.02)
-        b.box((0, 0, 0.225), (0.14 if bulky else 0.135, tw + 0.005, 0.03), C['dark'], bevel=0.005)
+        b.box((0, 0, 0.225), (0.13 if bulky else 0.105, tw - 0.03, 0.21 if bulky else 0.2), torso,
+              bevel=0.03, taper=(1.15, 1.22))
+        b.box((0, 0, 0.225), (0.125 if bulky else 0.11, tw - 0.02, 0.028), C['dark'], bevel=0.01)
+        for s in (-1, 1):
+            b.sphere((0, s * (tw / 2 - 0.02), 0.405), 0.036 * k, torso)
+        b.cyl((0, 0, 0.42), 0.024, 0.04, C['skin'], seg=10)                   # neck
         if kind == 'engineer':
             # big tool pack with a coil of cable
             b.box((-0.1, 0, 0.25), (0.08, 0.15, 0.17), C['hull2'], bevel=0.015)
@@ -1151,7 +1163,13 @@ class Soldier:
                 b.sphere((0, s * 0.1, 0.415), 0.04, vest, scale=(1.2, 1, 0.7))
         else:
             b.box((-0.085, 0, 0.27), (0.06, 0.13, 0.13), uniform, bevel=0.015)
-        # head
+        # head: everything on it goes into its own part, shrunk towards the neck, so the
+        # proportions read as a person rather than a toy (head about 1/7 of the height)
+        body = b
+        b = Part('head', body)
+        b.root.location = (0, 0, 0.44)
+        b.root.scale = (0.8, 0.8, 0.8)
+        head_first = len(b.objects)
         b.sphere((0, 0, 0.475), 0.055, C['skin'])
         if kind == 'engineer':
             hat = mat('#e8c23c', rough=0.45, name='hardhat')
@@ -1196,15 +1214,22 @@ class Soldier:
             b.box((0.045, 0, 0.463), (0.03, 0.09, 0.028), phase, bevel=0.006)          # visor
         else:
             b.sphere((0, 0, 0.488), 0.066, C['helmet'], scale=(1.05, 1, 0.85), half=True)
+        for ob in b.objects[head_first:]:
+            ob.location.z = -0.44                 # built at body height; the part root sits at the neck
+        b = body
         # arms
-        self.arms = []
+        self.arms, self.elbows = [], []
         for s in (-1, 1):
             arm = Part('arm', b)
-            arm.root.location = (0, s * (0.12 if bulky else 0.105), 0.41)
-            aw = 0.065 if bulky else 0.055
-            arm.box((0, 0, -0.17), (aw, aw - 0.005, 0.17), uniform, bevel=0.01)
-            arm.sphere((0, 0, -0.18), 0.028, C['dark'] if gloved else C['skin'])
+            arm.root.location = (0, s * (0.12 if bulky else 0.1), 0.405)
+            arm.cyl((0, 0, -0.09), 0.023 * k, 0.09, uniform, seg=10, r2=0.029 * k)
+            elbow = Part('elbow', arm)
+            elbow.root.location = (0, 0, -0.09)
+            elbow.sphere((0, 0, 0), 0.023 * k, uniform)
+            elbow.cyl((0, 0, -0.078), 0.019 * k, 0.078, uniform, seg=10, r2=0.023 * k)
+            elbow.sphere((0.004, 0, -0.09), 0.02 * k, C['dark'] if gloved else C['skin'], scale=(1.1, 0.85, 1.2))
             self.arms.append(arm)
+            self.elbows.append(elbow)
         # weapon (or tools)
         flash_mat = mat('#ffd36b', emit=12.0, name='flash')
         if kind == 'engineer':
@@ -1299,16 +1324,22 @@ class Soldier:
         self.body.root.location.z = 0
         self.flash.hide_render = True
         self.gun.root.location.x = self.gun_x
+        elL, elR = self.elbows
+        kL, kR = self.knees
+        elL.root.rotation_euler.y = elR.root.rotation_euler.y = 0
+        kL.root.rotation_euler.y = kR.root.rotation_euler.y = 0
         if self.kind == 'rocket':
             armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-150), math.radians(-120)
         elif hand:
             armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-6), math.radians(-10)
-        else:
-            armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-65), math.radians(-50)
+        else:   # both hands on the gun, elbows bent
+            armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-32), math.radians(-24)
+            elR.root.rotation_euler.y, elL.root.rotation_euler.y = math.radians(-52), math.radians(-62)
         legL.root.rotation_euler.y = legR.root.rotation_euler.y = 0
         if self.kind == 'jetpack' and anim != 'die':
             legL.root.rotation_euler.y = math.radians(14)
             legR.root.rotation_euler.y = math.radians(22)
+            kL.root.rotation_euler.y, kR.root.rotation_euler.y = math.radians(20), math.radians(32)
             if anim == 'walk':      # hovering bob and a lazy leg sway instead of steps
                 ph = k / 6 * 2 * math.pi
                 self.body.root.location.z = math.sin(ph) * 0.015
@@ -1317,8 +1348,11 @@ class Soldier:
                 return
         if anim == 'walk':
             ph = k / 6 * 2 * math.pi
-            legL.root.rotation_euler.y = math.sin(ph) * math.radians(32)
-            legR.root.rotation_euler.y = -math.sin(ph) * math.radians(32)
+            legL.root.rotation_euler.y = math.sin(ph) * math.radians(30)
+            legR.root.rotation_euler.y = -math.sin(ph) * math.radians(30)
+            # the knee folds while that leg swings forward
+            kL.root.rotation_euler.y = math.radians(38) * max(0.0, math.cos(ph))
+            kR.root.rotation_euler.y = math.radians(38) * max(0.0, -math.cos(ph))
             self.body.root.location.z = abs(math.cos(ph)) * 0.012
             if hand:
                 armL.root.rotation_euler.y = -math.sin(ph) * math.radians(22)
