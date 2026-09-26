@@ -58,7 +58,7 @@ test('Striker one-shots infantry, ignores tanks, and demolishes buildings when o
 test('only one Striker at a time', async ({ page }) => {
   await page.evaluate(() => {
     __RH.place('conyard', 33, 49); __RH.place('barracks', 36, 49); __RH.place('radar', 39, 49);
-    __RH.place('power', 42, 49); __RH.place('power', 44, 49);
+    __RH.place('power', 42, 49); __RH.place('power', 44, 49); __RH.place('lab', 33, 53);   // the Striker needs a Research Lab
     __RH.state.credits[0] = 50000;
   });
   await page.click('#tabs .tab[data-tab="infantry"]');

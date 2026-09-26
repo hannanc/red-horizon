@@ -22,7 +22,8 @@ const QUIET = () => {
   __RH.step = s => { step(s); for(const u of __RH.units) if(u.team === 1 && u.def.engineer) u.dead = true; };
 };
 
-for(const [level, limit] of [['easy', 660], ['normal', 300], ['hard', 240]]){
+// Normal and Hard build a Research Lab before their towers (Easy after), which costs Normal about 20 s
+for(const [level, limit] of [['easy', 660], ['normal', 360], ['hard', 240]]){
   test(`from a bare hub the AI builds a full base on ${level} @slow`, async ({ page }) => {
     const errors = await load(page, level);
     const r = await page.evaluate(([limit, quiet]) => {

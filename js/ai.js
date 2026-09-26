@@ -138,10 +138,14 @@ const CORE = 7;   // the first plan entries are the core base; the rest wait for
 export function aiNextBuilding(){
   const p = powerOf(ENEMY), tower = aiTower();
   const reactAir = playerProfile().air > 2 ? Math.min(2, diff.towers) : 0;   // only bothers once it's seen real air activity
+  const labEarly = diff.tech < 1.5;
   const plan = [['power', 1], ['refinery', 1], ['barracks', 1], ['factory', 1], ['power', 2], ['radar', 1],
                 ['refinery', 1 + Math.min(1, diff.expand)],   // a second refinery is part of the core above Easy
-                ['lab', 1],   // unlocks its strongest units; first thing once the core economy is up
+                // the Research Lab unlocks its strongest units: first thing once the core economy is up,
+                // except on Easy (slow tech), which can't afford it and its first towers together
+                ...(labEarly ? [['lab', 1]] : []),
                 [tower, Math.min(2, diff.towers)], ['flaktower', reactAir],   // AA comes right after its first tower, ahead of expansion, once it's reacting
+                ...(labEarly ? [] : [['lab', 1]]),
                 ['depot', 1], ['shipyard', diff.navy ? 1 : 0],
                 ['refinery', 1 + diff.expand], [tower, diff.towers]];
   for(let i = 0; i < plan.length; i++){
