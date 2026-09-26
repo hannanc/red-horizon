@@ -44,7 +44,7 @@ export const ai = {
   prodQ: null,   // AI_QUEUE of its side, set by newWorld()
   prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0, engT: 0, reactT: 0,
   bKey: null, bProg: 0, bThink: 0, bSkip: {},   // base building: current structure, its progress, what can't be placed
-  advAirT: 0, advHeavyT: 0, advWaveT: 0, advBuildT: 0, advUnitT: 0,   // tactical advisor: cooldowns per kind of warning
+  advAirT: 0, advHeavyT: 0, advWaveT: 0, buildNagAt: 30, buildNagGap: 30, unitNagAt: 30, unitNagGap: 30,   // tactical advisor: cooldowns per kind of warning
   idleBuildT: 0, idleUnitT: 0,                  // how long the player's own build/train queues have sat empty
 };
 
@@ -108,6 +108,13 @@ function tickAdvisor(dt){
   const unitIdle = prodQ.infantry.length === 0 && prodQ.vehicle.length === 0;
   ai.idleBuildT = buildIdle ? ai.idleBuildT + dt : 0;
   ai.idleUnitT = unitIdle ? ai.idleUnitT + dt : 0;
+  // idle nags back off: the first after 30 s of idling, then 60 s later, then 90 s, ...; queuing anything resets it
+  if(!buildIdle){ ai.buildNagAt = 30; ai.buildNagGap = 30; }
+  if(!unitIdle){ ai.unitNagAt = 30; ai.unitNagGap = 30; }
+  const nag = kind => {
+    ai[kind + 'NagGap'] = (ai[kind + 'NagGap'] || 30) + 30;
+    ai[kind + 'NagAt'] = (ai[kind + 'NagAt'] || 30) + ai[kind + 'NagGap'];   // from the last threshold, so it doesn't drift
+  };
 
   if(state.time > ai.advAirT && seen.filter(u => u.def.armor === 'air').length > 2){
     ai.advAirT = state.time + 90;
@@ -118,15 +125,15 @@ function tickAdvisor(dt){
   } else if(state.time > ai.advWaveT && ai.waveTimer < 8 && seen.length >= ai.waveSize){
     ai.advWaveT = state.time + 60;
     showAdvisor('Enemy forces are massing. An attack looks imminent.');
-  } else if(state.time > ai.advBuildT && ai.idleBuildT > 30 && suggestBuilding()){
-    ai.advBuildT = state.time + 45;
+  } else if(ai.idleBuildT >= (ai.buildNagAt || 30) && suggestBuilding()){
+    nag('build');
     showAdvisor('Nothing under construction. Consider ' + suggestBuilding() + '.');
-  } else if(state.time > ai.advUnitT && ai.idleUnitT > 30){
+  } else if(ai.idleUnitT >= (ai.unitNagAt || 30)){
     if(hasUnexplored() && !playerScouted() && hasBuilding(PLAYER, 'radar') && hasBuilding(PLAYER, 'barracks')){
-      ai.advUnitT = state.time + 45;
+      nag('unit');
       showAdvisor('Much of the map is still unexplored. Build a Scout, high priority.');
     } else if(hasBuilding(PLAYER, 'barracks') || hasBuilding(PLAYER, 'factory')){
-      ai.advUnitT = state.time + 45;
+      nag('unit');
       showAdvisor('No troops in training. Queue up some more units.');
     }
   }
