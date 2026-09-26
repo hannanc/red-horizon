@@ -97,6 +97,7 @@ function suggestBuilding(){
   if(!hasBuilding(PLAYER, 'barracks')) return 'a Barracks';
   if(!hasBuilding(PLAYER, 'factory')) return 'a Vehicle Factory';
   if(!hasBuilding(PLAYER, 'radar')) return 'a Radar';
+  if(!hasBuilding(PLAYER, 'lab')) return 'a Research Lab';
   if(!hasBuilding(PLAYER, 'depot')) return 'a Service Depot';
   return null;
 }
@@ -139,6 +140,7 @@ export function aiNextBuilding(){
   const reactAir = playerProfile().air > 2 ? Math.min(2, diff.towers) : 0;   // only bothers once it's seen real air activity
   const plan = [['power', 1], ['refinery', 1], ['barracks', 1], ['factory', 1], ['power', 2], ['radar', 1],
                 ['refinery', 1 + Math.min(1, diff.expand)],   // a second refinery is part of the core above Easy
+                ['lab', 1],   // unlocks its strongest units; first thing once the core economy is up
                 [tower, Math.min(2, diff.towers)], ['flaktower', reactAir],   // AA comes right after its first tower, ahead of expansion, once it's reacting
                 ['depot', 1], ['shipyard', diff.navy ? 1 : 0],
                 ['refinery', 1 + diff.expand], [tower, diff.towers]];

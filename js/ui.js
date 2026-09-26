@@ -69,7 +69,7 @@ export let activeTab = 'structure';
 export const cameoEls = {};
 
 export const TAB_ITEMS = {
-  structure: ['power','refinery','barracks','factory','radar','depot','airfield','shipyard'],
+  structure: ['power','refinery','barracks','factory','radar','lab','depot','airfield','shipyard'],
   defense:   ['pillbox','flaktower','beamtower','arctower'],
   infantry:  ['rifle','rocket','engineer','scout','dog','sniper','arctrooper','sapper','isotope','psion','jetpack','blink','infiltrator','striker'],
   vehicle:   ['ltank','ifv','halftrack','beamtank','veiltank','launcher','drone','htank','jet','heli','airship',

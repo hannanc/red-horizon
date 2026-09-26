@@ -83,6 +83,8 @@ export const BUILD_DEFS = {
   barracks: {name:'Barracks',          cost:500,  power:-10,  w:2, h:2, hp:700,  time:9,  tab:'structure', prereq:['power'], z:26},
   factory : {name:'Vehicle Factory',   cost:2000, power:-25,  w:3, h:3, hp:1100, time:18, tab:'structure', prereq:['refinery'], z:36},
   radar   : {name:'Radar',             cost:1000, power:-50,  w:2, h:2, hp:1000, time:12, tab:'structure', prereq:['refinery'], z:44, anim:true},
+  // unlocks the heaviest and most exotic units; a step past what Radar alone gives
+  lab     : {name:'Research Lab',      cost:1500, power:-60,  w:2, h:2, hp:900,  time:16, tab:'structure', prereq:['radar'], z:40},
   civ     : {name:'Civilian Building', cost:0,    power:0,    w:2, h:2, hp:700,  time:0,  tab:null, z:30, garrison:5},
   pillbox : {name:'Pillbox',           cost:600,  power:-10,  w:1, h:1, hp:450,  time:8,  tab:'defense',   prereq:['barracks'], z:12,
              weapon:{dmg:11, rof:0.35, range:5.6, kind:'bullet', vs:{inf:1.6, heavy:0.35, building:0.4}}},
@@ -111,7 +113,7 @@ export const UNIT_DEFS = {
             weapon:{dmg:34, rof:1.9,  range:5.6, kind:'rocket', vs:{inf:0.6, heavy:1.6, building:1.6, air:1.2}}},
   ltank  : {name:'Warden Tank',   cost:700,  hp:320, speed:82,  r:13, armor:'heavy',time:8,  tab:'vehicle',  from:'factory',
             weapon:{dmg:42, rof:1.6,  range:5.2, kind:'shell', vs:{inf:0.8, heavy:1, building:1}}},
-  htank  : {name:'Paladin Tank',  cost:1600, hp:820, speed:52,  r:15, armor:'heavy',time:16, tab:'vehicle',  from:'factory', prereq:['radar'],
+  htank  : {name:'Paladin Tank',  cost:1600, hp:820, speed:52,  r:15, armor:'heavy',time:16, tab:'vehicle',  from:'factory', prereq:['radar','lab'],
             weapon:{dmg:105,rof:2.4,  range:5.8, kind:'shell', vs:{inf:0.9, heavy:1.25, building:1.15}}},
   harv   : {name:'Ore Hauler',    cost:1400, hp:650, speed:64,  r:14, armor:'heavy',time:12, tab:'vehicle',  from:'factory', harvester:true},
   mcv    : {name:'Construction Vehicle', cost:3000, hp:1000,speed:42,  r:17, armor:'heavy',time:25, tab:'vehicle',  from:'factory', prereq:['radar'], mcv:true},
@@ -127,7 +129,7 @@ export const UNIT_DEFS = {
             weapon:{dmg:125,rof:3.0,  range:9.5, kind:'snipe', vs:{inf:1, heavy:0, building:0}}},
   beamtank:{name:'Lancer Tank',   cost:1400, hp:300, speed:70,  r:14, armor:'heavy',time:13, tab:'vehicle',  from:'factory', side:'allied', prereq:['radar'],
             weapon:{dmg:75, rof:3.0,  range:7.5, kind:'beam', chain:2, vs:{inf:1, heavy:0.9, building:1.3}}},
-  veiltank:{name:'Veil Tank',     cost:1000, hp:280, speed:80,  r:13, armor:'heavy',time:11, tab:'vehicle',  from:'factory', side:'allied', prereq:['radar'],
+  veiltank:{name:'Veil Tank',     cost:1000, hp:280, speed:80,  r:13, armor:'heavy',time:11, tab:'vehicle',  from:'factory', side:'allied', prereq:['radar','lab'],
             treeDisguise:true,   // passes for a tree while parked; enemies don't pick it as a target until it fires
             weapon:{dmg:48, rof:2.0,  range:6,   kind:'rocket', vs:{inf:0.6, heavy:1.3, building:1}}},
   // soviet only
@@ -149,18 +151,18 @@ export const UNIT_DEFS = {
   // special infantry
   sapper : {name:'Sapper',        cost:500,  hp:120, speed:55,  r:8,  armor:'inf',  time:6,  tab:'infantry', from:'barracks', side:'soviet',
             weapon:{dmg:420,rof:5.0,  range:0.8, kind:'charge', fuse:3.5, vs:{inf:0, heavy:1, building:1.8}}},   // timed charge
-  striker: {name:'Striker',       cost:1500, hp:160, speed:64,  r:8,  armor:'inf',  time:14, tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
+  striker: {name:'Striker',       cost:1500, hp:160, speed:64,  r:8,  armor:'inf',  time:14, tab:'infantry', from:'barracks', side:'allied', prereq:['radar','lab'],
             unique:true,   // one at a time; shoots infantry dead, blows up buildings (demolish) but ignores vehicles
             weapon:{dmg:180,rof:1.0,  range:5.5, kind:'snipe', vs:{inf:1, heavy:0, building:0}},
             demolish:{dmg:5000,rof:3.0, range:0.8, kind:'charge', fuse:1.5, vs:{inf:0, heavy:0, building:1}}},
-  psion  : {name:'Psion',         cost:1200, hp:100, speed:50,  r:8,  armor:'inf',  time:12, tab:'infantry', from:'barracks', side:'soviet', prereq:['radar'],
+  psion  : {name:'Psion',         cost:1200, hp:100, speed:50,  r:8,  armor:'inf',  time:12, tab:'infantry', from:'barracks', side:'soviet', prereq:['radar','lab'],
             weapon:{dmg:0,  rof:2.0,  range:6,   kind:'mind', vs:{inf:1, heavy:1, building:0}}},   // takes over one enemy unit
-  isotope: {name:'Isotope Trooper', cost:700, hp:150, speed:46, r:9,  armor:'inf',  time:8,  tab:'infantry', from:'barracks', side:'soviet', prereq:['radar'],
+  isotope: {name:'Isotope Trooper', cost:700, hp:150, speed:46, r:9,  armor:'inf',  time:8,  tab:'infantry', from:'barracks', side:'soviet', prereq:['radar','lab'],
             deploy:true, radiate:2.6,   // D: irradiates everything within `radiate` tiles while deployed
             weapon:{dmg:30, rof:1.2,  range:4.2, kind:'rad', vs:{inf:1.5, heavy:0.3, building:0}}},
-  infiltrator:{name:'Infiltrator', cost:1000, hp:60, speed:60,  r:8,  armor:'inf',  time:8,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
+  infiltrator:{name:'Infiltrator', cost:1000, hp:60, speed:60,  r:8,  armor:'inf',  time:8,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar','lab'],
             spy:true, disguise:true},   // enemies ignore it (hounds excepted); walks into enemy buildings
-  blink  : {name:'Blink Trooper', cost:900,  hp:110, speed:50,  r:8,  armor:'inf',  time:9,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar'],
+  blink  : {name:'Blink Trooper', cost:900,  hp:110, speed:50,  r:8,  armor:'inf',  time:9,  tab:'infantry', from:'barracks', side:'allied', prereq:['radar','lab'],
             blink:true,   // teleports to where it is sent instead of walking
             weapon:{dmg:40, rof:1.5,  range:5,   kind:'beam', vs:{inf:1, heavy:0.8, building:0.6}}},
   // ships (naval: true) move only on open water and come out of a Dockyard
@@ -181,7 +183,7 @@ export const UNIT_DEFS = {
             weapon:{dmg:170,rof:0.3,  range:0.9, kind:'bomb', splash:1.3, vs:{inf:0.9, heavy:1.3, building:1.4}}},
   heli   : {name:'Shade Transport', cost:900, hp:360, speed:120, r:13, armor:'air',  time:10, tab:'vehicle',  from:'airfield', side:'allied',
             air:true, alt:52, turret:false, transport:5, stealth:true, lands:true},   // unseen by the enemy while flying
-  airship: {name:'Tempest Airship', cost:2000, hp:1600, speed:22, r:22, armor:'air',  time:22, tab:'vehicle',  from:'factory', side:'soviet', prereq:['radar'],
+  airship: {name:'Tempest Airship', cost:2000, hp:1600, speed:22, r:22, armor:'air',  time:22, tab:'vehicle',  from:'factory', side:'soviet', prereq:['radar','lab'],
             air:true, alt:74, turret:false, selfRepair:7, scan:5,
             weapon:{dmg:170,rof:2.6,  range:0.7, kind:'bomb', splash:1.4, vs:{inf:0.8, heavy:1, building:1.8}}},
   jetpack: {name:'Skytrooper',    cost:600,  hp:110, speed:74,  r:8,  armor:'air',  time:7,  tab:'infantry', from:'barracks', side:'allied', prereq:['airfield'],
@@ -251,7 +253,7 @@ UNIT_DEFS.drone.voice = null;
 // enemy flavor names (same stats, soviet skin)
 export const SOV_NAME = {rifle:'Trooper', rocket:'AT Trooper', ltank:'Bison Tank', htank:'Ironclad Tank', harv:'Ore Truck',
                   radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant', depot:'Repair Bay', shipyard:'Sea Works',
-                  flaktower:'Flak Nest'};
+                  flaktower:'Flak Nest', lab:'War Institute'};
 
 export function dispName(def, team){ return FACTION[team] === 'soviet' && SOV_NAME[def.key] ? SOV_NAME[def.key] : def.name; }
 
