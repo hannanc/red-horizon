@@ -1408,6 +1408,11 @@ class Soldier:
             self.gun.box((-0.05, 0, -0.04), (0.08, 0.024, 0.06), C['hull2'], bevel=0.005)
             self.flash = self.gun.ico((0.23, 0, 0), 0.045, flash_mat, subdiv=1)
         self.flash.hide_render = True
+        self.holds_gun = kind not in self.HAND and kind != 'rocket'
+        if self.holds_gun:
+            # held out in front with both hands (only the butt reaches the shoulder), not sunk into the chest
+            self.gun.root.location.x += 0.075
+            self.gun.root.location.y = -0.02
         self.gun_x = self.gun.root.location.x
 
     def pose(self, anim, k):
@@ -1422,6 +1427,9 @@ class Soldier:
         kL, kR = self.knees
         elL.root.rotation_euler.y = elR.root.rotation_euler.y = 0
         kL.root.rotation_euler.y = kR.root.rotation_euler.y = 0
+        # gun holders bring both hands in towards the middle to grip it; everyone else lets them hang
+        grip = math.radians(20) if self.holds_gun and anim != 'die' else 0.0
+        armL.root.rotation_euler.x, armR.root.rotation_euler.x = grip, -grip
         if self.kind == 'rocket':
             armR.root.rotation_euler.y, armL.root.rotation_euler.y = math.radians(-150), math.radians(-120)
         elif hand:
