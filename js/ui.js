@@ -7,15 +7,77 @@ import {MAX_QUEUE, canBoard, canPlace, capacity, engineerCan, hiddenFrom, padCou
 import {toggleMenu} from './main.js';
 import {sfx} from './sound.js';
 
-export function speak(text){
-  if(!state.voiceOn || !window.speechSynthesis) return;
-  try{
-    const u = new SpeechSynthesisUtterance(text);
-    u.rate = 1.0; u.pitch = 0.7; u.volume = 0.9 * settings.voice;
-    speechSynthesis.cancel();
-    speechSynthesis.speak(u);
-  }catch(e){}
+// ---------- voices: one line at a time ----------
+// Browser speech would cut a line off (cancel) or pile lines up. Instead every line goes through one
+// channel: nothing is interrupted, waiting lines are said by priority and go stale after a few seconds.
+// Priority: 3 critical (attack alerts, game over), 2 advisor, 1 announcer, 0 unit replies (only if free).
+export const VOICE = {PRI_CRIT: 3, PRI_ADVISOR: 2, PRI_ANNOUNCE: 1, PRI_UNIT: 0};
+export const voice = {cur: null, queue: [], fallback: null, log: []};   // log: what was said, for the tests
+const VOICE_TTL = [0, 4000, 6000, 8000];     // ms a line may wait, by priority
+const VOICE_MAX_WAITING = 3;
+function sayNow(line){
+  const u = new SpeechSynthesisUtterance(line.text);
+  const {voice: who, ...rest} = line.opts;
+  Object.assign(u, rest);
+  try{ if(who) u.voice = who; }catch(e){}
+  voice.cur = u;
+  voice.log.push({text: line.text, pri: line.pri, t: performance.now(), voice: who ? who.name : null, pitch: u.pitch});
+  if(voice.log.length > 50) voice.log.shift();
+  const done = () => {
+    if(voice.cur !== u) return;
+    voice.cur = null;
+    clearTimeout(voice.fallback);
+    setTimeout(nextLine, 200);           // a short breath between lines
+  };
+  u.onend = u.onerror = done;
+  voice.fallback = setTimeout(done, 1500 + line.text.length * 90 / (line.opts.rate || 1));   // some browsers never fire onend
+  try{ speechSynthesis.speak(u); }catch(e){ done(); }
 }
+function nextLine(){
+  const now = performance.now();
+  voice.queue = voice.queue.filter(l => now - l.at < VOICE_TTL[l.pri]);
+  if(voice.cur || !voice.queue.length || !state.voiceOn) return;
+  voice.queue.sort((a, b) => b.pri - a.pri || a.at - b.at);
+  sayNow(voice.queue.shift());
+}
+// say a line now, or queue it behind the current one; returns false when it was dropped
+export function voiceLine(text, pri, opts){
+  if(!state.voiceOn || !window.speechSynthesis || !text) return false;
+  const line = {text, pri, at: performance.now(),
+                opts: Object.assign({rate: 1.0, pitch: 0.7, volume: 0.9 * settings.voice}, opts)};
+  if(!voice.cur && !voice.queue.length){ sayNow(line); return true; }
+  if(pri === VOICE.PRI_UNIT) return false;                         // a reply is only worth saying right away
+  if(voice.queue.some(l => l.text === text) || (voice.cur && voice.cur.text === text)) return false;
+  voice.queue.push(line);
+  voice.queue.sort((a, b) => b.pri - a.pri || a.at - b.at);
+  voice.queue.length = Math.min(voice.queue.length, VOICE_MAX_WAITING);
+  if(!voice.cur) nextLine();
+  return voice.queue.includes(line) || voice.cur?.text === text;
+}
+export function stopVoices(){
+  voice.queue.length = 0;
+  voice.cur = null;
+  clearTimeout(voice.fallback);
+  try{ if(window.speechSynthesis) speechSynthesis.cancel(); }catch(e){}
+}
+export function speak(text, pri = VOICE.PRI_ANNOUNCE){ return voiceLine(text, pri); }
+
+// The advisor sounds like a different person from the announcer: another installed English voice
+// (preferring these), and a brighter pitch either way, so it still differs when only one voice exists.
+const ADVISOR_VOICES = ['Samantha', 'Karen', 'Moira', 'Tessa', 'Serena', 'Google UK English Female',
+                        'Microsoft Zira', 'Microsoft Hazel', 'Microsoft Sonia'];
+function advisorVoice(){
+  let vs = [];
+  try{ vs = speechSynthesis.getVoices() || []; }catch(e){}
+  const en = vs.filter(v => /^en/i.test(v.lang));
+  const announcer = en.find(v => v.default) || en[0];
+  for(const n of ADVISOR_VOICES){
+    const v = en.find(v => v !== announcer && v.name.includes(n));
+    if(v) return v;
+  }
+  return en.find(v => v !== announcer) || null;
+}
+function sayAdvisor(text){ return voiceLine(text, VOICE.PRI_ADVISOR, {voice: advisorVoice(), pitch: 1.15, rate: 1.05}); }
 
 // ---------- announcer messages ----------
 export const announceEl = document.getElementById('announcer');
@@ -26,7 +88,7 @@ export function announce(text, important, sayText){
   d.textContent = text;
   announceEl.appendChild(d);
   setTimeout(() => { d.style.transition = 'opacity .6s'; d.style.opacity = '0'; setTimeout(() => d.remove(), 650); }, 4200);
-  if(sayText) speak(sayText);
+  if(sayText) speak(sayText, important ? VOICE.PRI_CRIT : VOICE.PRI_ANNOUNCE);
 }
 // ---------- tactical advisor: a talking-head panel that takes over the radar window briefly ----------
 const advisorEl = document.getElementById('advisor');
@@ -47,7 +109,7 @@ export function showAdvisor(text){
   drawAdvisorFace();
   advisorEl.hidden = false;
   advisorEl.classList.add('show');
-  speak(text);
+  sayAdvisor(text);
   clearTimeout(advisorHideT);
   advisorHideT = setTimeout(() => {
     advisorEl.classList.remove('show');
@@ -353,18 +415,15 @@ export let lastAck = 0;
 export function ack(kind, u){
   if(!state.voiceOn || !window.speechSynthesis || !u || u.kind !== 'unit') return;
   const now = performance.now();
-  if(now - lastAck < 1400 || speechSynthesis.speaking) return;
+  if(now - lastAck < 1400 || voice.cur || voice.queue.length) return;   // replies never wait or talk over anyone
   lastAck = now;
   let lines = ACK[kind];
   if(u.def.harvester) lines = kind === 'select' ? ['Miner ready', 'Ore miner'] : ['Heading out', 'Acknowledged'];
   if(u.def.mcv) lines = kind === 'select' ? ['Construction vehicle ready', 'Builder standing by'] : ['Rolling out', 'Moving'];
   if(u.def.voice) lines = u.def.voice[kind] || lines;
   if(u.def.voice === null){ sfx(u.def.key === 'dog' ? 'bark' : 'chirp'); return; }
-  try{
-    const m = new SpeechSynthesisUtterance(lines[Math.floor(Math.random() * lines.length)]);
-    m.rate = 1.15; m.pitch = u.def.armor === 'inf' ? 1.05 : 0.8; m.volume = 0.8 * settings.voice;
-    speechSynthesis.speak(m);
-  }catch(e){}
+  voiceLine(lines[Math.floor(Math.random() * lines.length)], VOICE.PRI_UNIT,
+            {rate: 1.15, pitch: u.def.armor === 'inf' ? 1.05 : 0.8, volume: 0.8 * settings.voice});
 }
 
 // ---------- sell / repair modes ----------

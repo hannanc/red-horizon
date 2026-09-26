@@ -182,7 +182,12 @@ This file covers how the code works, the rules, and what to build next.
     `torpedo`, `snipe`, `mind`, `rad`, ...); `kill()` plays `death` (infantry), `explosion` or `collapse` (buildings).
   - Tests read `__RH.sfxLog` (what played, or why it was skipped) and `__RH.renderSfx(type)` (renders offline and
     measures peak, RMS and length). A new sound goes in `SOUNDS` and in the list in `tests/sound.spec.js`.
-- **Voices** use browser speech: `announce()` for the announcer, `ack()` for unit replies, with per-unit `def.voice` lines.
+- **Voices** use browser speech: `announce()` for the announcer, `showAdvisor()` for the advisor, `ack()` for unit
+  replies (per-unit `def.voice` lines). Every line goes through one channel (`voiceLine` in `ui.js`): never two at
+  once and nothing is cut off. Waiting lines are said by priority (`VOICE`: critical alerts, advisor, announcer)
+  and go stale after a few seconds; unit replies are only said when the channel is free. Never call
+  `speechSynthesis` directly. The advisor uses a different installed voice (`advisorVoice()`) and a higher pitch.
+  `tests/voice.spec.js` fakes the speech engine to check ordering and overlap.
 
 ## Adding a unit
 

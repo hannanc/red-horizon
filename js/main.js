@@ -4,7 +4,7 @@ import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js
 import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf, settings, saveSettings} from './data.js';
 import {orderMove, findPath} from './pathfinding.js';
 import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers, setZoom} from './render.js';
-import {initUI, announce, buildSidebar, clockEl, drawHUD, groups, speak, tickCamera} from './ui.js';
+import {initUI, announce, buildSidebar, clockEl, drawHUD, groups, speak, stopVoices, voice, VOICE, showAdvisor, ack, tickCamera} from './ui.js';
 import {audio, renderSfx, sfx, sfxLog} from './sound.js';
 import {canBoard, canPlace, deliverUnit, placeBuilding, powerOf, prodQ, radPuddles, radSources, revealAround, spawnUnit, tickProduction, tickRadiation, treeDisguised, unloadTransport, updateBuilding, updateUnit} from './units.js';
 import {rand, seedRandom} from './rng.js';
@@ -46,7 +46,8 @@ export function checkEnd(){
       ? `The ${SIDE_NAME[FACTION[ENEMY]]} base has been reduced to rubble in ${clockEl.textContent} on ${diff.name}. Outstanding, Commander!`
       : `Your base has fallen on ${diff.name}. The red banner flies over the ruins.`;
     document.getElementById('endScreen').style.display = 'flex';
-    speak(win ? 'Mission accomplished' : 'Command link lost');
+    stopVoices();                                   // the result is the only thing worth saying now
+    speak(win ? 'Mission accomplished' : 'Command link lost', VOICE.PRI_CRIT);
     sfx(win ? 'win' : 'lose');
   }
 }
@@ -332,6 +333,7 @@ export function closeMenu(){
 export function toggleMenu(){ if(state.menu) closeMenu(); else openMenu(); }
 // the same skirmish again from the start: same side, map, credits and difficulty
 export function restartGame(){
+  stopVoices();
   closeMenu();
   document.getElementById('endScreen').style.display = 'none';
   Object.assign(state, {time: 0, over: false, paused: false, lowPower: false, attackAlertT: -99, chargeMsgT: -99});
@@ -415,7 +417,7 @@ document.getElementById('sndBtn').addEventListener('click', function(){
 document.getElementById('voiceBtn').addEventListener('click', function(){
   state.voiceOn = !state.voiceOn;
   this.textContent = (state.voiceOn ? '🗣' : '🤐') + ' Voice';
-  if(!state.voiceOn && window.speechSynthesis) speechSynthesis.cancel();
+  if(!state.voiceOn) stopVoices();
 });
 
 // Build (or rebuild) the whole world from the skirmish setup: sides, terrain seed, map.
@@ -457,6 +459,7 @@ Sprites.load(TEAM_COLOR)
 // real-time clock, then advance the game deterministically with step().
 window.__RH = {
   ready: false,
+  voice, announce, showAdvisor, ack,                 // the voice channel, for tests
   start(){ document.getElementById('startBtn').click(); },
   pause(on = true){ state.paused = on; },
   weaponOf, canHurt, get UNIT_DEFS(){ return UNIT_DEFS; }, get effects(){ return effects; },
