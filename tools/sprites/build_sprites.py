@@ -43,6 +43,8 @@ BUILDINGS = {  # key: (footprint, height in BU, builder, factions, frames, frame
     'pillbox':  ((1, 1), 0.45, M.pillbox, FACTIONS, 1, None),
     'beamtower': ((1, 1), 1.9, M.beam_tower, ('allied',), 1, None),
     'arctower':  ((1, 1), 1.55, M.arc_tower, ('soviet',), 1, None),
+    'flaktower': ((1, 1), 1.2, M.flak_tower, FACTIONS, 1, None),
+    'lab':       ((2, 2), 1.55, M.research_lab, FACTIONS, 1, None),
     'airfield':  ((3, 3), 1.3, M.airfield, ('allied',), 1, None),
     'depot':     ((3, 3), 1.15, M.depot, FACTIONS, 1, None),
     'shipyard':  ((3, 3), 1.4, M.shipyard, FACTIONS, 1, None),     # sits on water; channel opens to +X
@@ -73,6 +75,7 @@ INFANTRY = {  # key: (kind, frame, cameo zoom, factions)
     'arctrooper': ('arc', (64, 48, 38, 38), 3.2, ('soviet',)),
     'dog':        ('dog', (64, 48, 38, 38), 3.6, ('allied',)),
     'jetpack':    ('jetpack', (64, 56, 32, 40), 3.2, ('allied',)),
+    'scout':      ('scout', (64, 48, 38, 38), 3.4, FACTIONS),
     'sapper':     ('sapper', (64, 48, 38, 38), 3.2, ('soviet',)),
     'striker':    ('striker', (64, 48, 38, 38), 3.3, ('allied',)),
     'psion':      ('psion', (64, 48, 38, 38), 3.3, ('soviet',)),

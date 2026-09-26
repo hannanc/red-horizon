@@ -486,6 +486,53 @@ def shipyard(f):
         p.sphere((1.4, s * 0.8, z + 0.16), 0.03, mat(col, emit=5.0, name='navlight' + col))
     return {'body': p}
 
+def flak_tower(f):
+    """Sandbagged concrete emplacement with twin anti-air barrels pointing skyward."""
+    C = palette(f)
+    p = Part('body')
+    p.cyl((0, 0, 0), 0.4, 0.14, C['concrete'], seg=10)
+    for i in range(10):
+        a = i * math.pi * 2 / 10
+        p.sphere((math.cos(a) * 0.4, math.sin(a) * 0.4, 0.05), 0.08, C['sand'], scale=(1.25, 0.9, 0.6))
+    p.cyl((0, 0, 0.14), 0.26, 0.2, C['metal'], seg=12, r2=0.22)
+    p.torus((0, 0, 0.3), 0.23, 0.025, C['team'])
+    p.cyl((0, 0, 0.34), 0.16, 0.1, C['hull2'], seg=12)
+    p.box((-0.02, 0, 0.42), (0.2, 0.22, 0.14), C['team'], bevel=0.02, taper=(0.8, 0.9))
+    for dy in (-0.06, 0.06):   # twin barrels angled up towards the sky
+        p.box((0.02, dy, 0.48), (0.035, 0.035, 0.46), C['dark'], bevel=0.006, shift=(0.2, 0))
+        p.box((0.21, dy, 0.9), (0.05, 0.05, 0.06), C['steel'], bevel=0.008)
+    p.box((-0.11, 0, 0.46), (0.03, 0.26, 0.16), C['steel'], bevel=0.006)          # gun shield
+    for i in range(3):   # ready ammunition
+        p.cyl((-0.26 + i * 0.07, -0.26, 0.14), 0.025, 0.12, C['accent'], seg=8)
+    return {'body': p}
+
+
+def research_lab(f):
+    """Research building: observatory dome, glowing lab windows, dish and masts."""
+    C = palette(f)
+    p = Part('body')
+    z = slab(p, 2, 2, C)
+    lab_glow = mat('#9fe8ff' if f == 'allied' else '#ffd08a', emit=2.2, name='labglow_' + f)
+    p.box((-0.05, 0.1, z), (1.5, 1.45, 0.55), C['wall'], bevel=0.03)
+    p.box((-0.05, 0.1, z + 0.44), (1.54, 1.49, 0.07), C['team'], bevel=0.01)
+    p.box((-0.05, 0.1, z + 0.55), (1.48, 1.43, 0.05), C['roof'], bevel=0.01)
+    for i in range(4):   # glowing windows on the two visible faces
+        p.box((-0.6 + i * 0.36, -0.635, z + 0.2), (0.22, 0.02, 0.16), lab_glow, bevel=0)
+        p.box((0.705, 0.55 - i * 0.3, z + 0.2), (0.02, 0.18, 0.16), lab_glow, bevel=0)
+    p.box((0.3, -0.64, z), (0.26, 0.03, 0.34), C['dark'], bevel=0)                   # door
+    # observatory dome with a slit
+    p.cyl((-0.25, 0.3, z + 0.6), 0.42, 0.14, C['wall2'], seg=28)
+    p.sphere((-0.25, 0.3, z + 0.74), 0.4, C['trim'], half=True)
+    p.box((-0.25, 0.3, z + 0.74), (0.08, 0.82, 0.4), C['dark'], bevel=0, taper=(1, 0.25))
+    # satellite dish and antenna masts
+    p.cyl((0.45, -0.3, z + 0.6), 0.03, 0.18, C['steel'], seg=8)
+    p.sphere((0.45, -0.3, z + 0.86), 0.16, C['trim'], scale=(1, 1, 0.45), half=True)
+    p.cyl((0.45, -0.3, z + 0.86), 0.01, 0.16, C['dark'], seg=4)
+    for (x, y, h) in ((0.5, 0.55, 0.55), (0.62, 0.4, 0.38)):
+        p.cyl((x, y, z + 0.6), 0.012, h, C['steel'], seg=5)
+        p.sphere((x, y, z + 0.6 + h), 0.022, lab_glow)
+    return {'body': p}
+
 # ================================================================ vehicles
 
 def tracks(p, L, y, w, h, C, wheels=5):
@@ -1034,7 +1081,7 @@ class Soldier:
     """Articulated soldier. Limb Parts pivot at the hip / shoulder.
     kind: rifle | rocket | engineer | sniper | arc | jetpack | sapper | striker | psion | isotope |
           infiltrator | blink"""
-    HAND = ('engineer', 'sapper', 'psion', 'infiltrator')    # carry their tool in the hand, not a shouldered gun
+    HAND = ('engineer', 'sapper', 'psion', 'infiltrator', 'scout')    # carry their tool in the hand, not a shouldered gun
     RAISE = {'sapper': -70, 'psion': -125, 'infiltrator': -88}  # tool-arm angle while firing
 
     def __init__(self, f, kind):
@@ -1060,6 +1107,8 @@ class Soldier:
             uniform = mat('#2f343d', rough=0.6, name='suit')
         elif kind == 'blink':
             uniform = mat('#b4bfcc', metal=0.45, rough=0.35, name='blinkarmor')
+        elif kind == 'scout':
+            uniform = mat('#9a8f6a', rough=0.85, name='scoutdrab')
         torso = uniform if kind in ('psion', 'infiltrator') else vest   # coat / jacket instead of a vest
         psy = mat('#d58cff', emit=6.0, name='psyglow')
         rad = mat('#7dff5a', emit=5.0, name='radglow')
@@ -1161,6 +1210,11 @@ class Soldier:
             b.sphere((-0.16, 0, 0.45), 0.035, phase)
             for s in (-1, 1):
                 b.sphere((0, s * 0.1, 0.415), 0.04, vest, scale=(1.2, 1, 0.7))
+        elif kind == 'scout':
+            # small radio pack with a whip antenna
+            b.box((-0.085, 0, 0.27), (0.06, 0.12, 0.12), C['hull2'], bevel=0.014)
+            b.cyl((-0.09, 0.04, 0.39), 0.004, 0.2, C['dark'], seg=4)
+            b.sphere((-0.09, 0.04, 0.59), 0.008, vest)
         else:
             b.box((-0.085, 0, 0.27), (0.06, 0.13, 0.13), uniform, bevel=0.015)
         # head: everything on it goes into its own part, shrunk towards the neck, so the
@@ -1175,6 +1229,10 @@ class Soldier:
             hat = mat('#e8c23c', rough=0.45, name='hardhat')
             b.sphere((0, 0, 0.49), 0.064, hat, scale=(1.05, 1, 0.9), half=True)
             b.cyl((0.012, 0, 0.485), 0.078, 0.008, hat, seg=16)
+        elif kind == 'scout':
+            b.cyl((0, 0, 0.49), 0.08, 0.01, uniform, seg=14)                           # soft bush hat
+            b.cyl((0, 0, 0.495), 0.054, 0.035, uniform, seg=12, r2=0.046)
+            b.cyl((0, 0, 0.497), 0.056, 0.012, vest, seg=12)                          # team hat band
         elif kind == 'sniper':
             b.cyl((0, 0, 0.49), 0.085, 0.01, uniform, seg=14)
             b.cyl((0, 0, 0.495), 0.055, 0.04, uniform, seg=12, r2=0.045)
@@ -1299,6 +1357,12 @@ class Soldier:
             case.box((0, 0, -0.33), (0.14, 0.035, 0.11), leather, bevel=0.008)
             case.box((0, 0, -0.225), (0.05, 0.012, 0.012), C['dark'], bevel=0)
             case.box((0, 0, -0.29), (0.145, 0.04, 0.015), vest, bevel=0)
+        elif kind == 'scout':
+            # binoculars in the hand; nothing to fire
+            self.gun = Part('gun', self.arms[0])
+            for dy in (-0.012, 0.012):
+                self.gun.cyl((-0.02, dy, -0.2), 0.011, 0.045, C['dark'], axis='X', seg=8)
+            self.flash = self.gun.ico((0, 0, -0.2), 0.005, C['dark'], subdiv=1)
         elif kind == 'blink':
             # short rifle with a glowing charge strip
             self.gun = Part('gun', b)

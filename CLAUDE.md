@@ -150,6 +150,13 @@ This file covers how the code works, the rules, and what to build next.
     (`doorsStayOpen`).
   - Units come from the queue only when it has the buildings for them (`prereqOk(def, ENEMY)`); one it can't build
     yet keeps its turn. It keeps a harvester per refinery plus a spare, and repairs buildings below `diff.repairAt`.
+- **Research Lab** (`lab`): a tech tier above Radar; the heaviest units need it (`prereq`). The AI builds it right after
+  its core economy on Normal and Hard, and after its first two towers on Easy (`labEarly` in `aiNextBuilding`).
+- **Scout** (`def.scout`, not selectable): explores on its own, avoids known enemy ground, flees threats, heads home once
+  the map is explored. **Flak Tower**: a defence that only hits aircraft well. The AI builds Flak Towers once it has seen
+  real player air activity, and leans its production towards countering the player's visible army (`playerProfile()`).
+- **Tactical advisor**: a talking-head panel over the radar window warns about enemy build-ups it sees and nudges an idle
+  player after 30 s of empty queues. **Training mode** (setup screen): the AI builds and defends but never attacks.
 - **Pause menu** (`openMenu` / `closeMenu` / `toggleMenu` / `restartGame` in `main.js`): sets `state.menu` and
   `state.paused`. `settings = {sfx, voice, scroll}` (in `data.js`, saved as `rh-settings`) scale `sfx()` gain, speech
   volume and `tickCamera()` speed. Restart rebuilds the same skirmish with `newWorld()`; Quit reloads the page.
@@ -274,28 +281,28 @@ fallback drawing.
      on the aircraft's centre. Draw them at `toIso(x, y)` shifted up by the altitude
      in px, and paint a ground shadow (dark ellipse) at `toIso(x, y)` yourself.
      Jetpack infantry are anchored at the feet, so shift them up by their hover height the same way.
-2. **Done: Repair Depot (code plus art).** Model `depot` is written but not rendered yet.
+2. **Done: Repair Depot (code plus art).**
    - A building that repairs vehicles parked on it, for credits.
    - It also ejects latched drones, which gives the drone a counter.
 3. **Done: Garrisoning (code).** Infantry enter civilian buildings (reuse the `cargo`
    and `inside` mechanics) and fire out of them. Rifle-type infantry can deploy
    behind sandbags for more range and armour.
-4. **Done: Special infantry (code plus art):** models written, not rendered yet.
+4. **Done: Special infantry (code plus art).**
    - demolitions expert (timed charge on buildings and vehicles)
    - elite commando (kills infantry in one shot, demolishes buildings)
    - psychic infantry (takes over one enemy unit)
    - radiation trooper (deploys to contaminate an area)
    - spy (disguise; steals money or shuts off power)
    - teleporting infantry
-5. **Done: Stealth tank (code plus art).** The Veil Tank; model `veiltank` written, not rendered yet. It looks like a tree while stationary and
+5. **Done: Stealth tank (code plus art).** The Veil Tank. It looks like a tree while stationary and
    can't be auto-targeted until it fires.
 6. **Done: Naval (code plus art).** Models `shipyard`, `lander`, `frigate`, `picket`, `sub`, `flakboat` written, not rendered yet. Needs a map with a real sea (terrain generation,
    plus water pathing for ships), a Shipyard, transports that carry vehicles,
    destroyers, subs and AA cruisers. This is the biggest item.
 7. **Done: Polish:**
-   - Done: animated explosion sprites (model `explosion` written, not rendered yet)
+   - Done: animated explosion sprites
    - Done: terrain height levels and cliffs (one plateau with ramps; a map generator could place more)
-   - Done: a gun on the Soviet ore truck (model updated, not rendered yet), and teleport-to-refinery for the Allied hauler
+   - Done: a gun on the Soviet ore truck, and teleport-to-refinery for the Allied hauler
    - Done: AI engineers that capture player buildings (`aiEngineers`)
    - Done: a skirmish setup screen (map seed, starting credits, pick a side)
 

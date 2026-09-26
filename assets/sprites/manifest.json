@@ -100,6 +100,16 @@
    "mask": "assets/cameos/flakboat_soviet_mask.png",
    "scale": 2
   },
+  "flaktower_allied": {
+   "img": "assets/cameos/flaktower_allied.png",
+   "mask": "assets/cameos/flaktower_allied_mask.png",
+   "scale": 2
+  },
+  "flaktower_soviet": {
+   "img": "assets/cameos/flaktower_soviet.png",
+   "mask": "assets/cameos/flaktower_soviet_mask.png",
+   "scale": 2
+  },
   "frigate_allied": {
    "img": "assets/cameos/frigate_allied.png",
    "mask": "assets/cameos/frigate_allied_mask.png",
@@ -158,6 +168,16 @@
   "jetpack_allied": {
    "img": "assets/cameos/jetpack_allied.png",
    "mask": "assets/cameos/jetpack_allied_mask.png",
+   "scale": 2
+  },
+  "lab_allied": {
+   "img": "assets/cameos/lab_allied.png",
+   "mask": "assets/cameos/lab_allied_mask.png",
+   "scale": 2
+  },
+  "lab_soviet": {
+   "img": "assets/cameos/lab_soviet.png",
+   "mask": "assets/cameos/lab_soviet_mask.png",
    "scale": 2
   },
   "lander_allied": {
@@ -268,6 +288,16 @@
   "sapper_soviet": {
    "img": "assets/cameos/sapper_soviet.png",
    "mask": "assets/cameos/sapper_soviet_mask.png",
+   "scale": 2
+  },
+  "scout_allied": {
+   "img": "assets/cameos/scout_allied.png",
+   "mask": "assets/cameos/scout_allied_mask.png",
+   "scale": 2
+  },
+  "scout_soviet": {
+   "img": "assets/cameos/scout_soviet.png",
+   "mask": "assets/cameos/scout_soviet_mask.png",
    "scale": 2
   },
   "shipyard_allied": {
@@ -830,6 +860,42 @@
    "scale": 2,
    "seq": 1
   },
+  "flaktower_allied": {
+   "ax": 196,
+   "ay": 140,
+   "cols": 1,
+   "facings": 1,
+   "fh": 184,
+   "fp": [
+    1,
+    1
+   ],
+   "frames": 1,
+   "fw": 272,
+   "img": "assets/sprites/flaktower_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/flaktower_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "flaktower_soviet": {
+   "ax": 196,
+   "ay": 140,
+   "cols": 1,
+   "facings": 1,
+   "fh": 184,
+   "fp": [
+    1,
+    1
+   ],
+   "frames": 1,
+   "fw": 272,
+   "img": "assets/sprites/flaktower_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/flaktower_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
   "frigate_allied_body": {
    "ax": 160,
    "ay": 120,
@@ -1196,6 +1262,42 @@
    "mask": "assets/sprites/jetpack_allied_die_mask.png",
    "scale": 2,
    "seq": 4
+  },
+  "lab_allied": {
+   "ax": 294,
+   "ay": 196,
+   "cols": 1,
+   "facings": 1,
+   "fh": 272,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 1,
+   "fw": 436,
+   "img": "assets/sprites/lab_allied.png",
+   "kind": "building",
+   "mask": "assets/sprites/lab_allied_mask.png",
+   "scale": 2,
+   "seq": 1
+  },
+  "lab_soviet": {
+   "ax": 294,
+   "ay": 196,
+   "cols": 1,
+   "facings": 1,
+   "fh": 272,
+   "fp": [
+    2,
+    2
+   ],
+   "frames": 1,
+   "fw": 436,
+   "img": "assets/sprites/lab_soviet.png",
+   "kind": "building",
+   "mask": "assets/sprites/lab_soviet_mask.png",
+   "scale": 2,
+   "seq": 1
   },
   "lamp": {
    "ax": 44,
@@ -1806,6 +1908,92 @@
    "img": "assets/sprites/sapper_soviet_die.png",
    "kind": "infantry",
    "mask": "assets/sprites/sapper_soviet_die_mask.png",
+   "scale": 2,
+   "seq": 4
+  },
+  "scout_allied": {
+   "air": false,
+   "anims": {
+    "fire": [
+     7,
+     2
+    ],
+    "stand": [
+     0,
+     1
+    ],
+    "walk": [
+     1,
+     6
+    ]
+   },
+   "ax": 76,
+   "ay": 76,
+   "cols": 9,
+   "facings": 8,
+   "fh": 96,
+   "frames": 72,
+   "fw": 128,
+   "img": "assets/sprites/scout_allied.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/scout_allied_mask.png",
+   "scale": 2,
+   "seq": 9
+  },
+  "scout_allied_die": {
+   "ax": 76,
+   "ay": 76,
+   "cols": 4,
+   "facings": 1,
+   "fh": 96,
+   "frames": 4,
+   "fw": 128,
+   "img": "assets/sprites/scout_allied_die.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/scout_allied_die_mask.png",
+   "scale": 2,
+   "seq": 4
+  },
+  "scout_soviet": {
+   "air": false,
+   "anims": {
+    "fire": [
+     7,
+     2
+    ],
+    "stand": [
+     0,
+     1
+    ],
+    "walk": [
+     1,
+     6
+    ]
+   },
+   "ax": 76,
+   "ay": 76,
+   "cols": 9,
+   "facings": 8,
+   "fh": 96,
+   "frames": 72,
+   "fw": 128,
+   "img": "assets/sprites/scout_soviet.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/scout_soviet_mask.png",
+   "scale": 2,
+   "seq": 9
+  },
+  "scout_soviet_die": {
+   "ax": 76,
+   "ay": 76,
+   "cols": 4,
+   "facings": 1,
+   "fh": 96,
+   "frames": 4,
+   "fw": 128,
+   "img": "assets/sprites/scout_soviet_die.png",
+   "kind": "infantry",
+   "mask": "assets/sprites/scout_soviet_die_mask.png",
    "scale": 2,
    "seq": 4
   },
