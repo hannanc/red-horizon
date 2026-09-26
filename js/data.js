@@ -90,6 +90,9 @@ export const BUILD_DEFS = {
              weapon:{dmg:110, rof:3.2, range:7.6, kind:'beam', vs:{inf:1.2, heavy:1, building:0.8}}},
   arctower: {name:'Arc Tower',         cost:1500, power:-75,  w:1, h:1, hp:600,  time:14, tab:'defense',   prereq:['barracks'], z:54, side:'soviet',
              weapon:{dmg:110, rof:3.2, range:7.2, kind:'arc', vs:{inf:1.4, heavy:1, building:0.8}}},
+  // a dedicated air-defence tower: strong against aircraft, weak against everything else
+  flaktower:{name:'Flak Tower',        cost:1000, power:-40,  w:1, h:1, hp:500,  time:11, tab:'defense',   prereq:['barracks'], z:40,
+             weapon:{dmg:26, rof:0.9,  range:7.5, kind:'flak', vs:{inf:0.3, heavy:0.15, building:0.1, air:2.2}}},
   // vehicles drive onto it (flat: its tiles stay passable) to be repaired; it also pulls out latched drones
   depot   : {name:'Service Depot',     cost:800,  power:-20,  w:3, h:3, hp:900,  time:12, tab:'structure', prereq:['factory'], z:12, flat:true},
   // built on water; ships come out of it
@@ -114,6 +117,9 @@ export const UNIT_DEFS = {
   mcv    : {name:'Construction Vehicle', cost:3000, hp:1000,speed:42,  r:17, armor:'heavy',time:25, tab:'vehicle',  from:'factory', prereq:['radar'], mcv:true},
   // engineers capture enemy structures or fully repair friendly ones, and are used up doing it
   engineer:{name:'Engineer',      cost:500,  hp:75,  speed:50,  r:8,  armor:'inf',  time:5,  tab:'infantry', from:'barracks', engineer:true},
+  // unarmed recon infantry: walks the map exploring on its own and can't be given orders (see updateScout)
+  scout  : {name:'Scout',         cost:150,  hp:45,  speed:29,  r:8,  armor:'inf',  time:4,  tab:'infantry', from:'barracks', prereq:['radar'],
+            scout:true, noSelect:true, sight:9},
   // allied only
   dog    : {name:'Hound',         cost:200,  hp:100, speed:112, r:7,  armor:'inf',  time:3,  tab:'infantry', from:'barracks', side:'allied',
             weapon:{dmg:200,rof:1.0,  range:1.0, kind:'bite', vs:{inf:1, heavy:0, building:0}}},
@@ -209,6 +215,10 @@ export function weaponOf(e){
 // unit-specific voice lines (null: no speech, just a sound)
 UNIT_DEFS.engineer.voice = {select: ['Engineer reporting', 'Tools ready', 'Need something fixed?'],
                             move: ['On my way', 'Moving'], attack: ['I will take it over', 'Going in']};
+// the scout can't be selected or ordered around; these play on their own while it explores (see updateScout)
+UNIT_DEFS.scout.voice = {scout: ['Nothing to report', 'All quiet out here', 'Still looking', 'Ground looks clear', 'Moving on'],
+                         spot:  ['Contact, pulling back', 'They have spotted me, falling back', 'Not staying for this one'],
+                         home:  ['Nothing left to explore, heading home', 'Map is clear, coming in']};
 UNIT_DEFS.sniper.voice = {select: ['Marksman ready', 'Eyes open', 'Scope clear'],
                           move: ['Relocating', 'Finding a perch'], attack: ['Target in sight', 'One shot']};
 UNIT_DEFS.arctrooper.voice = {select: ['Fully charged', 'Arc trooper ready'],
@@ -240,7 +250,8 @@ UNIT_DEFS.drone.voice = null;
 
 // enemy flavor names (same stats, soviet skin)
 export const SOV_NAME = {rifle:'Trooper', rocket:'AT Trooper', ltank:'Bison Tank', htank:'Ironclad Tank', harv:'Ore Truck',
-                  radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant', depot:'Repair Bay', shipyard:'Sea Works'};
+                  radar:'Radar Tower', pillbox:'Gun Nest', power:'Dynamo Plant', depot:'Repair Bay', shipyard:'Sea Works',
+                  flaktower:'Flak Nest'};
 
 export function dispName(def, team){ return FACTION[team] === 'soviet' && SOV_NAME[def.key] ? SOV_NAME[def.key] : def.name; }
 
@@ -266,7 +277,7 @@ export function tileOf(e){ return {x: Math.floor(e.x / T), y: Math.floor(e.y / T
 export function clamp(v, a, b){ return v < a ? a : v > b ? b : v; }
 
 // skirmish setup: side, starting credits and map seed, remembered between games
-export const setup = {side: 'allied', credits: 8000, map: 'classic', seed: 1};
+export const setup = {side: 'allied', credits: 8000, map: 'classic', seed: 1, training: false};
 try { Object.assign(setup, JSON.parse(localStorage.getItem('rh-setup') || '{}')); } catch(e){}
 if(!SIDE_NAME[setup.side]) setup.side = 'allied';
 if(![5000, 8000, 12000].includes(setup.credits)) setup.credits = 8000;

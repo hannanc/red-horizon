@@ -1,6 +1,6 @@
 // Red Horizon: Sound, announcer, sidebar, mouse and keyboard input, orders, zoom and scrolling, the HUD.
 import {canHurt} from './combat.js';
-import {BUILD_DEFS, ENEMY, HPX, IH, IW, PLAYER, T, UNIT_DEFS, WPX, available, bareOcc, buildings, clamp, dispName, effects, explored, idx, inMap, isoAt, occ, onMap, ore, passable, pickWorld, sailable, selection, setSelection, state, tileOf, toIso, units, walk, weaponOf, settings} from './data.js';
+import {BUILD_DEFS, ENEMY, FACTION, HPX, IH, IW, PLAYER, T, UNIT_DEFS, WPX, available, bareOcc, buildings, clamp, dispName, effects, explored, idx, inMap, isoAt, occ, onMap, ore, passable, pickWorld, sailable, selection, setSelection, state, tileOf, toIso, units, walk, weaponOf, settings} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
 import {CH, CW, VH, VW, ZOOM, cv, makeCameoIcon, mmC, radarOn, stepZoom} from './render.js';
 import {MAX_QUEUE, canBoard, canPlace, capacity, engineerCan, hiddenFrom, padCount, padTaken, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
@@ -28,6 +28,32 @@ export function announce(text, important, sayText){
   setTimeout(() => { d.style.transition = 'opacity .6s'; d.style.opacity = '0'; setTimeout(() => d.remove(), 650); }, 4200);
   if(sayText) speak(sayText);
 }
+// ---------- tactical advisor: a talking-head panel that takes over the radar window briefly ----------
+const advisorEl = document.getElementById('advisor');
+const advisorTextEl = document.getElementById('advisorText');
+const advisorFaceCx = document.getElementById('advisorFace').getContext('2d');
+let advisorHideT = null;
+function drawAdvisorFace(){
+  const c = advisorFaceCx, w = c.canvas.width, h = c.canvas.height;
+  const col = FACTION[ENEMY] === 'soviet' ? '#c0453f' : '#3b7dff';
+  c.fillStyle = '#0d1219'; c.fillRect(0, 0, w, h);
+  c.fillStyle = col;
+  c.beginPath(); c.arc(w / 2, h * 0.38, h * 0.24, 0, 7); c.fill();                              // head
+  c.beginPath(); c.moveTo(w * 0.16, h); c.quadraticCurveTo(w * 0.5, h * 0.52, w * 0.84, h); c.fill();   // shoulders
+  c.fillStyle = 'rgba(255,255,255,.15)'; c.fillRect(0, h * 0.72, w, 2);                         // visor line
+}
+export function showAdvisor(text){
+  advisorTextEl.textContent = text;
+  drawAdvisorFace();
+  advisorEl.hidden = false;
+  advisorEl.classList.add('show');
+  speak(text);
+  clearTimeout(advisorHideT);
+  advisorHideT = setTimeout(() => {
+    advisorEl.classList.remove('show');
+    setTimeout(() => { advisorEl.hidden = true; }, 300);
+  }, 6000);
+}
 export function underAttackAlert(e){
   if(state.time - state.attackAlertT < 14) return;
   state.attackAlertT = state.time;
@@ -44,8 +70,8 @@ export const cameoEls = {};
 
 export const TAB_ITEMS = {
   structure: ['power','refinery','barracks','factory','radar','depot','airfield','shipyard'],
-  defense:   ['pillbox','beamtower','arctower'],
-  infantry:  ['rifle','rocket','engineer','dog','sniper','arctrooper','sapper','isotope','psion','jetpack','blink','infiltrator','striker'],
+  defense:   ['pillbox','flaktower','beamtower','arctower'],
+  infantry:  ['rifle','rocket','engineer','scout','dog','sniper','arctrooper','sapper','isotope','psion','jetpack','blink','infiltrator','striker'],
   vehicle:   ['ltank','ifv','halftrack','beamtank','veiltank','launcher','drone','htank','jet','heli','airship',
               'lander','frigate','picket','sub','flakboat','harv','mcv'],
 };
@@ -450,7 +476,7 @@ export function cursorType(){
     if(su.some(u => u.def.engineer) && engineerCan(t, PLAYER) && !keys['control'] && !keys['meta'])
       return t.team === PLAYER ? 'fix' : 'capture';
     if(t && t.team === ENEMY && su.some(u => canHurt(u, t))) return 'attack';
-    if(t && t.team === PLAYER) return 'select';
+    if(t && t.team === PLAYER && !t.def.noSelect) return 'select';
     const tx = Math.floor(mouse.wx / T), ty = Math.floor(mouse.wy / T);
     if(!inMap(tx, ty)) return 'nomove';
     if(su.every(u => u.def.naval)){ if(!sailable(tx, ty) && explored[idx(tx, ty)]) return 'nomove'; }
@@ -458,7 +484,7 @@ export function cursorType(){
     return 'move';
   }
   if(t && t.cargo && t.cargo.length && t.team === PLAYER && sel.includes(t)) return 'deploy';
-  if(t && t.team === PLAYER) return 'select';
+  if(t && t.team === PLAYER && !t.def.noSelect) return 'select';
   if(sel.some(b => b.kind === 'building' && PRODUCERS.has(b.def.key))) return 'rally';
   return 'arrow';
 }
@@ -535,7 +561,7 @@ export function initUI(){
       const x1 = Math.min(mouse.dragX, mouse.x) / ZOOM + state.camX, x2 = Math.max(mouse.dragX, mouse.x) / ZOOM + state.camX;
       const y1 = Math.min(mouse.dragY, mouse.y) / ZOOM + state.camY, y2 = Math.max(mouse.dragY, mouse.y) / ZOOM + state.camY;
       const picked = units.filter(u => {
-        if(!onMap(u) || u.team !== PLAYER) return false;
+        if(!onMap(u) || u.team !== PLAYER || u.def.noSelect) return false;
         const p = isoAt(u.x, u.y, u.z || 0);
         return p.x >= x1 && p.x <= x2 && p.y >= y1 - 10 && p.y <= y2 + 6;
       });
@@ -547,7 +573,7 @@ export function initUI(){
         deployMcv(e2);
       } else if(e2 && e2.cargo && e2.team === PLAYER && selection.length === 1 && selection[0] === e2 && e2.cargo.length){
         unloadTransport(e2);
-      } else if(e2 && e2.team === PLAYER){
+      } else if(e2 && e2.team === PLAYER && !e2.def.noSelect){
         if(!selection.includes(e2)) ack('select', e2);
         if(e.shiftKey){ if(!selection.includes(e2)) selection.push(e2); }
         else setSelection([e2]);

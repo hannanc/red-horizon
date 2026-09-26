@@ -1,9 +1,9 @@
 // Red Horizon: Buildings, units, production, harvesting, movement and every unit behaviour.
 import {diff} from './ai.js';
 import {applyDamage, combatStep, findEnemyInRange, fireWeapon, kill} from './combat.js';
-import {BUILD_DEFS, ENEMY, FACTION, HPX, MH, MW, NEUTRAL, PLAYER, T, UNIT_DEFS, WPX, angDiff, buildings, canMove, clamp, dispName, dist, effects, explored, flags, groundZ, hasTurret, idx, inMap, isInf, newId, occ, onMap, ore, passable, sailable, selection, setSelection, state, tileOf, turnToward, units, walk, weaponOf} from './data.js';
+import {BLOCKED, BUILD_DEFS, ENEMY, FACTION, HPX, MH, MW, NEUTRAL, PLAYER, T, UNIT_DEFS, WPX, angDiff, buildings, canMove, clamp, dispName, dist, effects, explored, flags, groundZ, hasTurret, idx, inMap, isInf, newId, occ, onMap, ore, passable, sailable, selection, setSelection, state, tileOf, turnToward, units, walk, weaponOf} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
-import {announce, groups, refreshSidebar} from './ui.js';
+import {ack, announce, groups, refreshSidebar} from './ui.js';
 import {sfx} from './sound.js';
 import {rand} from './rng.js';
 
@@ -267,6 +267,114 @@ export function updateHarvester(u, dt){
   }
 }
 
+// ---------- scout (unarmed recon infantry, never player-controlled) ----------
+// it heads for the nearest unexplored ground, steering clear of any enemy building or unit sighting once that
+// ground has shown up on the radar; a nearby enemy makes it turn and run instead of just avoiding the target tile.
+const SCOUT_PANIC_R = 4;     // an enemy this close (tiles) makes it drop what it's doing and run
+const SCOUT_AVOID_R = 6;     // stays this far from known enemy ground when picking where to explore next
+const SCOUT_COORD_R = 10;    // stays this far from where another scout is already headed, so a group spreads out
+const SCOUT_ALERT_LIFE = 90; // seconds a spotted enemy unit's location is remembered as dangerous ground
+
+// enemy ground the scout's team already knows about: revealed enemy buildings (permanent) plus recent unit sightings
+function scoutDanger(u){
+  const spots = [];
+  for(const b of buildings)
+    if(!b.dead && b.team !== u.team && b.team !== NEUTRAL && explored[idx(b.tx, b.ty)])
+      spots.push({x: b.tx + b.w / 2, y: b.ty + b.h / 2});
+  for(const a of (state.scoutAlerts || []))
+    if(a.team === u.team && a.expire > state.time) spots.push(a);
+  return spots;
+}
+
+function markScoutAlert(u, tx, ty){
+  const list = state.scoutAlerts = (state.scoutAlerts || []).filter(a => a.expire > state.time - 5);
+  const near = list.find(a => a.team === u.team && Math.hypot(a.x - tx, a.y - ty) < 2);
+  if(near) near.expire = state.time + SCOUT_ALERT_LIFE;
+  else list.push({team: u.team, x: tx, y: ty, expire: state.time + SCOUT_ALERT_LIFE});
+  state.scoutAlerts = list;
+}
+
+// nearest enemy unit or building within `rangeTiles`, ignoring stealthed ones it shouldn't be able to see
+function nearestThreat(u, rangeTiles){
+  let best = null, bd = rangeTiles * T;
+  for(const v of units){
+    if(!onMap(v) || v.team === u.team || v.team === NEUTRAL || hiddenFrom(v, u.team)) continue;
+    const d = dist(u, v);
+    if(d < bd){ bd = d; best = v; }
+  }
+  for(const b of buildings){
+    if(b.dead || b.team === u.team || b.team === NEUTRAL) continue;
+    const d = dist(u, b);
+    if(d < bd){ bd = d; best = b; }
+  }
+  return best;
+}
+
+// nearest unexplored, walkable tile that isn't known enemy ground and isn't where another scout is already headed
+function pickFrontierTile(u){
+  const danger = scoutDanger(u);
+  const rivals = units.filter(v => v.def.scout && v !== u && v.team === u.team && v.exploreTarget);
+  const t = tileOf(u);
+  let best = null, bd = 1e9;
+  for(let y = 0; y < MH; y++)
+    for(let x = 0; x < MW; x++){
+      const i = idx(x, y);
+      if(explored[i] || occ[i] === BLOCKED) continue;
+      if(u.badFrontier && u.badFrontier.has(i)) continue;
+      if(danger.some(s => Math.hypot(x - s.x, y - s.y) < SCOUT_AVOID_R)) continue;
+      if(rivals.some(v => Math.hypot(x - v.exploreTarget.x, y - v.exploreTarget.y) < SCOUT_COORD_R)) continue;
+      const d = Math.hypot(x - t.x, y - t.y);
+      if(d < bd){ bd = d; best = {x, y}; }
+    }
+  return best;
+}
+
+export function updateScout(u, dt){
+  u.badFrontier = u.badFrontier || new Set();
+  if(u.scoutState === 'home') return;   // done for the match, parked at the base
+
+  const threat = nearestThreat(u, u.def.sight);
+  if(threat){
+    if(threat.kind === 'unit'){ const tt = tileOf(threat); markScoutAlert(u, tt.x, tt.y); }
+    if(dist(u, threat) < SCOUT_PANIC_R * T){
+      if(u.scoutState !== 'flee'){ u.scoutState = 'flee'; ack('spot', u); }
+      const a = Math.atan2(u.y - threat.y, u.x - threat.x);
+      orderMove(u, u.x + Math.cos(a) * 6 * T, u.y + Math.sin(a) * 6 * T);
+      u.fleeT = 3;
+    }
+  }
+  if(u.scoutState === 'flee'){
+    followPath(u, dt);
+    u.fleeT -= dt;
+    if(u.fleeT <= 0){ u.scoutState = 'explore'; u.exploreTarget = null; u.path = null; }
+    return;
+  }
+
+  if(u.scoutState === 'gohome'){
+    followPath(u, dt);
+    if(!u.path || u.pathI >= u.path.length){ u.scoutState = 'home'; ack('home', u); }
+    return;
+  }
+
+  if(!u.exploreTarget || !u.path || u.pathI >= u.path.length){
+    const target = pickFrontierTile(u);
+    if(!target){
+      const home = buildings.find(b => !b.dead && b.team === u.team && b.def.key === 'conyard')
+                || buildings.find(b => !b.dead && b.team === u.team);
+      u.scoutState = 'gohome'; u.exploreTarget = null;
+      orderMove(u, home ? home.x : u.x, home ? home.y : u.y);
+      return;
+    }
+    u.exploreTarget = target;
+    orderMove(u, (target.x + 0.5) * T, (target.y + 0.5) * T);
+    if(!u.path){ u.badFrontier.add(idx(target.x, target.y)); u.exploreTarget = null; return; }
+  }
+  followPath(u, dt);
+
+  u.chatT = (u.chatT == null ? 10 + rand() * 20 : u.chatT) - dt;
+  if(u.chatT <= 0){ ack('scout', u); u.chatT = 25 + rand() * 20; }
+}
+
 // ---------- movement & combat ----------
 export function followPath(u, dt){
   if(!u.path || u.pathI >= u.path.length) return true;
@@ -321,6 +429,7 @@ export function updateUnit(u, dt){
   if(u.order.type === 'board'){ updateBoarding(u, dt); applySeparation(u, dt); return; }
   if(u.def.harvester){ updateHarvester(u, dt); applySeparation(u, dt); return; }
   if(u.def.engineer || u.def.spy){ updateEngineer(u, dt); applySeparation(u, dt); return; }
+  if(u.def.scout){ updateScout(u, dt); applySeparation(u, dt); return; }
   let o = u.order;
   // turrets drift back to the hull's heading when not engaging
   if(hasTurret(u.def) && o.type !== 'attack') u.tface = turnToward(u.tface, u.face, 3 * dt);

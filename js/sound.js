@@ -93,14 +93,14 @@ const boomAt = (ac, o, t, v, sz) => {
   noise(ac, o, t + 0.04, {dur: 0.12, vol: 0.22, type: 'highpass', f0: 1500});
 };
 export const SOUNDS = {
-  shoot:   {gap: 0.03, max: 6, dur: 0.1, play(ac, o, t, v){
-    noise(ac, o, t, {dur: 0.07, vol: 0.9, type: 'bandpass', f0: 1700 * v, q: 0.9});
-    tone(ac, o, t, {type: 'square', f0: 160 * v, f1: 55, dur: 0.05, vol: 0.12, lp: 900});
+  shoot:   {gap: 0.03, max: 6, dur: 0.09, play(ac, o, t, v){
+    noise(ac, o, t, {dur: 0.02, vol: 1, type: 'bandpass', f0: 2800 * v, f1: 1300, q: 0.7, a: 0.0015});
+    noise(ac, o, t, {dur: 0.05, vol: 0.4, type: 'lowpass', f0: 650 * v, f1: 140, a: 0.0015});
   }},
   cannon:  {gap: 0.05, max: 4, dur: 0.35, play(ac, o, t, v){
-    noise(ac, o, t, {dur: 0.03, vol: 0.35, type: 'highpass', f0: 2500});
-    tone(ac, o, t, {f0: 110 * v, f1: 38, dur: 0.32, vol: 0.6});
-    noise(ac, o, t, {dur: 0.28, vol: 0.55, f0: 1400 * v, f1: 220});
+    noise(ac, o, t, {dur: 0.03, vol: 0.4, type: 'highpass', f0: 2500, a: 0.0015});
+    noise(ac, o, t, {dur: 0.32, vol: 0.8, type: 'lowpass', f0: 900 * v, f1: 65, a: 0.002});
+    noise(ac, o, t, {dur: 0.24, vol: 0.5, f0: 1400 * v, f1: 220});
   }},
   rocket:  {gap: 0.06, max: 4, dur: 0.5, play(ac, o, t, v){
     noise(ac, o, t, {dur: 0.05, vol: 0.35, type: 'bandpass', f0: 900 * v});

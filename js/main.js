@@ -234,7 +234,7 @@ export function tick(dt){
     fogT -= dt;
     if(fogT <= 0){
       fogT = 0.4;
-      for(const u of units) if(!u.dead && u.team === PLAYER) revealAround(u.x, u.y, 6);
+      for(const u of units) if(!u.dead && u.team === PLAYER) revealAround(u.x, u.y, u.def.sight || 6);
       for(const b of buildings) if(!b.dead && b.team === PLAYER) revealAround(b.x, b.y, 7);
     }
     if(state.lowPower && !lowPowerWarned){ lowPowerWarned = true; announce('Low power', true, 'Low power'); sfx('powerdown'); }
@@ -269,12 +269,16 @@ export function showSetup(){
   document.getElementById('seedNote').textContent = setup.map === 'random' ? 'picks the random map and the game\'s luck' : 'the game\'s luck';
   document.getElementById('sideMe').textContent = SIDE_NAME[setup.side];
   document.getElementById('sideThem').textContent = SIDE_NAME[setup.side === 'allied' ? 'soviet' : 'allied'];
+  document.getElementById('trainingBtn').classList.toggle('on', setup.training);
+  document.getElementById('trainingNote').textContent = setup.training
+    ? 'The enemy builds a base and economy, but will not send attacks.' : '';
 }
 document.querySelectorAll('[data-side]').forEach(b => b.addEventListener('click', () => { setup.side = b.dataset.side; saveSetup(); }));
 document.querySelectorAll('[data-credits]').forEach(b => b.addEventListener('click', () => { setup.credits = +b.dataset.credits; saveSetup(); }));
 document.getElementById('seedIn').addEventListener('change', e => { setup.seed = clamp(Math.floor(+e.target.value) || 1, 1, 99999); saveSetup(); });
 document.getElementById('seedRnd').addEventListener('click', () => { setup.seed = 2 + Math.floor(Math.random() * 99990); saveSetup(); });
 document.querySelectorAll('[data-map]').forEach(b => b.addEventListener('click', () => { setup.map = b.dataset.map; saveSetup(); }));
+document.getElementById('trainingBtn').addEventListener('click', () => { setup.training = !setup.training; saveSetup(); });
 
 // money and AI timers for a new game on the chosen difficulty
 function beginGame(){

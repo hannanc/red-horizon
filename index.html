@@ -61,6 +61,13 @@
   }
   #radarFrame::before{left:-6px}
   #radarFrame::after{right:-6px}
+  #advisor{
+    position:absolute;top:3px;left:3px;right:3px;bottom:3px;background:#05070c;
+    display:flex;align-items:center;gap:8px;padding:6px;opacity:0;transition:opacity .3s;
+  }
+  #advisor.show{opacity:1;}
+  #advisorFace{flex:none;border:1px solid #0b0f15;box-shadow:0 0 6px rgba(0,0,0,.6);}
+  #advisorText{font:12px/1.3 "Trebuchet MS",sans-serif;color:#cfe0ff;text-shadow:0 1px 0 #000;}
   #cmdRow{display:flex;gap:6px;align-items:stretch;}
   .sbBtn{
     flex:1;height:30px;border:2px solid;border-color:#b4c4d6 #1a222d #1a222d #b4c4d6;
@@ -201,7 +208,13 @@
 
 <div id="sidebar">
   <div id="creditsBox" class="well">$<span id="credits">0</span></div>
-  <div id="radarFrame" class="well"><canvas id="minimap" width="220" height="120"></canvas></div>
+  <div id="radarFrame" class="well">
+    <canvas id="minimap" width="220" height="120"></canvas>
+    <div id="advisor" hidden>
+      <canvas id="advisorFace" width="56" height="56"></canvas>
+      <div id="advisorText"></div>
+    </div>
+  </div>
   <div id="cmdRow">
     <button id="repairBtn" class="sbBtn" title="Repair a structure (K)">🔧</button>
     <button id="sellBtn" class="sbBtn" title="Sell a structure (L)">$</button>
@@ -243,6 +256,10 @@
       <div id="diffRow" class="optRow">Difficulty:
         <button data-diff="easy">EASY</button><button data-diff="normal">NORMAL</button><button data-diff="hard">HARD</button>
         <div id="diffNote"></div>
+      </div>
+      <div class="optRow">Mode:
+        <button id="trainingBtn" data-training title="The enemy still builds a base and economy, but never sends an attack">TRAINING</button>
+        <div id="trainingNote"></div>
       </div>
     </div>
     <button id="startBtn" style="margin-bottom:10px">COMMENCE OPERATION</button>

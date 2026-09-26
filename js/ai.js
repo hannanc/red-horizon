@@ -1,10 +1,11 @@
 // Red Horizon: The computer opponent: difficulty, production, attack waves, transports, navy, repairs.
 import {canHurt} from './combat.js';
-import {BUILD_DEFS, ENEMY, FACTION, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, UNIT_DEFS, buildings, dist, idx, inMap, isInf, occ, onMap, ore, passable, state, units} from './data.js';
+import {BUILD_DEFS, ENEMY, explored, FACTION, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, tileOf, UNIT_DEFS, buildings, dist, idx, inMap, isInf, occ, onMap, ore, passable, setup, state, units} from './data.js';
 import {findPath, freeTileNear, orderMove} from './pathfinding.js';
-import {announce} from './ui.js';
+import {announce, showAdvisor} from './ui.js';
+import {radarOn} from './render.js';
 import {sfx} from './sound.js';
-import {canBoard, canGarrison, canPlace, deliverUnit, engineerCan, fooledBy, hiddenFrom, onFootprint, placeBuilding, powerOf, prereqOk, prodQ, spawnUnit, unloadTransport} from './units.js';
+import {canBoard, canGarrison, canPlace, deliverUnit, engineerCan, fooledBy, hasBuilding, hiddenFrom, onFootprint, placeBuilding, powerOf, prereqOk, prodQ, spawnUnit, unloadTransport} from './units.js';
 import {rand} from './rng.js';
 
 // ---------- enemy AI ----------
@@ -41,8 +42,10 @@ export const ai = {
   waveTimer: 80,
   waveSize: 3,
   prodQ: null,   // AI_QUEUE of its side, set by newWorld()
-  prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0, engT: 0,
+  prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0, engT: 0, reactT: 0,
   bKey: null, bProg: 0, bThink: 0, bSkip: {},   // base building: current structure, its progress, what can't be placed
+  advAirT: 0, advHeavyT: 0, advWaveT: 0, advBuildT: 0, advUnitT: 0,   // tactical advisor: cooldowns per kind of warning
+  idleBuildT: 0, idleUnitT: 0,                  // how long the player's own build/train queues have sat empty
 };
 
 // ---------- AI base building ----------
@@ -59,14 +62,85 @@ function playerHome(){
   return b ? {x: b.x, y: b.y} : {x: (s.x + 0.5) * T, y: (s.y + 0.5) * T};
 }
 
+// ---------- reacting to what the player builds ----------
+// a rough read of the player's army, so production can lean towards whatever answers it
+function playerProfile(){
+  const u = units.filter(v => v.team === PLAYER && onMap(v));
+  return {air: u.filter(v => v.def.armor === 'air').length, heavy: u.filter(v => v.def.armor === 'heavy').length,
+          naval: u.filter(v => v.def.naval).length};
+}
+const ownCount = k => units.filter(u => u.team === ENEMY && !u.dead && u.def.key === k).length;
+// how well a unit counters what the player is fielding right now; 0 or less means "don't bother"
+function reactiveScore(def, profile){
+  if(!def.weapon) return -1;
+  let s = 0;
+  if(profile.air > 2)   s += (def.weapon.vs.air || 0) * 2;
+  if(profile.heavy > 3) s += (def.weapon.vs.heavy || 0) * 1.5;
+  if(profile.naval > 1) s += (def.weapon.vs.sub || 0) * 1.5;
+  return s - ownCount(def.key) * 0.3;   // don't overstack the counter-pick itself
+}
+
+// ---------- tactical advisor: warns about the enemy, and nudges an idle player ----------
+// only what the player's own radar would actually show: an explored tile, and not hidden (stealth etc.)
+function visibleEnemy(){
+  if(!radarOn) return [];
+  return units.filter(u => u.team === ENEMY && onMap(u) && !hiddenFrom(u, PLAYER) &&
+                       inMap(tileOf(u).x, tileOf(u).y) && explored[idx(tileOf(u).x, tileOf(u).y)]);
+}
+const hasUnexplored = () => explored.some(e => !e);
+const playerScouted = () => units.some(u => u.team === PLAYER && !u.dead && u.def.key === 'scout') ||
+                            prodQ.infantry.some(s => s.key === 'scout');
+// the next building most worth queuing, in the usual startup order
+function suggestBuilding(){
+  if(!hasBuilding(PLAYER, 'power')) return 'a Power Plant';
+  if(!hasBuilding(PLAYER, 'refinery')) return 'an Ore Refinery';
+  if(!hasBuilding(PLAYER, 'barracks')) return 'a Barracks';
+  if(!hasBuilding(PLAYER, 'factory')) return 'a Vehicle Factory';
+  if(!hasBuilding(PLAYER, 'radar')) return 'a Radar';
+  if(!hasBuilding(PLAYER, 'depot')) return 'a Service Depot';
+  return null;
+}
+
+function tickAdvisor(dt){
+  const seen = visibleEnemy();
+  const buildIdle = prodQ.structure.length === 0 && prodQ.defense.length === 0;
+  const unitIdle = prodQ.infantry.length === 0 && prodQ.vehicle.length === 0;
+  ai.idleBuildT = buildIdle ? ai.idleBuildT + dt : 0;
+  ai.idleUnitT = unitIdle ? ai.idleUnitT + dt : 0;
+
+  if(state.time > ai.advAirT && seen.filter(u => u.def.armor === 'air').length > 2){
+    ai.advAirT = state.time + 90;
+    showAdvisor('They are massing aircraft. We should build some anti-air.');
+  } else if(state.time > ai.advHeavyT && seen.filter(u => u.def.armor === 'heavy').length > 5){
+    ai.advHeavyT = state.time + 90;
+    showAdvisor('Heavy armor spotted in numbers. Get anti-tank units ready.');
+  } else if(state.time > ai.advWaveT && ai.waveTimer < 8 && seen.length >= ai.waveSize){
+    ai.advWaveT = state.time + 60;
+    showAdvisor('Enemy forces are massing. An attack looks imminent.');
+  } else if(state.time > ai.advBuildT && ai.idleBuildT > 30 && suggestBuilding()){
+    ai.advBuildT = state.time + 45;
+    showAdvisor('Nothing under construction. Consider ' + suggestBuilding() + '.');
+  } else if(state.time > ai.advUnitT && ai.idleUnitT > 30){
+    if(hasUnexplored() && !playerScouted() && hasBuilding(PLAYER, 'radar') && hasBuilding(PLAYER, 'barracks')){
+      ai.advUnitT = state.time + 45;
+      showAdvisor('Much of the map is still unexplored. Build a Scout, high priority.');
+    } else if(hasBuilding(PLAYER, 'barracks') || hasBuilding(PLAYER, 'factory')){
+      ai.advUnitT = state.time + 45;
+      showAdvisor('No troops in training. Queue up some more units.');
+    }
+  }
+}
+
 // The structure the AI wants next: its plan in order, with power first whenever the
 // next one would overdraw it. A lost building drops its count and gets rebuilt.
 const CORE = 7;   // the first plan entries are the core base; the rest wait for spare money or a decent army
 export function aiNextBuilding(){
   const p = powerOf(ENEMY), tower = aiTower();
+  const reactAir = playerProfile().air > 2 ? Math.min(2, diff.towers) : 0;   // only bothers once it's seen real air activity
   const plan = [['power', 1], ['refinery', 1], ['barracks', 1], ['factory', 1], ['power', 2], ['radar', 1],
                 ['refinery', 1 + Math.min(1, diff.expand)],   // a second refinery is part of the core above Easy
-                [tower, Math.min(2, diff.towers)], ['depot', 1], ['shipyard', diff.navy ? 1 : 0],
+                [tower, Math.min(2, diff.towers)], ['flaktower', reactAir],   // AA comes right after its first tower, ahead of expansion, once it's reacting
+                ['depot', 1], ['shipyard', diff.navy ? 1 : 0],
                 ['refinery', 1 + diff.expand], [tower, diff.towers]];
   for(let i = 0; i < plan.length; i++){
     const [k, n] = plan[i];
@@ -235,6 +309,7 @@ export function tickAI(dt){
   state.credits[ENEMY] += diff.income * dt;
 
   aiBase(dt);
+  tickAdvisor(dt);
   const can = k => prereqOk(UNIT_DEFS[k], ENEMY);
   if(!ai.prodKey){
     // the next unit in the queue it has the buildings for; one it can't build yet waits at the front
@@ -259,6 +334,13 @@ export function tickAI(dt){
     }
     if(airshipDue() && can('airship')){ ai.prodKey = 'airship'; ai.airT = state.time + 150; }
     else if(navyDue()){ ai.prodKey = AI_SHIPS[FACTION[ENEMY]][ai.navI++ % 2]; ai.navT = state.time + 90; }
+    // now and then, lean towards whatever answers the player's current army instead of the next unit in line
+    if(state.time > ai.reactT){
+      ai.reactT = state.time + 20;
+      const profile = playerProfile();
+      const best = ai.prodQ.map(k => ({k, s: reactiveScore(UNIT_DEFS[k], profile)})).sort((a, b) => b.s - a.s)[0];
+      if(best && best.s > 0.5 && can(best.k) && rand() < 0.6) ai.prodKey = best.k;
+    }
     // a harvester for every refinery comes before anything else
     const harvs = aiCount('refinery') + (aiCount('refinery') ? 1 : 0);   // one per refinery and a spare
     if(can('harv') && units.filter(u => u.team === ENEMY && !u.dead && u.def.harvester).length < harvs) ai.prodKey = 'harv';
@@ -284,6 +366,8 @@ export function tickAI(dt){
     }
   }
 
+  // training mode: the enemy still builds, harvests and defends, but never sends an attack wave
+  if(setup.training) ai.waveTimer = 1e9;
   ai.waveTimer -= dt;
   if(ai.waveTimer <= 0){
     // a halftrack sits out waves for a while so it can fill up first
