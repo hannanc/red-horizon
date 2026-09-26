@@ -310,11 +310,30 @@ function nearestThreat(u, rangeTiles){
   return best;
 }
 
-// nearest unexplored, walkable tile that isn't known enemy ground and isn't where another scout is already headed
+// Each scout wanders along its own random heading: a new scout picks the direction furthest from its
+// teammates' headings, and the heading drifts a little every time it picks a new spot.
+const SCOUT_TURN_COST = 7;    // tiles of extra distance that a frontier tile straight behind the heading "costs"
+const SCOUT_JITTER = 5;       // random tiles added per candidate, so similar spots are chosen between at random
+function scoutHeading(u){
+  if(u.scoutHeading != null) return u.scoutHeading;
+  const others = units.filter(v => v.def.scout && v !== u && v.team === u.team && !v.dead && v.scoutHeading != null)
+                      .map(v => v.scoutHeading);
+  let best = rand() * Math.PI * 2, bestGap = -1;
+  for(let i = 0; i < 8 && others.length; i++){       // a few random tries; keep the one furthest from the others
+    const a = rand() * Math.PI * 2;
+    const gap = Math.min(...others.map(o => Math.abs(angDiff(a, o))));
+    if(gap > bestGap){ bestGap = gap; best = a; }
+  }
+  return u.scoutHeading = best;
+}
+
+// an unexplored, walkable tile that isn't known enemy ground or where another scout is already headed:
+// close by, roughly along this scout's heading, with some randomness between similar choices
 function pickFrontierTile(u){
   const danger = scoutDanger(u);
   const rivals = units.filter(v => v.def.scout && v !== u && v.team === u.team && v.exploreTarget);
   const t = tileOf(u);
+  const heading = scoutHeading(u);
   let best = null, bd = 1e9;
   for(let y = 0; y < MH; y++)
     for(let x = 0; x < MW; x++){
@@ -324,8 +343,14 @@ function pickFrontierTile(u){
       if(danger.some(s => Math.hypot(x - s.x, y - s.y) < SCOUT_AVOID_R)) continue;
       if(rivals.some(v => Math.hypot(x - v.exploreTarget.x, y - v.exploreTarget.y) < SCOUT_COORD_R)) continue;
       const d = Math.hypot(x - t.x, y - t.y);
-      if(d < bd){ bd = d; best = {x, y}; }
+      const off = d > 0.5 ? Math.abs(angDiff(heading, Math.atan2(y - t.y, x - t.x))) / Math.PI : 0;   // 0 ahead .. 1 behind
+      const score = d + off * SCOUT_TURN_COST * (1 + d / 16) + rand() * SCOUT_JITTER;
+      if(score < bd){ bd = score; best = {x, y}; }
     }
+  if(best){   // carry on roughly the way it went, drifting a little
+    const a = Math.atan2(best.y - t.y, best.x - t.x);
+    u.scoutHeading = heading + angDiff(heading, a) * 0.5 + (rand() - 0.5) * 0.6;
+  }
   return best;
 }
 

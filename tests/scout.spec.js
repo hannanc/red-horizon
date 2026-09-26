@@ -9,7 +9,7 @@ test.beforeEach(async ({ page }) => {
 });
 test.afterEach(() => expectClean(errors));
 
-test('heads for the nearest unexplored ground on its own, unarmed', async ({ page }) => {
+test('heads for unexplored ground on its own, unarmed', async ({ page }) => {
   const r = await page.evaluate(() => {
     const u = __RH.spawn('scout', 40, 55, 0);
     const p0 = {x: u.x, y: u.y};
@@ -80,4 +80,36 @@ test('is available to both sides and needs a Radar', async ({ page }) => {
   const r = await page.evaluate(() => ({prereq: __RH.UNIT_DEFS.scout.prereq, side: __RH.UNIT_DEFS.scout.side}));
   expect(r.prereq).toContain('radar');
   expect(r.side).toBeUndefined();
+});
+
+test('two scouts from the same spot head off in clearly different directions', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const a = __RH.spawn('scout', 44, 60, 0), b = __RH.spawn('scout', 44, 60, 0);
+    const p0 = {x: a.x, y: a.y};
+    __RH.step(25);
+    const dir = u => Math.atan2(u.y - p0.y, u.x - p0.x);
+    let gap = Math.abs(dir(a) - dir(b)); if(gap > Math.PI) gap = 2 * Math.PI - gap;
+    return {apart: Math.hypot(a.x - b.x, a.y - b.y) / 32, gap: gap * 180 / Math.PI,
+            moved: [Math.hypot(a.x - p0.x, a.y - p0.y) / 32, Math.hypot(b.x - p0.x, b.y - p0.y) / 32]};
+  });
+  expect(r.moved[0]).toBeGreaterThan(3);
+  expect(r.moved[1]).toBeGreaterThan(3);
+  expect(r.apart, JSON.stringify(r)).toBeGreaterThan(5);      // tiles between them
+  expect(r.gap, JSON.stringify(r)).toBeGreaterThan(45);       // degrees between their directions from the start
+});
+
+test('a scout\'s route depends on the map seed', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const firsts = [];
+    for(const seed of [3, 11, 29, 47]){
+      __RH.rebuild({map: 'classic', seed});
+      __RH.start(); __RH.pause(true);
+      __RH.clear(32, 48, 24, 24);
+      const u = __RH.spawn('scout', 44, 60, 0);
+      __RH.step(6);
+      firsts.push(u.exploreTarget && (u.exploreTarget.x + ',' + u.exploreTarget.y));
+    }
+    return firsts;
+  });
+  expect(new Set(r).size, JSON.stringify(r)).toBeGreaterThan(1);   // not the same spot every game
 });
