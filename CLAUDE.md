@@ -296,7 +296,7 @@ fallback drawing.
    - teleporting infantry
 5. **Done: Stealth tank (code plus art).** The Veil Tank. It looks like a tree while stationary and
    can't be auto-targeted until it fires.
-6. **Done: Naval (code plus art).** Models `shipyard`, `lander`, `frigate`, `picket`, `sub`, `flakboat` written, not rendered yet. Needs a map with a real sea (terrain generation,
+6. **Done: Naval (code plus art).** Needs a map with a real sea (terrain generation,
    plus water pathing for ships), a Shipyard, transports that carry vehicles,
    destroyers, subs and AA cruisers. This is the biggest item.
 7. **Done: Polish:**
