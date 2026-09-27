@@ -19,8 +19,8 @@ test('Esc and the Options button pause the game and open the menu; Resume carrie
   expect(await simTime(page)).toBe(t0);                     // paused
   await page.click('#mResume');
   await expect(page.locator('#menu')).toBeHidden();
-  await page.waitForTimeout(600);
-  expect(await simTime(page)).toBeGreaterThan(t0 + 0.3);
+  // running again: wait for the clock rather than a fixed time (WebKit on CI draws few frames a second)
+  await expect.poll(() => simTime(page), {timeout: 5000}).toBeGreaterThan(t0 + 0.3);
   await page.click('#helpBtn');
   await expect(page.locator('#menu')).toBeVisible();
   await page.keyboard.press('Escape');
