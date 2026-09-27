@@ -121,3 +121,9 @@ To re-render everything (about 12 minutes on an M4 at 2×; pass `--scale 1` for 
 To improve a model, replace its function in `rh_models.py`. You can also load a
 detailed `.blend` or `.glb` model there instead. Then re-render, and the game picks up the
 new sheet automatically. The same models can move straight into Godot or Unity later.
+
+## License
+
+Everything in this repository, the code and the art in `assets/` alike, is released under the
+[MIT License](LICENSE). Red Horizon is an original game: its units, buildings, names and art are its own and are
+not taken from any commercial game.
