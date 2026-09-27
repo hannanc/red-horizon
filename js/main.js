@@ -2,7 +2,7 @@
 import {AI_QUEUE, DIFFICULTY, ai, diff, setDifficulty, tickAI} from './ai.js';
 import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js';
 import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf, settings, saveSettings} from './data.js';
-import {orderMove, findPath} from './pathfinding.js';
+import {orderMove, findPath, freeTileNear} from './pathfinding.js';
 import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers, setZoom} from './render.js';
 import {initUI, patrolSelected, announce, buildSidebar, clockEl, drawHUD, groups, speak, stopVoices, voice, VOICE, showAdvisor, ack, tickCamera} from './ui.js';
 import {audio, renderSfx, sfx, sfxLog} from './sound.js';
@@ -30,6 +30,54 @@ export function seedOre(cxT, cyT, radius, amount){
     }
 }
 
+// ---------- ore that comes back ----------
+// Fields slowly thicken up again and creep onto free neighbouring ground, and now and then a new
+// deposit appears somewhere fair to both sides, so a long game doesn't run dry.
+export const ORE = {growEvery: 5, grow: 2, max: 500, spread: 0.02, spreadMin: 150, newEvery: [150, 240], newAmount: 420};
+const oreFree = (x, y) => inMap(x, y) && occ[idx(x, y)] === 0 && passable(x, y) && ore[idx(x, y)] <= 0;
+export function tickOre(dt){
+  state.oreGrowT = (state.oreGrowT ?? ORE.growEvery) - dt;   // saves from before ore grew have no timers
+  if(state.oreGrowT <= 0){
+    state.oreGrowT += ORE.growEvery;
+    for(let y = 0; y < MH; y++) for(let x = 0; x < MW; x++){
+      const i = idx(x, y), a = ore[i];
+      if(a <= 0) continue;
+      if(a < ORE.max) ore[i] = Math.min(ORE.max, a + ORE.grow);
+      if(a >= ORE.spreadMin && rand() < ORE.spread){
+        const [dx, dy] = [[1, 0], [-1, 0], [0, 1], [0, -1]][Math.floor(rand() * 4)];
+        if(oreFree(x + dx, y + dy)) ore[idx(x + dx, y + dy)] = 60;
+      }
+    }
+  }
+  state.oreNewT = (state.oreNewT ?? ORE.newEvery[0]) - dt;
+  if(state.oreNewT <= 0){
+    state.oreNewT = ORE.newEvery[0] + rand() * (ORE.newEvery[1] - ORE.newEvery[0]);
+    const at = newOreSpot();
+    if(at){
+      seedOre(at.x, at.y, 2, ORE.newAmount);
+      announce('New ore deposit detected', false, 'Ore deposit detected');
+    }
+  }
+}
+// open ground, clear of buildings, about as far from one start as from the other, and reachable from both
+export function newOreSpot(){
+  const [a, b] = TerrainGen.map.bases;
+  const from = s => freeTileNear(s.x, s.y + 3, 6);
+  const pa = from(a), pb = from(b);
+  for(let k = 0; k < 80; k++){
+    const x = 3 + Math.floor(rand() * (MW - 6)), y = 3 + Math.floor(rand() * (MH - 6));
+    let open = true;
+    for(let v = y - 2; v <= y + 2 && open; v++) for(let u = x - 2; u <= x + 2; u++) if(!oreFree(u, v)){ open = false; break; }
+    if(!open) continue;
+    const da = Math.hypot(x - a.x, y - a.y), db = Math.hypot(x - b.x, y - b.y);
+    if(Math.min(da, db) < 12 || Math.abs(da - db) > 0.25 * Math.max(da, db)) continue;
+    if(buildings.some(e => !e.dead && Math.hypot(e.x / T - x, e.y / T - y) < 6)) continue;
+    if(pa && !findPath(pa.x, pa.y, x, y)) continue;
+    if(pb && !findPath(pb.x, pb.y, x, y)) continue;
+    return {x, y};
+  }
+  return null;
+}
 
 // ---------- win / lose ----------
 export let lowPowerWarned = false;
@@ -196,6 +244,7 @@ export function tick(dt){
     for(const b of buildings) if(!b.dead) updateBuilding(b, dt);
     updateProjectiles(dt);
     tickRadiation(dt);
+    tickOre(dt);
 
     const spawned = [];
     for(const e of effects){
@@ -336,7 +385,8 @@ export function restartGame(){
   stopVoices();
   closeMenu();
   document.getElementById('endScreen').style.display = 'none';
-  Object.assign(state, {time: 0, over: false, paused: false, lowPower: false, attackAlertT: -99, chargeMsgT: -99});
+  Object.assign(state, {time: 0, over: false, paused: false, lowPower: false, attackAlertT: -99, chargeMsgT: -99,
+                       oreGrowT: ORE.growEvery, oreNewT: ORE.newEvery[0]});
   newWorld();
   beginGame();
   announce('Command link established', false, 'Command link established');
@@ -486,7 +536,7 @@ window.__RH = {
   // rebuild the world from other setup choices (before the game starts), e.g. rebuild({map: 'random', seed: 5})
   rebuild(opts){ Object.assign(setup, opts); newWorld(); },
   sfxLog, renderSfx, sfx: (type, tx, ty, size) => sfx(type, tx == null ? null : {x: tx * T + T / 2, y: ty * T + T / 2}, size),
-  patrol(list){ this.select(list); patrolSelected(); }, tickCamera, settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
+  patrol(list){ this.select(list); patrolSelected(); }, ore, newOreSpot, tickCamera, settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
   pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },

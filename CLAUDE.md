@@ -125,6 +125,10 @@ This file covers how the code works, the rules, and what to build next.
   one heading home (else the older one) drive through; two steering for the same waypoint used to push each other to a
   standstill for good. The Soviet ore truck has `TRUCK_GUN` (`weaponOf` returns it by `u.fac`; `truckGun()` fires it from
   `updateHarvester` without interrupting the job). The Allied hauler returns with `haulerJump()` instead of driving.
+- **Ore comes back** (`tickOre` in `main.js`, tuned by `ORE`): every `growEvery` s each ore tile grows by `grow` up to `max`
+  and, once rich, may creep onto a free neighbouring tile; every 150-240 s (`state.oreNewT`) `newOreSpot()` seeds a small
+  new field on open ground, roughly as far from one start as the other and reachable from both, and the announcer says so.
+  Timers live in `state`; `__RH.ore` is the ore layer for tests (`tests/ore.spec.js`).
 - **Explosions**: `boom` effects draw the `explosion` sheet (8 frames) scaled to the blast when it exists, else the
   procedural fireball.
 - **Veil Tank** (`def.treeDisguise`): `fooledBy` keeps enemy scans off it until it has fired in the last 3 s;
@@ -248,6 +252,7 @@ so code-only work can land first and the art can follow.
   - `tests/setup.spec.js`: the skirmish setup screen (side, credits, map, seed).
   - `tests/soviet.spec.js`: a whole game as the Soviets against the Allied AI.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar (hover cards, the low-power banner).
+  - `tests/ore.spec.js`: ore regrowth and spreading, new deposits.
   - `tests/patrol.spec.js`: patrol routes, engaging and breaking off, save and load, the AI's patrols.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - `tests/determinism.spec.js`: the same seed replays the same game.
@@ -261,7 +266,7 @@ so code-only work can land first and the art can follow.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
   `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `sfx(type, tx, ty, size)`, `sfxLog`, `renderSfx(type, size)`, `save(slot)`, `load(slot)`, `rebuild({map, seed, ...})` (a new world from other setup choices, before `start()`), `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
-  finished it; jets get a pad), `orderMove(u, wx, wy)`, `patrol([...])`, `tickCamera(dt)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
+  finished it; jets get a pad), `orderMove(u, wx, wy)`, `patrol([...])`, `tickCamera(dt)`, `ore` (the ore layer), `newOreSpot()`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
   Tests call `start()` then `pause(true)`, so the real-time clock is stopped and only `step()` moves the game.

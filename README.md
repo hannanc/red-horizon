@@ -26,6 +26,9 @@ http rather than opened from disk). The start screen sets up the skirmish:
 - **Difficulty:** Easy, Normal or Hard sets the AI's income, how fast and how well it builds its base, its army size
   and how often and how hard it attacks. The AI starts from a Construction Hub, like you, and builds up from there.
 
+Ore doesn't run out for good: fields slowly grow back and spread, and every few minutes a new deposit turns up
+somewhere between the two bases (the announcer tells you).
+
 Games save to five slots in the browser (pause menu, **Save / Load**); **Load game** on the start screen
 picks one up again.
 
