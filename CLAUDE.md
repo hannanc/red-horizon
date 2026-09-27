@@ -137,10 +137,13 @@ This file covers how the code works, the rules, and what to build next.
   - Patrol (`P`, `patrolSelected` → `orderPatrol`): `{pts, i}` from `patrolRoute(team)`, eight points 3 tiles round the team's
     buildings. A threat within `PATROL_LEASH` tiles of the current point becomes `{type:'attack', patrol, leash}`, which breaks
     off (`resumePatrol`) when the target goes or the unit strays past the leash. Not for aircraft, ships or the utility units (`canPatrol`).
+    The AI keeps `diff.patrol` home defenders (1/2/3, at most half of those at home) on patrol (`aiPatrol`); damaged ones stop
+    so `aiRepairs` can take them to the depot, and attack waves take patrollers along. The route only covers buildings
+    within 18 tiles of the hub.
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.
 - **AI** (`tickAI`): one production queue (`ai.prodQ`), attack waves on a timer, and `aiTransports()` to fill and unload halftracks.
   `DIFFICULTY[key]` (picked on the start screen, applied by `setDifficulty()`, read through `diff`) scales starting credits,
-  income, first-wave time, wave gap, wave size, army cap, and base building (`build` speed, `towers`, `expand`, `navy`, `repairAt`).
+  income, first-wave time, wave gap, wave size, army cap, base patrols (`patrol`), and base building (`build` speed, `towers`, `expand`, `navy`, `repairAt`).
   - It starts from a Construction Hub and a few units, like the player, and builds its own base (`aiBase`):
     `aiNextBuilding()` walks a plan (power, refinery, barracks, factory, power, radar, a second refinery, then towers,
     depot, dockyard, more refineries and towers), puts power first whenever the next building would overdraw, and
@@ -236,7 +239,7 @@ so code-only work can land first and the art can follow.
   - `tests/setup.spec.js`: the skirmish setup screen (side, credits, map, seed).
   - `tests/soviet.spec.js`: a whole game as the Soviets against the Allied AI.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar (hover cards, the low-power banner).
-  - `tests/patrol.spec.js`: patrol routes, engaging and breaking off, save and load.
+  - `tests/patrol.spec.js`: patrol routes, engaging and breaking off, save and load, the AI's patrols.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - `tests/determinism.spec.js`: the same seed replays the same game.
   - `tests/menu.spec.js`: the pause menu and its settings.

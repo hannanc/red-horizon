@@ -1,26 +1,27 @@
 // Red Horizon: The computer opponent: difficulty, production, attack waves, transports, navy, repairs.
 import {canHurt} from './combat.js';
-import {BUILD_DEFS, ENEMY, explored, FACTION, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, tileOf, UNIT_DEFS, buildings, dist, idx, inMap, isInf, occ, onMap, ore, passable, setup, state, units} from './data.js';
+import {BUILD_DEFS, ENEMY, explored, FACTION, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, tileOf, UNIT_DEFS, buildings, weaponOf, dist, idx, inMap, isInf, occ, onMap, ore, passable, setup, state, units} from './data.js';
 import {findPath, freeTileNear, orderMove} from './pathfinding.js';
 import {announce, showAdvisor} from './ui.js';
 import {radarOn} from './render.js';
 import {sfx} from './sound.js';
-import {canBoard, canGarrison, canPlace, deliverUnit, engineerCan, fooledBy, hasBuilding, hiddenFrom, onFootprint, placeBuilding, powerOf, prereqOk, prodQ, spawnUnit, unloadTransport} from './units.js';
+import {canBoard, canGarrison, canPatrol, canPlace, deliverUnit, engineerCan, fooledBy, hasBuilding, hiddenFrom, onFootprint, orderPatrol, patrolRoute, placeBuilding, powerOf, prereqOk, prodQ, spawnUnit, unloadTransport} from './units.js';
 import {rand} from './rng.js';
 
 // ---------- enemy AI ----------
 // Difficulty scales the AI's economy (start credits, trickle income, ore payout) and aggression; the player's side is the same on every level.
 export const DIFFICULTY = {
   // base building: build = construction speed, towers = defences it wants, expand = extra refineries,
-  // navy = builds a dockyard, repairAt = repairs buildings below this share of hp (0: never)
+  // navy = builds a dockyard, repairAt = repairs buildings below this share of hp (0: never),
+  // patrol = how many home defenders walk round the base
   easy:   {name:'Easy',   credits: 4000,  income: 3.5, harvest: 0.6, firstWave: 180, waveGap: 1.5, waveStart: 2, waveGrow: 1, waveMax: 6,
-           capMul: 0.5,  capMax: 10, tech: 1.6, build: 0.6, towers: 2, expand: 0, navy: false, repairAt: 0,
+           capMul: 0.5,  capMax: 10, tech: 1.6, build: 0.6, towers: 2, expand: 0, navy: false, repairAt: 0, patrol: 1,
            note:'The enemy is slow to build and attacks in small groups.'},
   normal: {name:'Normal', credits: 7000,  income: 6,   harvest: 0.8, firstWave: 120, waveGap: 1.2, waveStart: 3, waveGrow: 1, waveMax: 10,
-           capMul: 0.75, capMax: 18, tech: 1.25, build: 0.9, towers: 3, expand: 1, navy: true, repairAt: 0.5,
+           capMul: 0.75, capMax: 18, tech: 1.25, build: 0.9, towers: 3, expand: 1, navy: true, repairAt: 0.5, patrol: 2,
            note:'A steady opponent with growing attack waves.'},
   hard:   {name:'Hard',   credits: 12000, income: 9,   harvest: 1,   firstWave: 80,  waveGap: 1,   waveStart: 3, waveGrow: 2, waveMax: 14,
-           capMul: 1,    capMax: 26, tech: 1, build: 1.25, towers: 5, expand: 2, navy: true, repairAt: 0.75,
+           capMul: 1,    capMax: 26, tech: 1, build: 1.25, towers: 5, expand: 2, navy: true, repairAt: 0.75, patrol: 3,
            note:'A rich enemy that builds fast and attacks early and often.'},
 };
 export let diff = DIFFICULTY.normal;
@@ -503,6 +504,24 @@ export function aiEngineers(){
   }
 }
 
+// A few home defenders walk round the base (diff.patrol, at most half of those at home);
+// a damaged one stops so aiRepairs can send it to the depot. Waves still take patrollers along.
+const patrolling = u => u.order.type === 'patrol' || (u.order.type === 'attack' && !!u.order.patrol);
+export function aiPatrol(){
+  const home = units.filter(u => onMap(u) && u.team === ENEMY && u.role !== 'attacker' && weaponOf(u) &&
+                                  canPatrol(u) && !u.def.transport && !u.holdT);
+  for(const u of home) if(u.order.type === 'patrol' && u.hp < u.maxHp * 0.6){ u.order = {type:'idle'}; u.path = null; }
+  let need = Math.min(diff.patrol || 0, Math.floor(home.length / 2)) - home.filter(patrolling).length;
+  if(need <= 0) return;
+  let pts = null;
+  for(const u of home){
+    if(need <= 0) break;
+    if(u.order.type !== 'idle' || u.hp < u.maxHp * 0.6) continue;
+    pts = pts || patrolRoute(ENEMY, u);
+    if(orderPatrol(u, pts)) need--;
+  }
+}
+
 // damaged vehicles at home drive onto the depot until they are fixed
 export function aiRepairs(dt){
   ai.repT = (ai.repT || 0) - dt;
@@ -511,6 +530,7 @@ export function aiRepairs(dt){
   aiInfantry();
   aiNavy();
   aiEngineers();
+  aiPatrol();
   if(diff.repairAt) for(const b of buildings)   // fix damaged structures while money lasts
     if(!b.dead && b.team === ENEMY && !b.def.garrison && b.buildUp >= 1 && b.hp < b.maxHp * diff.repairAt && state.credits[ENEMY] > 300) b.repairing = true;
   const depot = buildings.find(b => !b.dead && b.team === ENEMY && b.def.flat);

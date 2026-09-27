@@ -84,3 +84,23 @@ test('a patrol survives save and load', async ({ page }) => {
   expect(r.i).toBe(r.was);
   expect(r.n).toBe(8);
 });
+
+test('the AI keeps a few defenders patrolling its base and pulls damaged ones off', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    const hub = __RH.buildings.find(b => b.team === 1 && b.def.key === 'conyard');
+    for(let k = 0; k < 6; k++) __RH.spawn('ltank', hub.tx + 1 + (k % 3), hub.ty + 4 + Math.floor(k / 3), 1);
+    __RH.step(5);
+    const mine = () => __RH.units.filter(u => !u.dead && u.team === 1 && (u.order.type === 'patrol' || u.order.patrol));
+    const first = mine();
+    const far = first.every(u => u.order.type !== 'patrol' ||
+      u.order.pts.every(p => Math.hypot(p.x - hub.x, p.y - hub.y) < 30 * 32));
+    const hurt = first[0];
+    hurt.hp = hurt.maxHp * 0.3;
+    __RH.step(2.5);
+    return {n: first.length, far, hurtOff: hurt.order.type !== 'patrol' && !hurt.order.patrol, after: mine().length};
+  });
+  expect(r.n).toBe(2);                 // Normal: two patrollers
+  expect(r.far).toBe(true);            // the round stays by its base
+  expect(r.hurtOff).toBe(true);        // damaged: off to be repaired
+  expect(r.after).toBe(2);             // and someone else takes its place
+});

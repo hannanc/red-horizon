@@ -504,9 +504,11 @@ export function updateUnit(u, dt){
 export const PATROL_LEASH = 8;   // tiles from its round a patroller will chase a target
 export const canPatrol = u => !u.def.air && !u.def.naval && !u.def.harvester && !u.def.engineer && !u.def.spy &&
                               !u.def.scout && !u.def.mcv;
-// eight points round the team's buildings, 3 tiles out, clockwise; round `at` when it has none
+// eight points round the team's buildings (near its hub), 3 tiles out, clockwise; round `at` when it has none
 export function patrolRoute(team, at){
-  const own = buildings.filter(b => !b.dead && b.team === team && !b.def.garrison);
+  let own = buildings.filter(b => !b.dead && b.team === team && !b.def.garrison);
+  const hub = own.find(b => b.def.key === 'conyard');
+  if(hub) own = own.filter(b => dist(b, hub) < 18 * T);   // the main base, not a far-off captured building
   let x0, y0, x1, y1;
   if(own.length){
     x0 = Math.min(...own.map(b => b.tx)) - 3; y0 = Math.min(...own.map(b => b.ty)) - 3;
