@@ -463,7 +463,7 @@ export function updateUnit(u, dt){
   if(u.def.ifv && !w) ifvRepair(u, dt);
   if(!w){
     if(o.type === 'attack' || o.type === 'attackmove') u.order = o = {type: o.type === 'attackmove' ? 'move' : 'idle'};
-    if(o.type === 'patrol'){ if(followPath(u, dt)){ nextPatrolPoint(u, o); } }
+    if(o.type === 'patrol'){ patrolStep(u, o, dt); }
     else if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
   } else if(o.type === 'attack'){
     // a patroller breaks off once the threat is gone or it has chased too far from its round
@@ -481,7 +481,7 @@ export function updateUnit(u, dt){
       const wp = o.pts[o.i];   // only threats near the round: no being lured away bit by bit
       if(t && dist(t, wp) < PATROL_LEASH * T){ u.order = {type:'attack', target: t, patrol: o, leash: wp}; return; }
     }
-    if(followPath(u, dt)){ nextPatrolPoint(u, o); }
+    patrolStep(u, o, dt);
   } else if(o.type === 'move' || o.type === 'attackmove'){
     if(o.type === 'attackmove' && u.scanT <= 0){
       u.scanT = 0.4;
@@ -503,6 +503,7 @@ export function updateUnit(u, dt){
 // ---------- patrol ----------
 // P: selected units walk a loop round their base and attack whatever threat they spot, then go back to it.
 export const PATROL_LEASH = 8;   // tiles from its round a patroller will chase a target
+const PATROL_WANDER = 1.5, PATROL_PAUSE = 0.3;   // tiles off each point it may head for; chance to stop at one
 export const canPatrol = u => !u.def.air && !u.def.naval && !u.def.harvester && !u.def.engineer && !u.def.spy &&
                               !u.def.scout && !u.def.mcv;
 // eight points round the team's buildings (near its hub), 3 tiles out, clockwise; round `at` when it has none
@@ -548,10 +549,24 @@ function nextPatrolPoint(u, o){
   }
   resumePatrol(u, o);
 }
+// walk the round, now and then stopping to look around a while
+function patrolStep(u, o, dt){
+  if(o.waitT > 0){
+    o.waitT -= dt;
+    if(isInf(u.def)) u.face = o.lookA; else u.face = turnToward(u.face, o.lookA, 1.5 * dt);
+    return;
+  }
+  if(!followPath(u, dt)) return;
+  if(rand() < PATROL_PAUSE){ o.waitT = 1 + rand() * 2.5; o.lookA = rand() * Math.PI * 2; }
+  nextPatrolPoint(u, o);
+}
 function resumePatrol(u, o){
   u.order = o;
+  // not the point itself but somewhere open near it, so patrollers don't all walk the same line
   const p = o.pts[o.i];
-  orderMove(u, p.x, p.y);
+  const j = freeTileNear(p.tx + Math.round((rand() - 0.5) * 2 * PATROL_WANDER), p.ty + Math.round((rand() - 0.5) * 2 * PATROL_WANDER), 1);
+  const to = j ? {x: (j.x + 0.2 + rand() * 0.6) * T, y: (j.y + 0.2 + rand() * 0.6) * T} : p;
+  orderMove(u, to.x, to.y);
   if(!u.path){ u.path = [{x: u.x, y: u.y}]; u.pathI = 0; }   // unreachable: counts as reached, on to the next
 }
 
@@ -850,7 +865,7 @@ export function engineerCan(b, team){
 export function updateEngineer(u, dt){
   const o = u.order;
   if(o.type !== 'capture'){
-    if(o.type === 'patrol'){ if(followPath(u, dt)){ nextPatrolPoint(u, o); } }
+    if(o.type === 'patrol'){ patrolStep(u, o, dt); }
     else if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
     return;
   }

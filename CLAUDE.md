@@ -142,6 +142,8 @@ This file covers how the code works, the rules, and what to build next.
     `P` on a selected Barracks or Factory sets `b.rally = {patrol: true}`: `deliverUnit` puts what it makes straight on patrol,
     and `draw()` shows the loop instead of a flag.
     After each full lap the loop is worked out again (`nextPatrolPoint`), so it follows the base as it grows.
+    Patrollers wander a little (`patrolStep`, `resumePatrol`): each heads for a random open spot within `PATROL_WANDER`
+    tiles of a point, and at a point stops now and then (`PATROL_PAUSE`) for 1-3.5 s to look around (`o.waitT`, `o.lookA`).
     The AI keeps `diff.patrol` home defenders (none on Easy, 2 on Normal, 3 on Hard; at most half of those at home) on patrol (`aiPatrol`); damaged ones stop
     so `aiRepairs` can take them to the depot, and attack waves take patrollers along. The route only covers buildings
     within 18 tiles of the hub.

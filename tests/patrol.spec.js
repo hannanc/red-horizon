@@ -144,3 +144,32 @@ test('after each lap the loop is redrawn round the base as it is now', async ({ 
   expect(r.type).toBe('patrol');
   expect(r.after).toBeGreaterThan(r.before);
 });
+
+test('patrollers wander a little: their own spot by each point, and a pause now and then', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    __RH.clear(24, 24, 32, 32);
+    __RH.place('conyard', 38, 38);
+    const a = __RH.spawn('ltank', 34, 42), b = __RH.spawn('ltank', 34, 43);
+    __RH.patrol([a, b]);
+    const ends = new Set(), goal = u => { const e = u.path[u.path.length - 1]; return Math.round(e.x) + ',' + Math.round(e.y); };
+    let paused = false, offPoint = 0;
+    for(let s = 0; s < 240; s++){
+      __RH.step(0.5);
+      for(const u of [a, b]){
+        if(u.order.type !== 'patrol') continue;
+        if(u.order.waitT > 0) paused = true;
+        if(u.path && u.path.length){
+          ends.add(goal(u));
+          const p = u.order.pts[u.order.i], e = u.path[u.path.length - 1];
+          if(Math.hypot(e.x - p.x, e.y - p.y) > 4) offPoint++;
+        }
+      }
+    }
+    return {ends: ends.size, paused, offPoint, a: a.order.type, b: b.order.type};
+  });
+  expect(r.a).toBe('patrol');
+  expect(r.b).toBe('patrol');
+  expect(r.paused).toBe(true);                 // stopped to look around at least once
+  expect(r.offPoint).toBeGreaterThan(0);       // heads for spots near the points, not the points themselves
+  expect(r.ends).toBeGreaterThan(10);          // and different ones each time round
+});
