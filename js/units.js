@@ -463,7 +463,7 @@ export function updateUnit(u, dt){
   if(u.def.ifv && !w) ifvRepair(u, dt);
   if(!w){
     if(o.type === 'attack' || o.type === 'attackmove') u.order = o = {type: o.type === 'attackmove' ? 'move' : 'idle'};
-    if(o.type === 'patrol'){ if(followPath(u, dt)){ o.i = (o.i + 1) % o.pts.length; resumePatrol(u, o); } }
+    if(o.type === 'patrol'){ if(followPath(u, dt)){ nextPatrolPoint(u, o); } }
     else if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
   } else if(o.type === 'attack'){
     // a patroller breaks off once the threat is gone or it has chased too far from its round
@@ -481,7 +481,7 @@ export function updateUnit(u, dt){
       const wp = o.pts[o.i];   // only threats near the round: no being lured away bit by bit
       if(t && dist(t, wp) < PATROL_LEASH * T){ u.order = {type:'attack', target: t, patrol: o, leash: wp}; return; }
     }
-    if(followPath(u, dt)){ o.i = (o.i + 1) % o.pts.length; resumePatrol(u, o); }
+    if(followPath(u, dt)){ nextPatrolPoint(u, o); }
   } else if(o.type === 'move' || o.type === 'attackmove'){
     if(o.type === 'attackmove' && u.scanT <= 0){
       u.scanT = 0.4;
@@ -534,6 +534,19 @@ export function orderPatrol(u, pts){
   u.deployed = false;
   resumePatrol(u, {type:'patrol', pts, i});
   return true;
+}
+// on to the next point; after each full lap the loop is worked out again, so it follows the base as it grows
+function nextPatrolPoint(u, o){
+  o.i = (o.i + 1) % o.pts.length;
+  if(o.i === 0){
+    const pts = patrolRoute(u.team, u);
+    if(pts.length >= 2){   // carry on from the point after the one it stands by
+      let k0 = 0;
+      pts.forEach((p, k) => { if(dist(u, p) < dist(u, pts[k0])) k0 = k; });
+      o.pts = pts; o.i = (k0 + 1) % pts.length;
+    }
+  }
+  resumePatrol(u, o);
 }
 function resumePatrol(u, o){
   u.order = o;
@@ -837,7 +850,7 @@ export function engineerCan(b, team){
 export function updateEngineer(u, dt){
   const o = u.order;
   if(o.type !== 'capture'){
-    if(o.type === 'patrol'){ if(followPath(u, dt)){ o.i = (o.i + 1) % o.pts.length; resumePatrol(u, o); } }
+    if(o.type === 'patrol'){ if(followPath(u, dt)){ nextPatrolPoint(u, o); } }
     else if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
     return;
   }

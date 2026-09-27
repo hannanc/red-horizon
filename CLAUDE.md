@@ -139,6 +139,7 @@ This file covers how the code works, the rules, and what to build next.
     off (`resumePatrol`) when the target goes or the unit strays past the leash. Not for aircraft, ships or the utility units (`canPatrol`).
     `P` on a selected Barracks or Factory sets `b.rally = {patrol: true}`: `deliverUnit` puts what it makes straight on patrol,
     and `draw()` shows the loop instead of a flag.
+    After each full lap the loop is worked out again (`nextPatrolPoint`), so it follows the base as it grows.
     The AI keeps `diff.patrol` home defenders (none on Easy, 2 on Normal, 3 on Hard; at most half of those at home) on patrol (`aiPatrol`); damaged ones stop
     so `aiRepairs` can take them to the depot, and attack waves take patrollers along. The route only covers buildings
     within 18 tiles of the hub.
@@ -151,9 +152,10 @@ This file covers how the code works, the rules, and what to build next.
     depot, dockyard, more refineries and towers), puts power first whenever the next building would overdraw, and
     rebuilds anything lost (the counts drop). The first `CORE` entries come first; the rest wait for spare money or a
     decent army, so units keep coming.
-  - `aiSpot(key)` picks the tile: compact round the hub, towers towards the player (`playerHome`) and spread out,
-    refineries by free ore on its side of the map (`aiOreTargets`, creeping with a power plant when it's too far), the
-    dockyard on water. Every spot keeps a one-tile gap round other buildings, leaves the rows in front of doors clear
+  - `aiSpot(key, toward)` picks the tile: compact round the hub, towers within `TOWER_R` (10) tiles of the hub on the side
+    facing the player (`playerHome`) and spread out, refineries by free ore on its side of the map within `ORE_REACH`
+    (`aiOreTargets`; when the ore is too far it creeps there with a power plant placed towards it, but only one that
+    gains real ground), the dockyard on water. Every spot keeps a one-tile gap round other buildings, leaves the rows in front of doors clear
     (`inYard`) and is only used if every factory, barracks and refinery door can still path to the map centre
     (`doorsStayOpen`).
   - Units come from the queue only when it has the buildings for them (`prereqOk(def, ENEMY)`); one it can't build

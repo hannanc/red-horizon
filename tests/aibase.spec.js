@@ -30,17 +30,23 @@ for(const [level, limit] of [['easy', 660], ['normal', 360], ['hard', 240]]){
       eval(quiet)();
       const start = __RH.buildings.filter(b => b.team === 1).map(b => b.def.key);
       const need = ['power', 'refinery', 'barracks', 'factory', 'radar', 'arctower'];
+      // towers stay by the hub instead of creeping towards the player
+      const farTowers = () => {
+        const hub = __RH.buildings.find(b => b.team === 1 && b.def.key === 'conyard');
+        return __RH.buildings.filter(b => b.team === 1 && !b.dead && b.def.weapon && Math.hypot(b.x - hub.x, b.y - hub.y) > 10.5 * 32).length;
+      };
       for(let t = 1; t <= limit; t++){
         __RH.step(1);
         const have = __RH.buildings.filter(b => b.team === 1 && !b.dead && b.buildUp >= 1).map(b => b.def.key);
         if(need.every(k => have.includes(k)) && have.filter(k => k === 'arctower').length >= 2)
-          return {start, done: t, power: __RH.powerOf(1)};
+          return {start, done: t, power: __RH.powerOf(1), far: farTowers()};
       }
       return {start, done: null, have: __RH.buildings.filter(b => b.team === 1).map(b => b.def.key)};
     }, [limit, QUIET.toString()]);
     expect(r.start).toEqual(['conyard']);
     expect(r.done, JSON.stringify(r)).not.toBeNull();
     expect(r.power.prod).toBeGreaterThanOrEqual(r.power.used);      // power stays positive
+    expect(r.far).toBe(0);
     expectClean(errors);
   });
 }

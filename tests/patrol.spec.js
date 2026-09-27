@@ -128,3 +128,19 @@ test('P on a Barracks sends its new units on patrol; P again turns it off', asyn
   expect(r.off).toBeNull();
   expect(r.rifle2).not.toBe('patrol');
 });
+
+test('after each lap the loop is redrawn round the base as it is now', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    __RH.clear(24, 24, 32, 32);
+    __RH.place('conyard', 36, 36);
+    const t = __RH.spawn('ltank', 34, 40);
+    __RH.patrol([t]);
+    const before = Math.max(...t.order.pts.map(p => p.tx));
+    __RH.place('barracks', 44, 36);                  // the base grows east
+    let after = before;
+    for(let s = 0; s < 120 && after === before; s++){ __RH.step(1); after = Math.max(...t.order.pts.map(p => p.tx)); }
+    return {before, after, type: t.order.type};
+  });
+  expect(r.type).toBe('patrol');
+  expect(r.after).toBeGreaterThan(r.before);
+});

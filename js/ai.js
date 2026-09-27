@@ -175,6 +175,7 @@ export function aiNextBuilding(){
   return p.prod - p.used < 40 ? 'power' : null;
 }
 
+const ORE_REACH = 30;   // tiles from the hub the AI will expand to for ore (power plants creep out to it)
 // ore fields the AI could harvest: the nearest ore tile of each clump, nearest to its base first
 function aiOreTargets(hq){
   const seen = [], out = [];
@@ -187,7 +188,7 @@ function aiOreTargets(hq){
     const c = {x: (s.x + 0.5) * T, y: (s.y + 0.5) * T};
     if(dist(c, home) < dist(c, hq)) continue;                           // on the player's side: leave it
     if(buildings.some(b => !b.dead && b.team === ENEMY && b.def.key === 'refinery' && dist(b, c) < 8 * T)) continue;
-    if(!buildings.some(b => !b.dead && b.team === ENEMY && !b.def.garrison && dist(b, c) < 16 * T)) continue;   // too far to creep to
+    if(dist(c, hq) > ORE_REACH * T) continue;                          // too far to creep to
     out.push(c);
   }
   return out.sort((a, b) => dist(a, hq) - dist(b, hq));
@@ -223,10 +224,11 @@ function doorsStayOpen(def, tx, ty){
   return ok;
 }
 
+const TOWER_R = 10;   // tiles from the hub a defence tower may stand
 // Where to put a structure: compact round the hub, towers towards the player, refineries by
 // their ore, the dockyard on the water. Every spot keeps a gap round other buildings and
 // clear rows in front of doors, and is only taken if all doors can still get out.
-export function aiSpot(key){
+export function aiSpot(key, toward){
   const hq = aiHQ();
   if(!hq) return null;
   const def = BUILD_DEFS[key], tower = !!def.weapon, home = playerHome();
@@ -250,9 +252,11 @@ export function aiSpot(key){
       if(clash) continue;
       const c = {x: (tx + def.w / 2) * T, y: (ty + def.h / 2) * T};
       if(tower && mine.some(b => b.def.weapon && dist(b, c) < 3 * T)) continue;   // spread the towers out
+      if(tower && dist(c, hq) > TOWER_R * T) continue;                  // at home, not marching on the player
       let score = dist(c, hq);
       if(tower) score = dist(c, home) + dist(c, hq) * 0.3;               // the side facing the player
       if(oreAt) score = dist(c, oreAt);
+      if(toward) score = dist(c, toward);
       cands.push({tx, ty, score});
     }
   cands.sort((a, b) => a.score - b.score);
@@ -285,8 +289,12 @@ function aiBase(dt){
   if(key === 'refinery' && spot){
     const oreAt = aiOreTargets(aiHQ())[0];
     if(oreAt && dist({x: (spot.tx + 1.5) * T, y: (spot.ty + 1.5) * T}, oreAt) > 7 * T){
-      const step = aiSpot('power');   // creep: a power plant as close to the ore as the base allows
-      if(step){ key = 'power'; spot = step; }
+      // creep: a power plant as close to the ore as the base allows, if that really gains ground
+      // (ore behind the plateau or water would otherwise draw a chain of plants that never arrives)
+      const step = aiSpot('power', oreAt), hq = aiHQ();
+      const at = s => ({x: (s.tx + 1) * T, y: (s.ty + 1) * T});
+      const reach = Math.min(...buildings.filter(b => !b.dead && b.team === ENEMY && !b.def.garrison).map(b => dist(b, oreAt)));
+      if(step && dist(at(step), oreAt) < reach - 2 * T && dist(at(step), hq) <= ORE_REACH * T){ key = 'power'; spot = step; }
     }
   }
   ai.bKey = null;
