@@ -634,8 +634,17 @@ export function cursorType(){
 }
 
 
-// P: the selected units patrol round the base
+// P: the selected units patrol round the base; a selected Barracks or Factory sends what it makes
+// on patrol instead of to a rally point (P again, or a right-click rally, turns that off)
+export const PATROL_RALLY = new Set(['barracks', 'factory']);
 export function patrolSelected(){
+  const fac = selection.filter(b => !b.dead && b.kind === 'building' && b.team === PLAYER && PATROL_RALLY.has(b.def.key));
+  if(fac.length){
+    const on = !fac.every(b => b.rally && b.rally.patrol);
+    for(const b of fac) b.rally = on ? {patrol: true} : null;
+    sfx('click');
+    announce(on ? 'New units will patrol the base' : 'Patrol rally off');
+  }
   const us = selection.filter(u => !u.dead && u.kind === 'unit' && u.team === PLAYER && onMap(u) && canPatrol(u));
   if(!us.length) return;
   const pts = patrolRoute(PLAYER, us[0]);

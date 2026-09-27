@@ -104,3 +104,27 @@ test('the AI keeps a few defenders patrolling its base and pulls damaged ones of
   expect(r.hurtOff).toBe(true);        // damaged: off to be repaired
   expect(r.after).toBe(2);             // and someone else takes its place
 });
+
+test('P on a Barracks sends its new units on patrol; P again turns it off', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    __RH.clear(28, 28, 24, 24);
+    __RH.place('conyard', 38, 38);
+    const bar = __RH.place('barracks', 42, 38);
+    __RH.select([bar]);
+    const press = () => window.dispatchEvent(new KeyboardEvent('keydown', {key: 'p'}));
+    press();
+    const rally = JSON.stringify(bar.rally);
+    const rifle = __RH.deliver('rifle', 0), eng = __RH.deliver('engineer', 0);
+    __RH.step(1);
+    press();
+    const off = bar.rally;
+    const rifle2 = __RH.deliver('rifle', 0);
+    __RH.step(0.1);
+    return {rally, rifle: rifle.order.type, eng: eng.order.type, off, rifle2: rifle2.order.type};
+  });
+  expect(r.rally).toBe('{"patrol":true}');
+  expect(r.rifle).toBe('patrol');
+  expect(r.eng).not.toBe('patrol');    // engineers just roll out as usual
+  expect(r.off).toBeNull();
+  expect(r.rifle2).not.toBe('patrol');
+});

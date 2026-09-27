@@ -59,6 +59,7 @@ Right-click gives orders.
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
 | Control groups | `Ctrl+1-9` to assign, `1-9` to recall |
 | Patrol the base | `P` with ground units selected: they walk a loop round your buildings, attack threats that come within 8 tiles of it, then go back to the round. Any other order ends it |
+| Send new units straight on patrol | `P` with a Barracks or Vehicle Factory selected: what it makes joins the patrol (the loop is drawn while it's selected). `P` again, or a right-click rally point, turns it off |
 | Stop | `S` |
 | Pause menu (resume, restart, quit, save / load, sound and voice volume, scroll speed) | `Esc` or the Options button (`Esc` first cancels a placement or sell/repair mode) |
 | Scroll | Arrow keys or the screen edge |

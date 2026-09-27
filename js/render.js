@@ -2,7 +2,7 @@
 import {missileZ} from './combat.js';
 import {BUILD_DEFS, ENEMY, FACTION, HPX, IH, IW, MH, MW, PLAYER, SIDEBAR_W, T, TEAM_COLOR, TOPBAR_H, UI, UNIT_DEFS, WPX, buildings, clamp, doodads, effects, explored, flags, hasTurret, hash2, idx, inMap, isInf, isoAt, occ, onMap, ore, projectiles, sailable, selection, setup, state, tileOf, toIso, toWorld, uName, units} from './data.js';
 import {announce, cursorType, modeTarget, mouse} from './ui.js';
-import {canPlace, capacity, hasBuilding, hiddenFrom, powerOf, radSources, treeDisguised} from './units.js';
+import {canPlace, capacity, hasBuilding, hiddenFrom, patrolRoute, powerOf, radSources, treeDisguised} from './units.js';
 
 // ---------- canvas ----------
 export const cv = document.getElementById('game');
@@ -1237,6 +1237,15 @@ export function draw(){
   // rally points of selected factories
   for(const b of selection){
     if(b.dead || b.kind !== 'building' || !b.rally) continue;
+    if(b.rally.patrol){   // a patrol rally: the round its units will walk
+      const pts = patrolRoute(b.team, b).map(p => toIso(p.x, p.y));
+      cx.save();
+      cx.setLineDash([6, 5]); cx.lineDashOffset = -state.time * 20;
+      cx.strokeStyle = 'rgba(255,210,74,0.85)'; cx.lineWidth = 1.5;
+      cx.beginPath(); pts.forEach((p, i) => i ? cx.lineTo(p.x, p.y) : cx.moveTo(p.x, p.y)); cx.closePath(); cx.stroke();
+      cx.restore();
+      continue;
+    }
     const a = toIso(b.x, b.y), r = toIso(b.rally.x, b.rally.y);
     cx.save();
     cx.setLineDash([6, 5]); cx.lineDashOffset = -state.time * 20;

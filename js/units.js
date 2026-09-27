@@ -157,7 +157,8 @@ export function deliverUnit(key, team){
   u.face = u.tface = Math.PI / 2;              // rolling out of the door
   if(src.def.key === 'factory') src.doorT = 0;
   u.order = {type: 'move'};
-  if(src.rally) orderMove(u, src.rally.x, src.rally.y);
+  if(src.rally && src.rally.patrol){ if(orderPatrol(u, patrolRoute(team, u))) return u; }   // patrol rally: straight onto the round
+  if(src.rally && !src.rally.patrol) orderMove(u, src.rally.x, src.rally.y);
   else if(!def.naval) orderMove(u, u.x + (rand() - .5) * 40, u.y + T * 1.5);
   return u;
 }

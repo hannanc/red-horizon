@@ -137,7 +137,9 @@ This file covers how the code works, the rules, and what to build next.
   - Patrol (`P`, `patrolSelected` → `orderPatrol`): `{pts, i}` from `patrolRoute(team)`, eight points 3 tiles round the team's
     buildings. A threat within `PATROL_LEASH` tiles of the current point becomes `{type:'attack', patrol, leash}`, which breaks
     off (`resumePatrol`) when the target goes or the unit strays past the leash. Not for aircraft, ships or the utility units (`canPatrol`).
-    The AI keeps `diff.patrol` home defenders (1/2/3, at most half of those at home) on patrol (`aiPatrol`); damaged ones stop
+    `P` on a selected Barracks or Factory sets `b.rally = {patrol: true}`: `deliverUnit` puts what it makes straight on patrol,
+    and `draw()` shows the loop instead of a flag.
+    The AI keeps `diff.patrol` home defenders (none on Easy, 2 on Normal, 3 on Hard; at most half of those at home) on patrol (`aiPatrol`); damaged ones stop
     so `aiRepairs` can take them to the depot, and attack waves take patrollers along. The route only covers buildings
     within 18 tiles of the hub.
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.

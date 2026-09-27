@@ -15,7 +15,7 @@ export const DIFFICULTY = {
   // navy = builds a dockyard, repairAt = repairs buildings below this share of hp (0: never),
   // patrol = how many home defenders walk round the base
   easy:   {name:'Easy',   credits: 4000,  income: 3.5, harvest: 0.6, firstWave: 180, waveGap: 1.5, waveStart: 2, waveGrow: 1, waveMax: 6,
-           capMul: 0.5,  capMax: 10, tech: 1.6, build: 0.6, towers: 2, expand: 0, navy: false, repairAt: 0, patrol: 1,
+           capMul: 0.5,  capMax: 10, tech: 1.6, build: 0.6, towers: 2, expand: 0, navy: false, repairAt: 0, patrol: 0,
            note:'The enemy is slow to build and attacks in small groups.'},
   normal: {name:'Normal', credits: 7000,  income: 6,   harvest: 0.8, firstWave: 120, waveGap: 1.2, waveStart: 3, waveGrow: 1, waveMax: 10,
            capMul: 0.75, capMax: 18, tech: 1.25, build: 0.9, towers: 3, expand: 1, navy: true, repairAt: 0.5, patrol: 2,
