@@ -878,11 +878,14 @@ export function engineerEnter(u, b){
   refreshSidebar();
 }
 
+// between two ore trucks: a loaded one heading home goes first, else the older one
+const rightOfWay = (u, v) => (u.hState === 'return') !== (v.hState === 'return') ? u.hState === 'return' : u.id < v.id;
 export function applySeparation(u, dt){
   if(u.def.jet) return;
   for(const v of units){
     if(v === u || !onMap(v) || !!v.def.air !== !!u.def.air || !!v.def.naval !== !!u.def.naval || v.def.jet) continue;
     if(u.def.harvester && !v.def.harvester) continue;   // everyone makes way for the ore trucks
+    if(u.def.harvester && v.def.harvester && rightOfWay(u, v)) continue;   // and trucks for each other, or two meeting head-on stall
     const dx = u.x - v.x, dy = u.y - v.y;
     const d = Math.hypot(dx, dy);
     const min = (u.def.r + v.def.r) * (u.def.air ? 0.6 : 1);   // aircraft may overlap a bit

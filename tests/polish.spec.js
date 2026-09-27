@@ -109,3 +109,25 @@ test('units on the plateau shoot a tile further at targets below', async ({ page
   expect(r.fromTop).toBe(true);
   expect(r.flatFired).toBe(false);
 });
+
+test('two ore trucks steering for the same waypoint from opposite sides get past each other', async ({ page }) => {
+  // seen in an AI game: two trucks steering for the same tile centre from opposite sides pushed each
+  // other back exactly as hard as they drove, and neither ever reached it
+  const r = await page.evaluate(() => {
+    const west = __RH.place('refinery', 30, 50, 1), east = __RH.place('refinery', 45, 50, 1);
+    const mid = {x: 40.5 * 32, y: 55.5 * 32};
+    const truck = (x, home) => {
+      const h = __RH.spawn('harv', 40, 55, 1);
+      h.x = x * 32; h.y = mid.y;
+      h.carry = 700; h.hState = 'return'; h.retB = home;
+      __RH.orderMove(h, home.x, (home.ty + home.h) * 32 + 16);
+      h.path.unshift({...mid}); h.pathI = 0;
+      h.face = Math.atan2(0, mid.x - h.x);
+      return h;
+    };
+    const a = truck(41.0, west), b = truck(40.1, east);
+    for(let s = 0; s < 30 && (a.carry || b.carry); s++) __RH.step(1);
+    return {a: a.carry, b: b.carry};
+  });
+  expect(r).toEqual({a: 0, b: 0});                     // both got home and unloaded
+});

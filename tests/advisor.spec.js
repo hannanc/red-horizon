@@ -8,6 +8,8 @@ test('"nothing under construction" backs off by 30 s each time and resets when y
   const r = await page.evaluate(() => {
     const hub = __RH.place('conyard', 8, 49);
     hub.hp = hub.maxHp = 1e7;                        // the AI mustn't end the game before the test does
+    const step = __RH.step.bind(__RH);                // nor capture the hub: no AI engineers
+    __RH.step = s => { step(s); for(const u of __RH.units) if(u.team === 1 && u.def.engineer) u.dead = true; };
     const times = [], late = [];
     let last = __RH.ai.buildNagAt;
     const run = secs => {

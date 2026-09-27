@@ -121,7 +121,9 @@ This file covers how the code works, the rules, and what to build next.
   (`atDoor`); `unloadTransport` refuses without a beach within 2 tiles. The Dockyard (`onWater`) must be placed on open
   water. AI: a dockyard in its base, `navyDue()` for a few ships outside the army cap, `aiNavy()` sends idle ships at the
   player's ships and dockyards; ships never join land waves.
-- **Harvesters**: the Soviet ore truck has `TRUCK_GUN` (`weaponOf` returns it by `u.fac`; `truckGun()` fires it from
+- **Harvesters**: everyone makes way for ore trucks in `applySeparation`, and between two trucks `rightOfWay` lets a loaded
+  one heading home (else the older one) drive through; two steering for the same waypoint used to push each other to a
+  standstill for good. The Soviet ore truck has `TRUCK_GUN` (`weaponOf` returns it by `u.fac`; `truckGun()` fires it from
   `updateHarvester` without interrupting the job). The Allied hauler returns with `haulerJump()` instead of driving.
 - **Explosions**: `boom` effects draw the `explosion` sheet (8 frames) scaled to the blast when it exists, else the
   procedural fireball.
@@ -239,7 +241,7 @@ so code-only work can land first and the art can follow.
   - `tests/infantry.spec.js`: the special infantry.
   - `tests/veiltank.spec.js`: the stealth tank.
   - `tests/naval.spec.js`: the sea, the Dockyard and ships.
-  - `tests/polish.spec.js`: ore truck gun, hauler jump, AI engineers.
+  - `tests/polish.spec.js`: ore truck gun, hauler jump, AI engineers, ore trucks getting past each other.
   - `tests/setup.spec.js`: the skirmish setup screen (side, credits, map, seed).
   - `tests/soviet.spec.js`: a whole game as the Soviets against the Allied AI.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar (hover cards, the low-power banner).
