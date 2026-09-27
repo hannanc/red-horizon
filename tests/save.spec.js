@@ -11,6 +11,7 @@ const SCENE = () => {
   __RH.place('refinery', 12, 55);
   for(let i = 0; i < 4; i++) __RH.spawn('ltank', 16 + i, 46);
   const ifv = __RH.spawn('ifv', 12, 44), rifle = __RH.spawn('rifle', 13, 44);
+  ifv.hp = ifv.maxHp = 5000;                 // still carrying its rider when the game is saved, whatever the AI's first wave does
   rifle.order = {type: 'board', target: ifv};
 };
 // everything a player could notice, rounded so it prints well when it differs
