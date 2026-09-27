@@ -26,6 +26,9 @@ http rather than opened from disk). The start screen sets up the skirmish:
 - **Difficulty:** Easy, Normal or Hard sets the AI's income, how fast and how well it builds its base, its army size
   and how often and how hard it attacks. The AI starts from a Construction Hub, like you, and builds up from there.
 
+Each extra Barracks or Vehicle Factory makes its tab's production faster (2 build 1.5x as fast, 3 build 1.8x, 4 or more 2x),
+and extra Construction Hubs speed up buildings the same way.
+
 Ore doesn't run out for good: fields slowly grow back and spread, and every few minutes a new deposit turns up
 somewhere between the two bases (the announcer tells you).
 
@@ -58,6 +61,7 @@ Right-click gives orders.
 | Repair vehicles | Right-click your Service Depot with vehicles selected; they park on it and are fixed for credits (a latched Leech Drone is removed) |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
 | What a picture is | Hover it: role, cost, build time, strong / weak against, and what you still need to build it |
+| Choose where new units come out | Double-click a Barracks, Vehicle Factory, Airfield or Dockyard (it shows PRIMARY when you have more than one) |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
 | Control groups | `Ctrl+1-9` to assign, `1-9` to recall |

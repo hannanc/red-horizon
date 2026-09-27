@@ -1255,6 +1255,19 @@ export function draw(){
     drawFlag(r.x, r.y, TEAM_COLOR[b.team]);
   }
 
+  // the primary Barracks / Factory, when the player has more than one of its kind
+  for(const b of buildings){
+    if(b.dead || !b.primary || b.team !== PLAYER) continue;
+    if(buildings.filter(o => !o.dead && o.team === b.team && o.def.key === b.def.key).length < 2) continue;
+    const p = toIso(b.x, b.y), y = p.y - (b.def.z || 30) - 14;
+    cx.save();
+    cx.font = 'bold 10px "Trebuchet MS", sans-serif'; cx.textAlign = 'center';
+    const w = cx.measureText('PRIMARY').width + 8;
+    cx.fillStyle = 'rgba(10,14,22,.8)'; cx.fillRect(p.x - w / 2, y - 10, w, 13);
+    cx.fillStyle = '#ffd24a'; cx.fillText('PRIMARY', p.x, y);
+    cx.restore();
+  }
+
   // selection UI + health bars (above sprites)
   for(const e of renderables){
     if(e.kind === 'doodad') continue;

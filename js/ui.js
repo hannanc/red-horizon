@@ -3,7 +3,7 @@ import {canHurt} from './combat.js';
 import {BUILD_DEFS, ENEMY, FACTION, HPX, IH, IW, PLAYER, T, UNIT_DEFS, WPX, available, bareOcc, buildings, clamp, dispName, effects, explored, idx, inMap, isoAt, occ, onMap, ore, passable, pickWorld, sailable, selection, setSelection, state, tileOf, toIso, units, walk, weaponOf, settings} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
 import {CH, CW, VH, VW, ZOOM, cv, makeCameoIcon, mmC, radarOn, stepZoom} from './render.js';
-import {MAX_QUEUE, canBoard, canPatrol, canPlace, capacity, engineerCan, hasBuilding, hiddenFrom, orderPatrol, padCount, padTaken, patrolRoute, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
+import {MAX_QUEUE, canBoard, canPatrol, canPlace, capacity, engineerCan, hasBuilding, hiddenFrom, orderPatrol, padCount, padTaken, patrolRoute, placeBuilding, powerOf, prereqOk, prereqs, prodQ, setPrimary, spawnUnit, spyCan, unloadTransport} from './units.js';
 import {toggleMenu} from './main.js';
 import {sfx} from './sound.js';
 
@@ -706,6 +706,16 @@ export function initUI(){
     if(mouse.down && Math.hypot(mouse.x - mouse.dragX, mouse.y - mouse.dragY) > 5) mouse.dragging = true;
   });
   cv.addEventListener('mouseleave', () => { mouse.inCanvas = false; });
+  // double-click a Barracks, Factory, Airfield or Dockyard: new units come out of this one
+  cv.addEventListener('dblclick', e => {
+    if(!state.started || state.over || state.placing || state.mode) return;
+    updateMouseWorld(e);
+    const b = pickEntity(mouse.wx, mouse.wy);
+    if(!b || b.kind !== 'building' || b.team !== PLAYER || !PRODUCERS.has(b.def.key) || b.buildUp < 1) return;
+    setPrimary(b);
+    announce('Primary building set');
+    sfx('click');
+  });
   cv.addEventListener('mousedown', e => {
     if(!state.started || state.over) return;
     updateMouseWorld(e);

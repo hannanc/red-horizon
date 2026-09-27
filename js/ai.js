@@ -5,7 +5,7 @@ import {findPath, freeTileNear, orderMove} from './pathfinding.js';
 import {announce, showAdvisor} from './ui.js';
 import {radarOn} from './render.js';
 import {sfx} from './sound.js';
-import {canBoard, canGarrison, canPatrol, canPlace, deliverUnit, engineerCan, fooledBy, hasBuilding, hiddenFrom, onFootprint, orderPatrol, patrolRoute, placeBuilding, powerOf, prereqOk, prodQ, spawnUnit, unloadTransport} from './units.js';
+import {canBoard, canGarrison, canPatrol, canPlace, deliverUnit, engineerCan, fooledBy, hasBuilding, hiddenFrom, onFootprint, orderPatrol, patrolRoute, placeBuilding, powerOf, prereqOk, prodBonus, prodQ, spawnUnit, unloadTransport} from './units.js';
 import {rand} from './rng.js';
 
 // ---------- enemy AI ----------
@@ -277,7 +277,7 @@ function aiBase(dt){
   }
   const def = BUILD_DEFS[ai.bKey];
   const p = powerOf(ENEMY);
-  const rate = dt / def.time * diff.build * (p.used > p.prod ? 0.5 : 1);
+  const rate = dt / def.time * diff.build * (p.used > p.prod ? 0.5 : 1) * prodBonus(ENEMY, def);
   const cost = def.cost * rate;
   if(ai.bProg < 1){
     if(state.credits[ENEMY] < cost) return;
@@ -383,7 +383,7 @@ export function tickAI(dt){
     const def = UNIT_DEFS[ai.prodKey];
     const saving = ai.bKey && ai.bCore && state.credits[ENEMY] < BUILD_DEFS[ai.bKey].cost * 0.5 && !def.harvester;   // the core base comes first
     if((armyCount < armyCap || def.air || def.naval || def.harvester) && !saving){
-      const rate = dt / def.time;
+      const rate = dt / def.time * prodBonus(ENEMY, def);
       const cost = def.cost * rate;
       if(state.credits[ENEMY] >= cost){
         state.credits[ENEMY] -= cost;

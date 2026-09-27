@@ -105,6 +105,19 @@ export function prereqs(def){
 }
 export function prereqOk(def, team = PLAYER){ return prereqs(def).every(k => hasBuilding(team, k)); }
 
+// More of the building a queue comes from builds faster: 1, 1.5, 1.8, then 2x from four up
+// (Construction Hubs for structures and defences). The same for the AI.
+const PROD_BONUS = [1, 1, 1.5, 1.8, 2];
+export function prodBonus(team, def){
+  const from = def.from || 'conyard';
+  const n = buildings.filter(b => !b.dead && b.team === team && b.def.key === from && b.buildUp >= 1).length;
+  return PROD_BONUS[Math.min(n, PROD_BONUS.length - 1)] || 1;
+}
+// double-click a factory: units of its kind come out of this one
+export function setPrimary(b){
+  for(const o of buildings) if(o.team === b.team && o.def.key === b.def.key) o.primary = false;
+  b.primary = true;
+}
 export function tickProduction(dt){
   const lowFactor = state.lowPower ? 0.45 : 1;
   for(const tab in prodQ){
@@ -113,7 +126,7 @@ export function tickProduction(dt){
     const def = s.isUnit ? UNIT_DEFS[s.key] : BUILD_DEFS[s.key];
     if(!prereqOk(def)) continue;              // factory lost: production stalls
     if(s.progress < 1){
-      const rate = dt / def.time * lowFactor;
+      const rate = dt / def.time * lowFactor * prodBonus(PLAYER, def);
       const cost = def.cost * rate;
       if(state.credits[PLAYER] < cost) continue;
       state.credits[PLAYER] -= cost;

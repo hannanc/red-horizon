@@ -169,6 +169,10 @@ This file covers how the code works, the rules, and what to build next.
     (`doorsStayOpen`).
   - Units come from the queue only when it has the buildings for them (`prereqOk(def, ENEMY)`); one it can't build
     yet keeps its turn. It keeps a harvester per refinery plus a spare, and repairs buildings below `diff.repairAt`.
+- **Production**: one queue per sidebar tab (`prodQ`), however many factories. `prodBonus(team, def)` speeds it up by how many
+  of the building it comes from (`def.from`, or the Construction Hub for structures) the team has: 1, 1.5, 1.8, 2x
+  (`PROD_BONUS`), for the AI too (units and its base). `deliverUnit` brings a unit out of the `primary` one of them, else the
+  first built; double-clicking a producer calls `setPrimary`, and `draw()` tags it PRIMARY when there is more than one.
 - **Research Lab** (`lab`): a tech tier above Radar; the heaviest units need it (`prereq`). The AI builds it right after
   its core economy on Normal and Hard, and after its first two towers on Easy (`labEarly` in `aiNextBuilding`).
 - **Scout** (`def.scout`, not selectable): explores on its own, avoids known enemy ground, flees threats, heads home once
@@ -252,6 +256,7 @@ so code-only work can land first and the art can follow.
   - `tests/setup.spec.js`: the skirmish setup screen (side, credits, map, seed).
   - `tests/soviet.spec.js`: a whole game as the Soviets against the Allied AI.
   - `tests/ui.spec.js`: real mouse clicks and the sidebar (hover cards, the low-power banner).
+  - `tests/production.spec.js`: the production speed-up and the primary building.
   - `tests/ore.spec.js`: ore regrowth and spreading, new deposits.
   - `tests/patrol.spec.js`: patrol routes, engaging and breaking off, save and load, the AI's patrols.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
