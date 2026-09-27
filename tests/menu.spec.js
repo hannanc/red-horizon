@@ -46,14 +46,22 @@ test('volume and scroll speed are remembered after a reload', async ({ page }) =
 });
 
 test('scroll speed sets how fast the arrow keys move the camera', async ({ page }) => {
+  // the real key goes through the input path; the camera then moves a fixed 0.3 s in one go, so how
+  // many frames the browser happens to draw (WebKit on CI sometimes draws none) doesn't matter
   const move = async speed => {
-    await page.evaluate(s => { __RH.settings.scroll = s; __RH.look(32, 32); }, speed);
-    const x0 = await page.evaluate(() => __RH.state.camX);
-    await page.keyboard.down('ArrowRight'); await page.waitForTimeout(300); await page.keyboard.up('ArrowRight');
-    return (await page.evaluate(() => __RH.state.camX)) - x0;
+    await page.keyboard.down('ArrowRight');
+    const d = await page.evaluate(s => {
+      __RH.settings.scroll = s; __RH.look(32, 32);
+      const x0 = __RH.state.camX;
+      for(let i = 0; i < 9; i++) __RH.tickCamera(1 / 30);
+      return __RH.state.camX - x0;
+    }, speed);
+    await page.keyboard.up('ArrowRight');
+    return d;
   };
   const slow = await move(0.5), fast = await move(2);
-  expect(fast).toBeGreaterThan(slow * 2);
+  expect(slow).toBeGreaterThan(0);
+  expect(fast).toBeCloseTo(slow * 4, 0);
 });
 
 test('Restart starts the same skirmish over; Quit goes back to the start screen', async ({ page }) => {

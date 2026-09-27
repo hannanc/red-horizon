@@ -486,7 +486,7 @@ window.__RH = {
   // rebuild the world from other setup choices (before the game starts), e.g. rebuild({map: 'random', seed: 5})
   rebuild(opts){ Object.assign(setup, opts); newWorld(); },
   sfxLog, renderSfx, sfx: (type, tx, ty, size) => sfx(type, tx == null ? null : {x: tx * T + T / 2, y: ty * T + T / 2}, size),
-  patrol(list){ this.select(list); patrolSelected(); }, settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
+  patrol(list){ this.select(list); patrolSelected(); }, tickCamera, settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
   pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },
