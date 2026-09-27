@@ -521,12 +521,10 @@ export function aiPatrol(){
   for(const u of home) if(u.order.type === 'patrol' && u.hp < u.maxHp * 0.6){ u.order = {type:'idle'}; u.path = null; }
   let need = Math.min(diff.patrol || 0, Math.floor(home.length / 2)) - home.filter(patrolling).length;
   if(need <= 0) return;
-  let pts = null;
   for(const u of home){
     if(need <= 0) break;
     if(u.order.type !== 'idle' || u.hp < u.maxHp * 0.6) continue;
-    pts = pts || patrolRoute(ENEMY, u);
-    if(orderPatrol(u, pts)) need--;
+    if(orderPatrol(u, patrolRoute(ENEMY, u))) need--;
   }
 }
 

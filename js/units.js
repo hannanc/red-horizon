@@ -506,11 +506,17 @@ export const PATROL_LEASH = 8;   // tiles from its round a patroller will chase 
 const PATROL_WANDER = 1.5, PATROL_PAUSE = 0.3;   // tiles off each point it may head for; chance to stop at one
 export const canPatrol = u => !u.def.air && !u.def.naval && !u.def.harvester && !u.def.engineer && !u.def.spy &&
                               !u.def.scout && !u.def.mcv;
-// eight points round the team's buildings (near its hub), 3 tiles out, clockwise; round `at` when it has none
+// eight points round a team's base, 3 tiles out, clockwise; round `at` when it has no buildings
 export function patrolRoute(team, at){
   let own = buildings.filter(b => !b.dead && b.team === team && !b.def.garrison);
-  const hub = own.find(b => b.def.key === 'conyard');
-  if(hub) own = own.filter(b => dist(b, hub) < 18 * T);   // the main base, not a far-off captured building
+  // with several bases, the one nearest `at`: each building belongs to its nearest hub (and not a far-off
+  // captured building, more than 18 tiles from any)
+  const hubs = own.filter(b => b.def.key === 'conyard');
+  if(hubs.length){
+    const nearest = e => hubs.reduce((h, k) => dist(e, k) < dist(e, h) ? k : h);
+    const hub = nearest(at);
+    own = own.filter(b => nearest(b) === hub && dist(b, hub) < 18 * T);
+  }
   let x0, y0, x1, y1;
   if(own.length){
     x0 = Math.min(...own.map(b => b.tx)) - 3; y0 = Math.min(...own.map(b => b.ty)) - 3;

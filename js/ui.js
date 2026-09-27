@@ -647,8 +647,7 @@ export function patrolSelected(){
   }
   const us = selection.filter(u => !u.dead && u.kind === 'unit' && u.team === PLAYER && onMap(u) && canPatrol(u));
   if(!us.length) return;
-  const pts = patrolRoute(PLAYER, us[0]);
-  const on = us.filter(u => orderPatrol(u, pts));
+  const on = us.filter(u => orderPatrol(u, patrolRoute(PLAYER, u)));   // each round the base it is nearest
   if(!on.length) return;
   sfx('click');
   ack('move', on[0]);

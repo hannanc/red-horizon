@@ -173,3 +173,24 @@ test('patrollers wander a little: their own spot by each point, and a pause now 
   expect(r.offPoint).toBeGreaterThan(0);       // heads for spots near the points, not the points themselves
   expect(r.ends).toBeGreaterThan(10);          // and different ones each time round
 });
+
+test('with two bases, each unit patrols the one it is nearest, and a patrol rally uses its own base', async ({ page }) => {
+  const r = await page.evaluate(() => {
+    __RH.clear(4, 30, 56, 22);
+    __RH.place('conyard', 10, 38); __RH.place('power', 14, 38);   // west base
+    __RH.place('conyard', 44, 38); __RH.place('power', 48, 38);   // east base, 34 tiles away
+    const bar = __RH.place('barracks', 44, 42);
+    const w = __RH.spawn('ltank', 12, 44), e = __RH.spawn('ltank', 46, 45);
+    __RH.patrol([w, e]);                                          // one P for both
+    __RH.select([bar]);
+    window.dispatchEvent(new KeyboardEvent('keydown', {key: 'p'}));
+    const rifle = __RH.deliver('rifle', 0);
+    const side = u => { const xs = u.order.pts.map(p => p.tx); return {min: Math.min(...xs), max: Math.max(...xs)}; };
+    __RH.step(1);
+    return {w: side(w), e: side(e), rifle: rifle.order.type === 'patrol' ? side(rifle) : null};
+  });
+  expect(r.w.max).toBeLessThan(25);        // round the west base only
+  expect(r.e.min).toBeGreaterThan(35);     // round the east base only
+  expect(r.rifle).not.toBeNull();
+  expect(r.rifle.min).toBeGreaterThan(35); // the east Barracks' units patrol the east base
+});

@@ -146,7 +146,8 @@ This file covers how the code works, the rules, and what to build next.
     tiles of a point, and at a point stops now and then (`PATROL_PAUSE`) for 1-3.5 s to look around (`o.waitT`, `o.lookA`).
     The AI keeps `diff.patrol` home defenders (none on Easy, 2 on Normal, 3 on Hard; at most half of those at home) on patrol (`aiPatrol`); damaged ones stop
     so `aiRepairs` can take them to the depot, and attack waves take patrollers along. The route only covers buildings
-    within 18 tiles of the hub.
+    within 18 tiles of a hub. With several bases, `patrolRoute(team, at)` groups buildings by their nearest hub and
+    rounds the base nearest `at`: each unit patrols the base it is nearest, a patrol rally the base its factory is in.
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.
 - **AI** (`tickAI`): one production queue (`ai.prodQ`), attack waves on a timer, and `aiTransports()` to fill and unload halftracks.
   `DIFFICULTY[key]` (picked on the start screen, applied by `setDifficulty()`, read through `diff`) scales starting credits,
