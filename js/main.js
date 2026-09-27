@@ -435,7 +435,9 @@ export function newWorld(){
   FACTION[PLAYER] = setup.side; FACTION[ENEMY] = setup.side === 'allied' ? 'soviet' : 'allied';
   document.body.classList.toggle('soviet', setup.side === 'soviet');   // the sidebar takes the side's colours
   Object.assign(ai, {prodQ: AI_QUEUE[FACTION[ENEMY]], prodI: 0, prodProgress: 0, prodKey: null, picked: false, bKey: null, bProg: 0, bThink: 0, bSkip: {},
-                     airT: 0, navT: 0, navI: 0, engT: 0, repT: 0});
+                     airT: 0, navT: 0, navI: 0, engT: 0, repT: 0,
+                     advAirT: 0, advHeavyT: 0, advWaveT: 0, advPowerT: 0, lowPowerT: 0, buildNagAt: 30, buildNagGap: 30,
+                     unitNagAt: 30, unitNagGap: 30, idleBuildT: 0, idleUnitT: 0});
   TerrainGen.setMap(TerrainGen.makeMap(setup.map, setup.seed));
   paintLow();
   setupMap();

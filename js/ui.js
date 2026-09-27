@@ -3,7 +3,7 @@ import {canHurt} from './combat.js';
 import {BUILD_DEFS, ENEMY, FACTION, HPX, IH, IW, PLAYER, T, UNIT_DEFS, WPX, available, bareOcc, buildings, clamp, dispName, effects, explored, idx, inMap, isoAt, occ, onMap, ore, passable, pickWorld, sailable, selection, setSelection, state, tileOf, toIso, units, walk, weaponOf, settings} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
 import {CH, CW, VH, VW, ZOOM, cv, makeCameoIcon, mmC, radarOn, stepZoom} from './render.js';
-import {MAX_QUEUE, canBoard, canPlace, capacity, engineerCan, hiddenFrom, padCount, padTaken, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
+import {MAX_QUEUE, canBoard, canPlace, capacity, engineerCan, hasBuilding, hiddenFrom, padCount, padTaken, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
 import {toggleMenu} from './main.js';
 import {sfx} from './sound.js';
 
@@ -140,6 +140,7 @@ export const TAB_ITEMS = {
 
 
 export function buildSidebar(){
+  hideCard();
   gridEl.innerHTML = '';
   for(const key of TAB_ITEMS[activeTab]){
     const isUnit = !!UNIT_DEFS[key];
@@ -147,7 +148,7 @@ export function buildSidebar(){
     if(!available(def, PLAYER)) continue;
     const el = document.createElement('div');
     el.className = 'cameo';
-    el.title = `${dispName(def, PLAYER)} — $${def.cost}`;
+    el.dataset.key = key;
     el.appendChild(makeCameoIcon(key, isUnit));
     const nm = document.createElement('div'); nm.className = 'nm'; nm.textContent = dispName(def, PLAYER);
     const prog = document.createElement('div'); prog.className = 'prog';
@@ -156,6 +157,8 @@ export function buildSidebar(){
     el.append(nm, prog, ready, cnt);
     el.addEventListener('click', () => onCameoClick(key, isUnit));
     el.addEventListener('contextmenu', ev => { ev.preventDefault(); cancelProduction(key, isUnit); });
+    el.addEventListener('mouseenter', () => showCard(key, el));
+    el.addEventListener('mouseleave', hideCard);
     gridEl.appendChild(el);
     cameoEls[key] = el;
   }
@@ -191,6 +194,73 @@ export function prereqLabel(def){
   return prereqs(def).filter(k => k !== 'conyard' || def.tab === 'structure' || def.tab === 'defense')
     .map(k => BUILD_DEFS[k].name).join(', ');
 }
+// the prerequisites the player still lacks, by name
+export function missingPrereqs(def){
+  return prereqs(def).filter(k => !hasBuilding(PLAYER, k)).map(k => BUILD_DEFS[k].name);
+}
+
+// ---------- cameo hover card ----------
+const ARMOR_NAME = {inf: 'Infantry', heavy: 'Vehicles', building: 'Structures', air: 'Aircraft', sub: 'Submarines'};
+// one line on what a unit or building is for; weapons are summed up from their vs table
+export function cameoRole(def){
+  if(def.harvester) return 'Gathers ore for credits';
+  if(def.mcv) return 'Deploys into a Construction Hub';
+  if(def.engineer) return 'Captures enemy buildings, repairs your own';
+  if(def.scout) return 'Explores the map on its own; unarmed';
+  if(def.spy) return 'Infiltrates buildings: steals credits or cuts power';
+  if(def.carriesVehicles) return 'Ferries troops and vehicles across water';
+  if(def.transport && !def.weapon) return `Transport for ${def.transport} infantry`;
+  if(def.power > 0) return 'Generates power';
+  if(def.flat) return 'Repairs vehicles parked on it';
+  const own = {refinery: 'Processes ore; comes with a hauler', barracks: 'Trains infantry', factory: 'Builds vehicles',
+               radar: 'Shows the minimap; unlocks advanced units', lab: 'Unlocks the heaviest units',
+               shipyard: 'Builds ships (placed on water)', airfield: 'Builds aircraft; jets rearm here'};
+  if(own[def.key]) return own[def.key];
+  const w = def.weapon;
+  if(!w) return '';
+  if(w.kind === 'mind') return 'Takes control of one enemy unit';
+  const top = Object.keys(ARMOR_NAME).filter(k => (w.vs[k] || 0) > 0).sort((a, b) => w.vs[b] - w.vs[a])[0];
+  const kind = def.tab === 'defense' ? 'defense' : def.air ? 'aircraft' : def.naval ? 'warship' : 'unit';
+  return top ? `Anti-${ARMOR_NAME[top].toLowerCase().replace(/s$/, '')} ${kind}` : '';
+}
+// strong: the classes it hurts most (x1.2 and up, else its best); weak: those it barely scratches
+export function matchups(def){
+  const w = def.weapon;
+  if(!w) return {strong: [], weak: []};
+  const cls = Object.keys(ARMOR_NAME).filter(k => k !== 'sub' || 'sub' in w.vs);
+  const v = k => w.vs[k] || 0;
+  const best = Math.max(...cls.map(v));
+  const strong = cls.filter(k => v(k) >= 1.2 || (v(k) === best && best > 0)).map(k => ARMOR_NAME[k]);
+  const weak = cls.filter(k => v(k) < 0.5).map(k => ARMOR_NAME[k] + (v(k) ? '' : ' (no effect)'));
+  return {strong, weak};
+}
+const cardEl = document.getElementById('cameoCard');
+let cardKey = null;
+function fillCard(key){
+  const isUnit = !!UNIT_DEFS[key];
+  const def = isUnit ? UNIT_DEFS[key] : BUILD_DEFS[key];
+  const {strong, weak} = matchups(def);
+  const miss = missingPrereqs(def);
+  const esc = s => String(s).replace(/[&<>]/g, c => ({'&': '&amp;', '<': '&lt;', '>': '&gt;'})[c]);
+  let h = `<h3>${esc(dispName(def, PLAYER))}</h3>`;
+  const role = cameoRole(def);
+  if(role) h += `<div class="role">${esc(role)}</div>`;
+  h += `<div class="stats">$${def.cost} · ${def.time}s` + (!isUnit && def.power ? ` · ⚡${def.power > 0 ? '+' : ''}${def.power}` : '') + '</div>';
+  if(strong.length) h += `<div class="good">Strong vs: ${strong.join(', ')}</div>`;
+  if(weak.length) h += `<div class="bad">Weak vs: ${weak.join(', ')}</div>`;
+  if(miss.length) h += `<div class="req">Requires: ${esc(miss.join(', '))}</div>`;
+  if(cardEl.innerHTML !== h) cardEl.innerHTML = h;   // refreshed every tick while hovered
+}
+function showCard(key, el){
+  cardKey = key;
+  fillCard(key);
+  cardEl.hidden = false;
+  // beside the cameo, kept inside the sidebar (offsets are in the sidebar's own, unzoomed px)
+  const sb = cardEl.offsetParent;
+  const top = el.offsetTop - gridEl.scrollTop;
+  cardEl.style.top = Math.max(0, Math.min(top, (sb ? sb.clientHeight : 1e4) - cardEl.offsetHeight)) + 'px';
+}
+function hideCard(){ cardKey = null; cardEl.hidden = true; }
 
 // Right-click: drop a queued copy; on the active item, first hold, then cancel (refund).
 export function cancelProduction(key, isUnit){
@@ -229,6 +299,7 @@ export function refreshSidebar(){
     el.querySelector('.cnt').textContent = isUnit && n > 1 ? n : '';
     el.querySelector('.prog').style.setProperty('--p', mine ? (head.progress * 100) + '%' : '0%');
   }
+  if(cardKey) fillCard(cardKey);   // prerequisites can arrive (or be lost) while hovering
 }
 
 
@@ -568,6 +639,8 @@ export const creditsEl = document.getElementById('credits');
 export const powerLbl = document.getElementById('powerlbl');
 export const powerBar = document.getElementById('powerBar');
 export const powerDrain = document.getElementById('powerDrain');
+const powerCol = document.getElementById('powerCol');
+const lowPowerEl = document.getElementById('lowPower');
 export const clockEl = document.getElementById('clock');
 export let shownCredits = 0;
 export function drawHUD(dt){
@@ -581,6 +654,8 @@ export function drawHUD(dt){
   state.lowPower = p.used > p.prod;
   powerLbl.textContent = `⚡ ${p.used}/${p.prod}`;
   powerLbl.classList.toggle('low', state.lowPower);
+  lowPowerEl.hidden = !state.lowPower;
+  powerCol.classList.toggle('low', state.lowPower);
   const pScale = Math.max(p.prod, p.used, 100) * 1.15;
   powerBar.style.height = (p.prod / pScale * 100) + '%';
   powerDrain.style.bottom = (p.used / pScale * 100) + '%';

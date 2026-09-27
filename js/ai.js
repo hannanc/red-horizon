@@ -44,7 +44,7 @@ export const ai = {
   prodQ: null,   // AI_QUEUE of its side, set by newWorld()
   prodI: 0, prodProgress: 0, prodKey: null, airT: 0, navT: 0, navI: 0, engT: 0, reactT: 0,
   bKey: null, bProg: 0, bThink: 0, bSkip: {},   // base building: current structure, its progress, what can't be placed
-  advAirT: 0, advHeavyT: 0, advWaveT: 0, buildNagAt: 30, buildNagGap: 30, unitNagAt: 30, unitNagGap: 30,   // tactical advisor: cooldowns per kind of warning
+  advAirT: 0, advHeavyT: 0, advWaveT: 0, advPowerT: 0, lowPowerT: 0, buildNagAt: 30, buildNagGap: 30, unitNagAt: 30, unitNagGap: 30,   // tactical advisor: cooldowns per kind of warning
   idleBuildT: 0, idleUnitT: 0,                  // how long the player's own build/train queues have sat empty
 };
 
@@ -106,6 +106,10 @@ function tickAdvisor(dt){
   const seen = visibleEnemy();
   const buildIdle = prodQ.structure.length === 0 && prodQ.defense.length === 0;
   const unitIdle = prodQ.infantry.length === 0 && prodQ.vehicle.length === 0;
+  const pw = powerOf(PLAYER);
+  // a real shortfall, not an infiltrator's blackout (that passes on its own)
+  const lowPower = pw.used > pw.prod && !(state.blackout[PLAYER] > state.time);
+  ai.lowPowerT = lowPower ? (ai.lowPowerT || 0) + dt : 0;
   ai.idleBuildT = buildIdle ? ai.idleBuildT + dt : 0;
   ai.idleUnitT = unitIdle ? ai.idleUnitT + dt : 0;
   // idle nags back off: the first after 30 s of idling, then 60 s later, then 90 s, ...; queuing anything resets it
@@ -125,6 +129,10 @@ function tickAdvisor(dt){
   } else if(state.time > ai.advWaveT && ai.waveTimer < 8 && seen.length >= ai.waveSize){
     ai.advWaveT = state.time + 60;
     showAdvisor('Enemy forces are massing. An attack looks imminent.');
+  } else if(ai.lowPowerT >= 5 && state.time > (ai.advPowerT || 0) &&
+            !prodQ.structure.some(s => s.key === 'power')){   // already fixing it: say nothing
+    ai.advPowerT = state.time + 60;
+    showAdvisor('Power is low, build a Power Plant. Production is slowed and defenses are going offline.');
   } else if(ai.idleBuildT >= (ai.buildNagAt || 30) && suggestBuilding()){
     nag('build');
     showAdvisor('Nothing under construction. Consider ' + suggestBuilding() + '.');

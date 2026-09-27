@@ -88,3 +88,37 @@ test('a mixed group ordered to attack a tank all engage: dug-in riflemen get up,
   expect(o.dog).toBe('attackmove');              // can't bite a tank, but comes along
   expect(o.dogMoved).toBeGreaterThan(20);
 });
+
+test('hovering a cameo shows its role, cost, matchups and any missing prerequisite', async ({ page }) => {
+  await page.evaluate(() => { __RH.place('conyard', 8, 49); __RH.place('power', 12, 49); __RH.step(0.1); });
+  await page.hover('#buildGrid .cameo[data-key="factory"]');
+  const card = page.locator('#cameoCard');
+  await expect(card).toBeVisible();
+  await expect(card).toContainText('Vehicle Factory');
+  await expect(card).toContainText('$2000');
+  await expect(card.locator('.req')).toHaveText('Requires: Ore Refinery');
+  // the prerequisite arrives while hovering: the line goes away
+  await page.evaluate(() => { __RH.place('refinery', 8, 53); __RH.step(0.1); });
+  await expect(card.locator('.req')).toHaveCount(0);
+  // a unit: role and strong / weak against, from its weapon's vs table
+  await page.click('#tabs .tab[data-tab="infantry"]');
+  await expect(card).toBeHidden();
+  await page.hover('#buildGrid .cameo[data-key="rocket"]');
+  await expect(card.locator('.role')).toHaveText('Anti-vehicle unit');
+  await expect(card.locator('.good')).toHaveText('Strong vs: Vehicles, Structures, Aircraft');
+  await expect(card.locator('.req')).toHaveText('Requires: Barracks');
+  await page.hover('#buildGrid .cameo[data-key="rifle"]');
+  await expect(card.locator('.good')).toHaveText('Strong vs: Infantry');
+  await expect(card.locator('.bad')).toHaveText('Weak vs: Vehicles, Structures, Aircraft (no effect)');
+  await page.mouse.move(10, 300);
+  await expect(card).toBeHidden();
+});
+
+test('low power flashes a banner in the sidebar', async ({ page }) => {
+  const banner = page.locator('#lowPower');
+  await page.evaluate(() => { __RH.place('conyard', 8, 49); __RH.place('barracks', 12, 49); __RH.step(0.1); });
+  await expect(banner).toBeVisible();
+  await expect(page.locator('#powerCol')).toHaveClass(/low/);
+  await page.evaluate(() => { __RH.place('power', 8, 53); __RH.step(0.1); });
+  await expect(banner).toBeHidden();
+});
