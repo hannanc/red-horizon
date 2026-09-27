@@ -3,7 +3,7 @@ import {canHurt} from './combat.js';
 import {BUILD_DEFS, ENEMY, FACTION, HPX, IH, IW, PLAYER, T, UNIT_DEFS, WPX, available, bareOcc, buildings, clamp, dispName, effects, explored, idx, inMap, isoAt, occ, onMap, ore, passable, pickWorld, sailable, selection, setSelection, state, tileOf, toIso, units, walk, weaponOf, settings} from './data.js';
 import {freeTileNear, orderMove} from './pathfinding.js';
 import {CH, CW, VH, VW, ZOOM, cv, makeCameoIcon, mmC, radarOn, stepZoom} from './render.js';
-import {MAX_QUEUE, canBoard, canPlace, capacity, engineerCan, hasBuilding, hiddenFrom, padCount, padTaken, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
+import {MAX_QUEUE, canBoard, canPatrol, canPlace, capacity, engineerCan, hasBuilding, hiddenFrom, orderPatrol, padCount, padTaken, patrolRoute, placeBuilding, powerOf, prereqOk, prereqs, prodQ, spawnUnit, spyCan, unloadTransport} from './units.js';
 import {toggleMenu} from './main.js';
 import {sfx} from './sound.js';
 
@@ -634,6 +634,18 @@ export function cursorType(){
 }
 
 
+// P: the selected units patrol round the base
+export function patrolSelected(){
+  const us = selection.filter(u => !u.dead && u.kind === 'unit' && u.team === PLAYER && onMap(u) && canPatrol(u));
+  if(!us.length) return;
+  const pts = patrolRoute(PLAYER, us[0]);
+  const on = us.filter(u => orderPatrol(u, pts));
+  if(!on.length) return;
+  sfx('click');
+  ack('move', on[0]);
+  announce('Patrolling the base');
+}
+
 // ---------- HUD ----------
 export const creditsEl = document.getElementById('credits');
 export const powerLbl = document.getElementById('powerlbl');
@@ -759,6 +771,7 @@ export function initUI(){
       for(const u of diggers){ u.deployed = on; u.order = {type:'idle'}; u.path = null; }
       if(diggers.length) sfx('click');
     }
+    if(e.key.toLowerCase() === 'p') patrolSelected();
     if(e.key.toLowerCase() === 's' && !e.ctrlKey && !e.metaKey){
       for(const u of selection) if(u.kind === 'unit'){ u.order = {type:'idle'}; u.path = null; }
     }

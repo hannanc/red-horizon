@@ -133,7 +133,10 @@ This file covers how the code works, the rules, and what to build next.
   damaged stopped vehicle on its footprint (`onFootprint`) for credits and kills drones latched inside parked vehicles.
   The enemy base starts with one, and `aiRepairs()` sends damaged idle AI vehicles to it.
 - **Stealth** (`def.stealth`): `stealthTick` sets `u.revealed` when an enemy is within about 2.5 tiles, the unit fired in the last 3 s, or (helicopter) it has landed. `hiddenFrom(u, team)` hides it from targeting, picking, drawing and the minimap.
-- **Orders:** the `order.type` values are `idle`, `move`, `attack`, `attackmove`, `capture` (engineer) and `board`.
+- **Orders:** the `order.type` values are `idle`, `move`, `attack`, `attackmove`, `capture` (engineer), `board` and `patrol`.
+  - Patrol (`P`, `patrolSelected` → `orderPatrol`): `{pts, i}` from `patrolRoute(team)`, eight points 3 tiles round the team's
+    buildings. A threat within `PATROL_LEASH` tiles of the current point becomes `{type:'attack', patrol, leash}`, which breaks
+    off (`resumePatrol`) when the target goes or the unit strays past the leash. Not for aircraft, ships or the utility units (`canPatrol`).
   - Right-click handling is in `issueCommand()`. The context cursor comes from `cursorType()` and is drawn by `drawCursor()`.
 - **AI** (`tickAI`): one production queue (`ai.prodQ`), attack waves on a timer, and `aiTransports()` to fill and unload halftracks.
   `DIFFICULTY[key]` (picked on the start screen, applied by `setDifficulty()`, read through `diff`) scales starting credits,
@@ -155,8 +158,9 @@ This file covers how the code works, the rules, and what to build next.
 - **Scout** (`def.scout`, not selectable): explores on its own, avoids known enemy ground, flees threats, heads home once
   the map is explored. **Flak Tower**: a defence that only hits aircraft well. The AI builds Flak Towers once it has seen
   real player air activity, and leans its production towards countering the player's visible army (`playerProfile()`).
-- **Tactical advisor**: a talking-head panel over the radar window warns about enemy build-ups it sees and nudges an idle
-  player after 30 s of empty queues. **Training mode** (setup screen): the AI builds and defends but never attacks.
+- **Tactical advisor**: a talking-head panel over the radar window warns about enemy build-ups it sees, about low power
+  (after 5 s, `ai.advPowerT` cooldown), and nudges an idle player after 30 s of empty queues. The sidebar flashes `#lowPower`
+  while power is short, and hovering a cameo shows `#cameoCard` (`cameoRole`, `matchups`, `missingPrereqs` in `ui.js`). **Training mode** (setup screen): the AI builds and defends but never attacks.
 - **Pause menu** (`openMenu` / `closeMenu` / `toggleMenu` / `restartGame` in `main.js`): sets `state.menu` and
   `state.paused`. `settings = {sfx, voice, scroll}` (in `data.js`, saved as `rh-settings`) scale `sfx()` gain, speech
   volume and `tickCamera()` speed. Restart rebuilds the same skirmish with `newWorld()`; Quit reloads the page.
@@ -231,7 +235,8 @@ so code-only work can land first and the art can follow.
   - `tests/polish.spec.js`: ore truck gun, hauler jump, AI engineers.
   - `tests/setup.spec.js`: the skirmish setup screen (side, credits, map, seed).
   - `tests/soviet.spec.js`: a whole game as the Soviets against the Allied AI.
-  - `tests/ui.spec.js`: real mouse clicks and the sidebar.
+  - `tests/ui.spec.js`: real mouse clicks and the sidebar (hover cards, the low-power banner).
+  - `tests/patrol.spec.js`: patrol routes, engaging and breaking off, save and load.
   - `tests/ai.spec.js`: 7 simulated minutes of AI play; checks it builds everything, attacks, and nothing gets stuck.
   - `tests/determinism.spec.js`: the same seed replays the same game.
   - `tests/menu.spec.js`: the pause menu and its settings.
@@ -244,7 +249,7 @@ so code-only work can land first and the art can follow.
   - Every test also fails on any console error.
 - **Debug handle:** `window.__RH` has `ready`, `start()`, `pause(on)`, `step(seconds)`,
   `spawn(key, tx, ty, team)`, `place(key, tx, ty, team)`, `canPlace(key, tx, ty, team)`, `canBoard(u, t)`, `applyDamage(target, dmg, vs, attacker)`, `powerOf(team)`, `prodQ`, `radiation()`, `treeDisguised(u)`, `sailable(x, y)`, `passable(x, y)`, `unload(t)`, `reveal(tx, ty, r)`, `faction` (the `FACTION` array), `ai` (the AI state), `pathOK(sx, sy, tx, ty)`, `zoom(z)`, `settings`, `restart()`, `sfx(type, tx, ty, size)`, `sfxLog`, `renderSfx(type, size)`, `save(slot)`, `load(slot)`, `rebuild({map, seed, ...})` (a new world from other setup choices, before `start()`), `world()` (water and tree layout, for seed tests), `map` (the current map), `plateau`, `onRamp(u, v)`, `groundZ(x, y)`, `deliver(key, team)` (as if a factory
-  finished it; jets get a pad), `orderMove(u, wx, wy)`, `block(tx, ty)`, `clear(tx, ty, w, h)`
+  finished it; jets get a pad), `orderMove(u, wx, wy)`, `patrol([...])`, `block(tx, ty)`, `clear(tx, ty, w, h)`
   (opens a patch of ground for a test arena; pass `keepWater` to keep the sea), `select([...])`, `look(tx, ty)`,
   `toScreen(e)`, `weaponOf`, `canHurt`, and exposes `units`, `buildings`, `effects`, `state`.
   Tests call `start()` then `pause(true)`, so the real-time clock is stopped and only `step()` moves the game.

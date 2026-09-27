@@ -4,7 +4,7 @@ import {applyDamage, boom, canHurt, scorch, updateProjectiles} from './combat.js
 import {resetIds, BLOCKED, ENEMY, FACTION, IH, IW, MH, MW, NEUTRAL, PLAYER, SIDE_NAME, T, TEAM_COLOR, TOPBAR_H, UNIT_DEFS, buildings, clamp, doodads, effects, explored, flags, groundZ, idx, inMap, lakeVal, occ, onRoad, ore, passable, projectiles, sailable, selection, setSelection, setup, state, toIso, units, walk, water, weaponOf, settings, saveSettings} from './data.js';
 import {orderMove, findPath} from './pathfinding.js';
 import {VH, VW, ZOOM, cx, draw, drawMinimap, paintLow, radarOn, radarT, scorches, startTerrainWorkers, setZoom} from './render.js';
-import {initUI, announce, buildSidebar, clockEl, drawHUD, groups, speak, stopVoices, voice, VOICE, showAdvisor, ack, tickCamera} from './ui.js';
+import {initUI, patrolSelected, announce, buildSidebar, clockEl, drawHUD, groups, speak, stopVoices, voice, VOICE, showAdvisor, ack, tickCamera} from './ui.js';
 import {audio, renderSfx, sfx, sfxLog} from './sound.js';
 import {canBoard, canPlace, deliverUnit, placeBuilding, powerOf, prodQ, radPuddles, radSources, revealAround, spawnUnit, tickProduction, tickRadiation, treeDisguised, unloadTransport, updateBuilding, updateUnit} from './units.js';
 import {rand, seedRandom} from './rng.js';
@@ -486,7 +486,7 @@ window.__RH = {
   // rebuild the world from other setup choices (before the game starts), e.g. rebuild({map: 'random', seed: 5})
   rebuild(opts){ Object.assign(setup, opts); newWorld(); },
   sfxLog, renderSfx, sfx: (type, tx, ty, size) => sfx(type, tx == null ? null : {x: tx * T + T / 2, y: ty * T + T / 2}, size),
-  settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
+  patrol(list){ this.select(list); patrolSelected(); }, settings, restart: () => restartGame(), save: n => saveGame(n), load: n => loadGame(n),
   pathOK: (sx, sy, tx, ty) => !!findPath(sx, sy, tx, ty),
   look(tx, ty){ const p = toIso(tx * T, ty * T); state.camX = clamp(p.x - VW / 2, 0, IW - VW); state.camY = clamp(p.y - VH / 2, 0, IH - VH); },
   toScreen(e){ const p = toIso(e.x, e.y); return {x: (p.x - state.camX) * ZOOM, y: (p.y - state.camY) * ZOOM + TOPBAR_H}; },

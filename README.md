@@ -54,9 +54,11 @@ Right-click gives orders.
 | Load a Landing Craft | Bring it to the shore and right-click it with infantry or vehicles selected; unload with `D` (it must be next to a beach) |
 | Repair vehicles | Right-click your Service Depot with vehicles selected; they park on it and are fixed for credits (a latched Leech Drone is removed) |
 | Repair / sell mode | `K` / `L`, or the sidebar buttons |
+| What a picture is | Hover it: role, cost, build time, strong / weak against, and what you still need to build it |
 | Queue units | Left-click a picture repeatedly (up to 9 per tab) |
 | Hold, then cancel | Right-click the picture (a second right-click refunds) |
 | Control groups | `Ctrl+1-9` to assign, `1-9` to recall |
+| Patrol the base | `P` with ground units selected: they walk a loop round your buildings, attack threats that come within 8 tiles of it, then go back to the round. Any other order ends it |
 | Stop | `S` |
 | Pause menu (resume, restart, quit, save / load, sound and voice volume, scroll speed) | `Esc` or the Options button (`Esc` first cancels a placement or sell/repair mode) |
 | Scroll | Arrow keys or the screen edge |

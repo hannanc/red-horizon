@@ -450,7 +450,7 @@ export function updateUnit(u, dt){
   if(u.def.jet){ updateJet(u, dt); return; }
   if(u.def.lands){ updateHeli(u, dt); return; }
   if(u.def.air) u.z = approach(u.z, u.def.alt, 40 * dt);
-  if(u.deployed && (u.order.type === 'move' || u.order.type === 'attackmove' || u.order.type === 'board')) u.deployed = false;
+  if(u.deployed && (u.order.type === 'move' || u.order.type === 'attackmove' || u.order.type === 'board' || u.order.type === 'patrol')) u.deployed = false;
   if(u.order.type === 'board'){ updateBoarding(u, dt); applySeparation(u, dt); return; }
   if(u.def.harvester){ updateHarvester(u, dt); applySeparation(u, dt); return; }
   if(u.def.engineer || u.def.spy){ updateEngineer(u, dt); applySeparation(u, dt); return; }
@@ -462,13 +462,25 @@ export function updateUnit(u, dt){
   if(u.def.ifv && !w) ifvRepair(u, dt);
   if(!w){
     if(o.type === 'attack' || o.type === 'attackmove') u.order = o = {type: o.type === 'attackmove' ? 'move' : 'idle'};
-    if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
+    if(o.type === 'patrol'){ if(followPath(u, dt)){ o.i = (o.i + 1) % o.pts.length; resumePatrol(u, o); } }
+    else if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
   } else if(o.type === 'attack'){
+    // a patroller breaks off once the threat is gone or it has chased too far from its round
+    if(o.patrol && (!o.target || !onMap(o.target) || o.target.team === u.team || hiddenFrom(o.target, u.team) ||
+                    dist(u, o.leash) > PATROL_LEASH * T)){ resumePatrol(u, o.patrol); return; }
     if(!o.target || !onMap(o.target) || o.target.team === u.team || hiddenFrom(o.target, u.team)){
       if(o.resume){ u.order = {type:'attackmove', x: o.resume.x, y: o.resume.y}; orderMove(u, o.resume.x, o.resume.y); }
       else { u.order = {type:'idle'}; u.path = null; }
     }
     else combatStep(u, o.target, dt);
+  } else if(o.type === 'patrol'){
+    if(u.scanT <= 0){
+      u.scanT = 0.4;
+      const t = findEnemyInRange(u, u.def.scan || w.range + 2.2);
+      const wp = o.pts[o.i];   // only threats near the round: no being lured away bit by bit
+      if(t && dist(t, wp) < PATROL_LEASH * T){ u.order = {type:'attack', target: t, patrol: o, leash: wp}; return; }
+    }
+    if(followPath(u, dt)){ o.i = (o.i + 1) % o.pts.length; resumePatrol(u, o); }
   } else if(o.type === 'move' || o.type === 'attackmove'){
     if(o.type === 'attackmove' && u.scanT <= 0){
       u.scanT = 0.4;
@@ -487,6 +499,46 @@ export function updateUnit(u, dt){
   if(u.def.treeDisguise) u.stillT = u.moving ? 0 : (u.stillT || 0) + dt;
   applySeparation(u, dt);
 }
+// ---------- patrol ----------
+// P: selected units walk a loop round their base and attack whatever threat they spot, then go back to it.
+export const PATROL_LEASH = 8;   // tiles from its round a patroller will chase a target
+export const canPatrol = u => !u.def.air && !u.def.naval && !u.def.harvester && !u.def.engineer && !u.def.spy &&
+                              !u.def.scout && !u.def.mcv;
+// eight points round the team's buildings, 3 tiles out, clockwise; round `at` when it has none
+export function patrolRoute(team, at){
+  const own = buildings.filter(b => !b.dead && b.team === team && !b.def.garrison);
+  let x0, y0, x1, y1;
+  if(own.length){
+    x0 = Math.min(...own.map(b => b.tx)) - 3; y0 = Math.min(...own.map(b => b.ty)) - 3;
+    x1 = Math.max(...own.map(b => b.tx + b.w)) + 2; y1 = Math.max(...own.map(b => b.ty + b.h)) + 2;
+  } else {
+    const t = tileOf(at);
+    x0 = t.x - 5; y0 = t.y - 5; x1 = t.x + 5; y1 = t.y + 5;
+  }
+  x0 = clamp(x0, 1, MW - 2); x1 = clamp(x1, 1, MW - 2); y0 = clamp(y0, 1, MH - 2); y1 = clamp(y1, 1, MH - 2);
+  const mx = Math.round((x0 + x1) / 2), my = Math.round((y0 + y1) / 2);
+  const pts = [];
+  for(const [x, y] of [[x0, y0], [mx, y0], [x1, y0], [x1, my], [x1, y1], [mx, y1], [x0, y1], [x0, my]]){
+    const f = freeTileNear(x, y, 4);
+    if(f && !pts.some(p => p.tx === f.x && p.ty === f.y)) pts.push({tx: f.x, ty: f.y, x: (f.x + 0.5) * T, y: (f.y + 0.5) * T});
+  }
+  return pts;
+}
+export function orderPatrol(u, pts){
+  if(!canPatrol(u) || pts.length < 2) return false;
+  let i = 0;   // start at the nearest point of the round
+  pts.forEach((p, k) => { if(dist(u, p) < dist(u, pts[i])) i = k; });
+  u.deployed = false;
+  resumePatrol(u, {type:'patrol', pts, i});
+  return true;
+}
+function resumePatrol(u, o){
+  u.order = o;
+  const p = o.pts[o.i];
+  orderMove(u, p.x, p.y);
+  if(!u.path){ u.path = [{x: u.x, y: u.y}]; u.pathI = 0; }   // unreachable: counts as reached, on to the next
+}
+
 // a parked Veil Tank that hasn't fired lately looks like a tree
 export const treeDisguised = u => !!u.def.treeDisguise && u.stillT > 1 && u.fireT > 3;
 
@@ -782,7 +834,8 @@ export function engineerCan(b, team){
 export function updateEngineer(u, dt){
   const o = u.order;
   if(o.type !== 'capture'){
-    if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
+    if(o.type === 'patrol'){ if(followPath(u, dt)){ o.i = (o.i + 1) % o.pts.length; resumePatrol(u, o); } }
+    else if(o.type !== 'idle' && followPath(u, dt)) u.order = {type:'idle'};
     return;
   }
   const b = o.target;
